@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, FileText, Edit3, Check, Share2, Download, AlertCircle, Plus, Stethoscope, FlaskConical, Pill, ClipboardList, Trash2 } from 'lucide-react'
+import { ChevronLeft, FileText, Edit3, Check, Share2, Download, AlertCircle, Plus, Stethoscope, FlaskConical, Pill, ClipboardList, Trash2, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { consultationsApi, diagnosticsApi, examensApi, prescriptionsApi, traitementsApi } from '@/api'
 import { useAuthStore } from '@/stores/authStore'
@@ -11,7 +11,7 @@ import { LoadingPage } from '@/components/common/LoadingSpinner'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Input, { Textarea, Select } from '@/components/ui/Input'
-import { formatDateTime } from '@/utils/helpers'
+import { formatDateTime, previewPdfBlob } from '@/utils/helpers'
 
 export default function ConsultationReport() {
   const { id } = useParams() // consultation id
@@ -77,6 +77,20 @@ export default function ConsultationReport() {
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
     } catch { toast.error('Erreur lors du téléchargement') }
+  }
+
+  const handlePrintPdf = async () => {
+    try {
+      const res = await consultationsApi.downloadReportPdf(id)
+      previewPdfBlob(res.data)
+    } catch { toast.error('Erreur lors de l\'impression') }
+  }
+
+  const handlePrintPrescription = async () => {
+    try {
+      const res = await consultationsApi.downloadPrescriptionPdf(id)
+      previewPdfBlob(res.data)
+    } catch { toast.error('Erreur lors de l\'impression') }
   }
 
   const buildReportPayload = () => ({
@@ -261,9 +275,19 @@ export default function ConsultationReport() {
                 Télécharger PDF
               </Button>
             )}
+            {report.signed_at && (
+              <Button onClick={handlePrintPdf} variant="outline" icon={Printer} className="flex-1">
+                Imprimer
+              </Button>
+            )}
             {report.signed_at && prescList.length > 0 && (
               <Button onClick={handleDownloadPrescription} variant="outline" icon={Pill} className="flex-1">
                 Ordonnance PDF
+              </Button>
+            )}
+            {report.signed_at && prescList.length > 0 && (
+              <Button onClick={handlePrintPrescription} variant="outline" icon={Printer} className="flex-1">
+                Imprimer ordonnance
               </Button>
             )}
           </div>

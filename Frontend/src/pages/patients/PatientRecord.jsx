@@ -12,12 +12,13 @@ import EmptyState from '@/components/common/EmptyState'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { printHtml } from '@/utils/helpers'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import {
   ArrowLeft, FileText, Heart, Activity, Thermometer,
   Droplets, AlertCircle, ClipboardList, Calendar,
   User, Stethoscope, Weight, Ruler, Plus, Pill,
-  ShieldAlert, Cigarette, FlaskConical, Edit, Trash2, Search
+  ShieldAlert, Cigarette, FlaskConical, Edit, Trash2, Search, Printer
 } from 'lucide-react'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -113,6 +114,52 @@ export default function PatientRecord() {
   const filteredAntecedents = q ? antecedents.filter(a => matchStr(a.title, a.type, a.description)) : antecedents
   const filteredAllergies = q ? allergies.filter(a => matchStr(a.allergen, a.severity)) : allergies
 
+  const handlePrintRecord = () => {
+    const fmtDate = (d) => d ? format(new Date(d), 'dd/MM/yyyy', { locale: fr }) : '—'
+    const antRows = antecedents.map(a => `<tr><td>${ANTECEDENT_TYPE_LABELS[a.type] || a.type}</td><td>${a.title || '—'}</td><td>${a.description || '—'}</td></tr>`).join('')
+    const allergRows = allergies.map(a => `<tr><td>${a.allergen || '—'}</td><td>${SEVERITY_LABELS[a.severity] || a.severity || '—'}</td><td>${a.reaction || '—'}</td></tr>`).join('')
+    const constRow = latestConstante ? `<table>
+      <tr><td><strong>Tension</strong></td><td>${latestConstante.systolic ?? '—'}/${latestConstante.diastolic ?? '—'} mmHg</td>
+          <td><strong>FC</strong></td><td>${latestConstante.heart_rate ?? '—'} bpm</td></tr>
+      <tr><td><strong>Température</strong></td><td>${latestConstante.temperature ?? '—'} °C</td>
+          <td><strong>SpO2</strong></td><td>${latestConstante.spo2 ?? '—'} %</td></tr>
+      <tr><td><strong>Poids</strong></td><td>${latestConstante.weight ?? '—'} kg</td>
+          <td><strong>Taille</strong></td><td>${latestConstante.height ?? '—'} cm</td></tr>
+    </table>` : '<p>Aucune constante enregistrée</p>'
+    const diagRows = diagnostics.map(d => `<tr><td>${d.title || '—'}</td><td>${d.icd_code || '—'}</td><td>${DIAGNOSTIC_SEVERITY[d.severity] || d.severity || '—'}</td><td>${DIAGNOSTIC_STATUS[d.status] || d.status || '—'}</td></tr>`).join('')
+    const prescRows = prescriptions.map(p => `<tr><td>${p.name || '—'}</td><td>${p.dosage || '—'}</td><td>${p.duration_days ? p.duration_days + 'j' : '—'}</td><td>${p.instructions || '—'}</td></tr>`).join('')
+
+    printHtml('Dossier médical — ' + (patient.full_name || 'Patient'), `
+      <div class="header">
+        <h1>TLM-BFA — Dossier Médical</h1>
+        <p>Plateforme de Télémédecine du Burkina Faso</p>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-col">
+          <p class="label">Patient</p><p><strong>${patient.full_name || '—'}</strong></p>
+          <p class="label" style="margin-top:6px">Identifiant</p><p>${record.identifier || '—'}</p>
+          ${patient.ipp ? `<p class="label" style="margin-top:6px">IPP</p><p>${patient.ipp}</p>` : ''}
+        </div>
+        <div class="meta-col">
+          <p class="label">Groupe sanguin</p><p><strong style="color:#dc2626">${record.blood_group || '—'}</strong></p>
+          <p class="label" style="margin-top:6px">Ouvert le</p><p>${fmtDate(record.opened_at)}</p>
+          <p class="label" style="margin-top:6px">Dernière consultation</p><p>${fmtDate(record.last_consultation_at)}</p>
+        </div>
+      </div>
+      <h2>Dernières constantes</h2>
+      ${constRow}
+      ${antecedents.length > 0 ? `<h2>Antécédents (${antecedents.length})</h2>
+      <table><thead><tr><th>Type</th><th>Titre</th><th>Description</th></tr></thead><tbody>${antRows}</tbody></table>` : ''}
+      ${allergies.length > 0 ? `<h2>Allergies (${allergies.length})</h2>
+      <table><thead><tr><th>Allergène</th><th>Sévérité</th><th>Réaction</th></tr></thead><tbody>${allergRows}</tbody></table>` : ''}
+      ${diagnostics.length > 0 ? `<h2>Diagnostics (${diagnostics.length})</h2>
+      <table><thead><tr><th>Titre</th><th>CIM</th><th>Sévérité</th><th>Statut</th></tr></thead><tbody>${diagRows}</tbody></table>` : ''}
+      ${prescriptions.length > 0 ? `<h2>Prescriptions (${prescriptions.length})</h2>
+      <table><thead><tr><th>Médicament</th><th>Posologie</th><th>Durée</th><th>Instructions</th></tr></thead><tbody>${prescRows}</tbody></table>` : ''}
+      <div class="footer">Imprimé le ${new Date().toLocaleDateString('fr-FR')} — TLM-BFA</div>
+    `)
+  }
+
   const tabs = [
     { id: 'overview', label: 'Vue d\'ensemble', icon: FileText },
     { id: 'antecedents', label: `Antécédents (${antecedents.length})`, icon: ClipboardList },
@@ -138,6 +185,7 @@ export default function PatientRecord() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" icon={Printer} onClick={handlePrintRecord}>Imprimer</Button>
           <Button variant="outline" icon={Edit} onClick={() => setShowEditDossierModal(true)}>Modifier dossier</Button>
           <Button icon={Calendar} onClick={() => navigate(`/directory?patient_id=${patientId}`)}>Prendre un RDV</Button>
         </div>

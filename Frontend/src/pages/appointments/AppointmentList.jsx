@@ -12,7 +12,7 @@ import { LoadingPage } from '@/components/common/LoadingSpinner'
 import EmptyState from '@/components/common/EmptyState'
 import Button from '@/components/ui/Button'
 import { Select } from '@/components/ui/Input'
-import { formatDate } from '@/utils/helpers'
+import { formatDate, downloadBlob } from '@/utils/helpers'
 
 export default function AppointmentList() {
   const navigate = useNavigate()
@@ -54,6 +54,22 @@ export default function AppointmentList() {
     setSelectedIds(prev => prev.length === filtered.length ? [] : filtered.map(a => a.id))
   }
 
+  const handleExportCsv = () => {
+    const rows = filtered.map(apt => [
+      apt.reason ?? '',
+      apt.doctor?.last_name ?? '',
+      apt.patient?.identifiant ?? '',
+      `${apt.patient?.first_name ?? ''} ${apt.patient?.last_name ?? ''}`.trim(),
+      apt.date ? formatDate(apt.date) : '',
+      apt.time ?? '',
+      apt.status ?? '',
+    ])
+    const header = ['Motif', 'Professionnel', 'Identifiant Patient', 'Patient', 'Date', 'Heure', 'Statut']
+    const csvContent = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' })
+    downloadBlob(blob, `rendez-vous-${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
   const startIdx = (currentPage - 1) * perPage + 1
   const endIdx = Math.min(currentPage * perPage, totalEntries)
 
@@ -81,7 +97,7 @@ export default function AppointmentList() {
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="primary" icon={Download}>
+            <Button size="sm" variant="primary" icon={Download} onClick={handleExportCsv}>
               Exporter
             </Button>
             <Button size="sm" variant="outline" icon={Printer} onClick={() => window.print()}>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { prescriptionsApi } from '@/api'
+import { prescriptionsApi, consultationsApi } from '@/api'
 import { useAuthStore } from '@/stores/authStore'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -11,9 +11,10 @@ import EmptyState from '@/components/common/EmptyState'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { downloadBlob, previewPdfBlob } from '@/utils/helpers'
 import {
   Pill, Search, Filter, CheckCircle, Send, Clock,
-  AlertTriangle, FileText, PenTool, Share2
+  AlertTriangle, FileText, PenTool, Share2, Download, Printer
 } from 'lucide-react'
 
 const STATUS_CONFIG = {
@@ -205,6 +206,36 @@ export default function PrescriptionList() {
                         >
                           Partager
                         </Button>
+                        {prescription.consultation_id && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              icon={Download}
+                              onClick={async () => {
+                                try {
+                                  const res = await consultationsApi.downloadPrescriptionPdf(prescription.consultation_id)
+                                  downloadBlob(res.data, `ordonnance-${prescription.id}.pdf`, 'application/pdf')
+                                } catch { toast.error('Erreur lors du téléchargement') }
+                              }}
+                            >
+                              PDF
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              icon={Printer}
+                              onClick={async () => {
+                                try {
+                                  const res = await consultationsApi.downloadPrescriptionPdf(prescription.consultation_id)
+                                  previewPdfBlob(res.data)
+                                } catch { toast.error('Erreur lors de l\'impression') }
+                              }}
+                            >
+                              Imprimer
+                            </Button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

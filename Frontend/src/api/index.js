@@ -61,6 +61,7 @@ export const appointmentsApi = {
   cancel:         (id, data)=> apiClient.post(`/appointments/${id}/cancel`, data),
   delegate:       (id, data)=> apiClient.post(`/appointments/${id}/delegate`, data),
   recordConsent:  (id, data)=> apiClient.post(`/appointments/${id}/consent`, data),
+  downloadPdf:    (id)      => apiClient.get(`/appointments/${id}/pdf`, { responseType: 'blob' }),
   availableSlots: (params)  => apiClient.get('/directory/appointments/slots', { params }),
 }
 

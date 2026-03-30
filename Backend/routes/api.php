@@ -240,6 +240,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::post('/{id}/cancel', [AppointmentController::class, 'cancel'])->middleware('permission:appointments.cancel');
         Route::post('/{id}/delegate', [AppointmentController::class, 'delegate'])->middleware('permission:appointments.update');
         Route::post('/{id}/consent', [AppointmentController::class, 'consent'])->middleware('permission:appointments.update');
+        Route::get('/{id}/pdf', [AppointmentController::class, 'downloadPdf'])->middleware(['permission:appointments.view', 'throttle:export']);
     });
 
     // Consultations

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Video, MapPin, Calendar, Clock, User, FileText, AlertCircle, CheckCircle, X, Stethoscope, CreditCard, UserPlus, Search } from 'lucide-react'
+import { ChevronLeft, Video, MapPin, Calendar, Clock, User, FileText, AlertCircle, CheckCircle, X, Stethoscope, CreditCard, UserPlus, Search, Printer, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { appointmentsApi, consultationsApi, directoryApi } from '@/api'
 import { useAuthStore } from '@/stores/authStore'
@@ -10,7 +10,7 @@ import { AppointmentBadge } from '@/components/common/StatusBadge'
 import { LoadingPage } from '@/components/common/LoadingSpinner'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
-import { formatDate, formatCurrency, CONSULTATION_TYPES } from '@/utils/helpers'
+import { formatDate, formatCurrency, CONSULTATION_TYPES, printHtml, downloadBlob, previewPdfBlob } from '@/utils/helpers'
 import { useState } from 'react'
 
 export default function AppointmentDetail() {
@@ -100,6 +100,61 @@ export default function AppointmentDetail() {
   const totalActes = apt.total_actes ?? actes.reduce((sum, a) => sum + (a.cout || 0), 0)
   const doctorName = `${apt.doctor?.first_name ?? ''} ${apt.doctor?.last_name ?? ''}`.trim()
   const patientName = `${apt.patient?.first_name ?? ''} ${apt.patient?.last_name ?? ''}`.trim()
+
+  const handlePrintAppointment = () => {
+    const actesRows = actes.map((a, i) => `<tr><td>${i + 1}</td><td>${a.libelle}</td><td style="text-align:right">${(a.cout || 0).toLocaleString()} FCFA</td></tr>`).join('')
+    printHtml('Récapitulatif du rendez-vous', `
+      <div class="header">
+        <h1>TLM-BFA — Récapitulatif du rendez-vous</h1>
+        <p>Plateforme de Télémédecine du Burkina Faso</p>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-col">
+          <p class="label">Motif</p>
+          <p><strong>${apt.type === 'presentiel' ? '[PHYSIQUE]' : '[EN LIGNE]'} ${apt.reason ?? '—'}</strong></p>
+          <p class="label" style="margin-top:8px">Date</p>
+          <p><strong>${apt.date ?? '—'}</strong></p>
+          <p class="label" style="margin-top:8px">Heure</p>
+          <p><strong>${apt.time ?? '—'}</strong></p>
+        </div>
+        <div class="meta-col">
+          <p class="label">Statut</p>
+          <p><strong>${apt.status ?? '—'}</strong></p>
+        </div>
+      </div>
+      <h2>Professionnel de santé</h2>
+      <table>
+        <tr><td><strong>Nom</strong></td><td>${doctorName || '—'}</td></tr>
+        ${apt.doctor?.matricule ? `<tr><td><strong>Matricule</strong></td><td>${apt.doctor.matricule}</td></tr>` : ''}
+        ${apt.doctor?.specialty ? `<tr><td><strong>Spécialité</strong></td><td>${apt.doctor.specialty}</td></tr>` : ''}
+      </table>
+      <h2>Patient</h2>
+      <table>
+        <tr><td><strong>Nom</strong></td><td>${patientName || '—'}</td></tr>
+        ${apt.patient?.identifiant ? `<tr><td><strong>Identifiant</strong></td><td>${apt.patient.identifiant}</td></tr>` : ''}
+      </table>
+      ${actes.length > 0 ? `
+      <h2>Actes médicaux</h2>
+      <table><thead><tr><th>#</th><th>Libellé</th><th style="text-align:right">Montant</th></tr></thead><tbody>${actesRows}</tbody>
+      <tfoot><tr><td colspan="2"><strong>Total</strong></td><td style="text-align:right"><strong>${totalActes.toLocaleString()} FCFA</strong></td></tr></tfoot></table>` : ''}
+      ${apt.cancellation_reason ? `<h2>Motif d'annulation</h2><p>${apt.cancellation_reason}</p>` : ''}
+      <div class="footer">Imprimé le ${new Date().toLocaleDateString('fr-FR')} — TLM-BFA</div>
+    `)
+  }
+
+  const handleDownloadAppointmentPdf = async () => {
+    try {
+      const res = await appointmentsApi.downloadPdf(id)
+      downloadBlob(res.data, `rendez-vous-${id}.pdf`, 'application/pdf')
+    } catch { toast.error('Erreur lors du téléchargement') }
+  }
+
+  const handlePrintAppointmentPdf = async () => {
+    try {
+      const res = await appointmentsApi.downloadPdf(id)
+      previewPdfBlob(res.data)
+    } catch { toast.error('Erreur lors de l\'impression') }
+  }
 
   return (
     <AppLayout title="Détail du rendez-vous">
@@ -313,6 +368,12 @@ export default function AppointmentDetail() {
               Paiement
             </Button>
           )}
+          <Button onClick={handlePrintAppointment} variant="outline" icon={Printer} className="flex-1">
+            Imprimer
+          </Button>
+          <Button onClick={handleDownloadAppointmentPdf} variant="outline" icon={Download} className="flex-1">
+            Télécharger PDF
+          </Button>
         </div>
       </div>
 

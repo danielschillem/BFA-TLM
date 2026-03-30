@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Users, Clock, CheckCircle, XCircle, MessageSquare, AlertCircle } from 'lucide-react'
+import { ChevronLeft, Users, Clock, CheckCircle, XCircle, MessageSquare, AlertCircle, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { teleexpertiseApi } from '@/api'
 import { useAuthStore } from '@/stores/authStore'
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { TeleexpertiseBadge, UrgencyBadge } from '@/components/common/StatusBadge'
 import { LoadingPage } from '@/components/common/LoadingSpinner'
 import Button from '@/components/ui/Button'
-import { formatDateTime } from '@/utils/helpers'
+import { formatDateTime, printHtml } from '@/utils/helpers'
 import { useState } from 'react'
 
 export default function TeleexpertiseDetail() {
@@ -52,12 +52,46 @@ export default function TeleexpertiseDetail() {
   const canAcceptReject = isSpecialist && req.status === 'pending'
   const canRespond      = isSpecialist && req.status === 'accepted'
 
+  const handlePrintExpertise = () => {
+    printHtml('Téléexpertise — ' + req.title, `
+      <div class="header">
+        <h1>TLM-BFA — Demande de Téléexpertise</h1>
+        <p>Plateforme de Télémédecine du Burkina Faso</p>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-col">
+          <p class="label">Titre</p><p><strong>${req.title}</strong></p>
+          <p class="label" style="margin-top:6px">Spécialité demandée</p><p>${req.specialty_requested || '—'}</p>
+          <p class="label" style="margin-top:6px">Statut</p><p><strong>${req.status}</strong></p>
+        </div>
+        <div class="meta-col">
+          <p class="label">Médecin demandeur</p><p>Dr. ${req.requesting_doctor?.last_name || '—'}</p>
+          <p class="label" style="margin-top:6px">Spécialiste</p><p>${req.specialist ? 'Dr. ' + req.specialist.last_name : 'Non assigné'}</p>
+          <p class="label" style="margin-top:6px">Date</p><p>${formatDateTime(req.created_at)}</p>
+        </div>
+      </div>
+      ${req.patient_age ? `<p><strong>Patient :</strong> ${req.patient_age} ans${req.patient_gender ? ', ' + req.patient_gender : ''}</p>` : ''}
+      <h2>Résumé clinique</h2>
+      <p>${req.clinical_summary || '—'}</p>
+      <h2>Question posée</h2>
+      <p>${req.question || '—'}</p>
+      ${req.response ? `<h2>Avis du spécialiste</h2><p>${req.response}</p>${req.responded_at ? '<p style="color:#999;font-size:10px">Répondu le ' + formatDateTime(req.responded_at) + '</p>' : ''}` : ''}
+      ${req.decline_reason ? `<h2>Motif de refus</h2><p>${req.decline_reason}</p>` : ''}
+      <div class="footer">Imprimé le ${new Date().toLocaleDateString('fr-FR')} — TLM-BFA</div>
+    `)
+  }
+
   return (
     <AppLayout title="Téléexpertise">
       <div className="max-w-3xl mx-auto space-y-5 animate-fade-in">
-        <button onClick={() => navigate('/teleexpertise')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
-          <ChevronLeft className="w-4 h-4" /> Téléexpertise
-        </button>
+        <div className="flex items-center justify-between">
+          <button onClick={() => navigate('/teleexpertise')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+            <ChevronLeft className="w-4 h-4" /> Téléexpertise
+          </button>
+          <Button onClick={handlePrintExpertise} variant="outline" size="sm" icon={Printer}>
+            Imprimer
+          </Button>
+        </div>
 
         {/* Header */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5">

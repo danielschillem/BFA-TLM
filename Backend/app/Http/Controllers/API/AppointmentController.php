@@ -10,6 +10,7 @@ use App\Models\PatientConsent;
 use App\Models\RendezVous;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class AppointmentController extends Controller
 {
@@ -256,6 +257,16 @@ class AppointmentController extends Controller
             'message' => 'Consultation terminée',
             'data' => new AppointmentResource($rdv->fresh()),
         ]);
+    }
+
+    public function downloadPdf(int $id)
+    {
+        $rdv = RendezVous::with(['patient', 'user', 'actes'])->findOrFail($id);
+        $this->authorizeAccess($rdv, request()->user());
+
+        $pdf = Pdf::loadView('pdf.appointment', compact('rdv'));
+
+        return $pdf->download("rendez-vous-{$id}.pdf");
     }
 
     private function authorizeAccess(RendezVous $rdv, $user): void
