@@ -45,13 +45,13 @@
             <p><span class="label">Date :</span> {{ $consultation->started_at ? $consultation->started_at->format('d/m/Y H:i') : $consultation->created_at->format('d/m/Y H:i') }}</p>
             <p><span class="label">Statut :</span> {{ ucfirst($consultation->statut) }}</p>
             @if($consultation->user)
-                <p><span class="label">Médecin :</span> Dr. {{ $consultation->user->first_name }} {{ $consultation->user->last_name }}</p>
+                <p><span class="label">Médecin :</span> Dr. {{ $consultation->user->prenoms }} {{ $consultation->user->nom }}</p>
             @endif
         </div>
         <div class="meta-col">
             <h3>Patient</h3>
             @if($patient)
-                <p><span class="label">Nom :</span> {{ $patient->first_name }} {{ $patient->last_name }}</p>
+                <p><span class="label">Nom :</span> {{ $patient->prenoms }} {{ $patient->nom }}</p>
                 <p><span class="label">Date de naissance :</span> {{ $patient->date_naissance ? $patient->date_naissance->format('d/m/Y') : '—' }}</p>
                 <p><span class="label">Sexe :</span> {{ $patient->sexe === 'M' ? 'Masculin' : ($patient->sexe === 'F' ? 'Féminin' : ($patient->sexe ?? '—')) }}</p>
             @endif

@@ -51,11 +51,14 @@ export const TELEEXPERTISE_STATUS_CONFIG = {
   rejected:    { label: 'Rejetée',     color: 'bg-red-100 text-red-800'         },
 }
 
-export const downloadBlob = (blob, filename) => {
-  const url = URL.createObjectURL(blob)
+export const downloadBlob = (blob, filename, mimeType) => {
+  const finalBlob = mimeType ? new Blob([blob], { type: mimeType }) : blob
+  const url = URL.createObjectURL(finalBlob)
   const a   = document.createElement('a')
   a.href    = url
   a.download= filename
+  document.body.appendChild(a)
   a.click()
+  document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }

@@ -41,9 +41,9 @@
 
     @if($doctor)
         <div class="doctor-info">
-            <h2>Dr. {{ $doctor->first_name }} {{ $doctor->last_name }}</h2>
+            <h2>Dr. {{ $doctor->prenoms }} {{ $doctor->nom }}</h2>
             @if($doctor->specialite)<p>{{ $doctor->specialite }}</p>@endif
-            @if($doctor->telephone)<p>Tél : {{ $doctor->telephone }}</p>@endif
+            @if($doctor->telephone_1)<p>Tél : {{ $doctor->telephone_1 }}</p>@endif
             @if($doctor->email)<p>{{ $doctor->email }}</p>@endif
         </div>
     @endif
@@ -51,7 +51,7 @@
     <div class="patient-box">
         <h3>Patient</h3>
         @if($patient)
-            <p><span class="label">Nom :</span> <strong>{{ $patient->first_name }} {{ $patient->last_name }}</strong></p>
+            <p><span class="label">Nom :</span> <strong>{{ $patient->prenoms }} {{ $patient->nom }}</strong></p>
             @if($patient->date_naissance)
                 <p><span class="label">Date de naissance :</span> {{ $patient->date_naissance->format('d/m/Y') }}
                     ({{ $patient->date_naissance->age }} ans)</p>
@@ -90,7 +90,7 @@
         <p style="font-size:10px; color:#888;">Signature du médecin</p>
         <br><br>
         <p style="border-top:1px solid #333; display:inline-block; padding-top:4px;">
-            Dr. {{ $doctor?->first_name }} {{ $doctor?->last_name }}
+            Dr. {{ $doctor?->prenoms }} {{ $doctor?->nom }}
         </p>
         <p style="font-size:9px; color:#888;">{{ now()->format('d/m/Y') }}</p>
     </div>

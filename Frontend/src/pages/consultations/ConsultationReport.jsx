@@ -52,11 +52,14 @@ export default function ConsultationReport() {
   const handleDownloadPdf = async () => {
     try {
       const res = await consultationsApi.downloadReportPdf(id)
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = `rapport-consultation-${id}.pdf`
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
     } catch { toast.error('Erreur lors du téléchargement') }
   }
@@ -64,11 +67,14 @@ export default function ConsultationReport() {
   const handleDownloadPrescription = async () => {
     try {
       const res = await consultationsApi.downloadPrescriptionPdf(id)
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = `ordonnance-${id}.pdf`
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
     } catch { toast.error('Erreur lors du téléchargement') }
   }

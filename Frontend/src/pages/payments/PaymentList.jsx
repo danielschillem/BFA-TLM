@@ -59,9 +59,9 @@ export default function PaymentList() {
   const handleDownloadInvoice = async (paymentId) => {
     try {
       const res = await paymentsApi.downloadInvoice(paymentId)
-      downloadBlob(res.data, `recu-${paymentId}.txt`)
+      downloadBlob(res.data, `recu-${paymentId}.pdf`, 'application/pdf')
     } catch {
-      // handled by interceptor
+      toast.error('Erreur lors du téléchargement du reçu')
     }
   }
 
