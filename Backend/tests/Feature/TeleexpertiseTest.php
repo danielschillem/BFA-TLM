@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Patient;
+use App\Models\Teleexpertise;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,6 +55,33 @@ class TeleexpertiseTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('teleexpertises', [
+            'titre' => 'Avis cardiologie',
+            'resume_clinique' => 'Patient avec douleur thoracique récurrente',
+            'priorite' => 'haute',
+            'expert_id' => $this->specialist->id,
+        ]);
+    }
+
+    public function test_create_teleexpertise_accepts_legacy_french_payload(): void
+    {
+        $response = $this->actingAs($this->doctor, 'api')
+            ->postJson('/api/v1/teleexpertise', [
+                'titre' => 'Avis neurologie',
+                'resume_clinique' => 'Patient avec céphalées persistantes et épisodes vertigineux récents.',
+                'question' => 'Quel bilan complémentaire recommandez-vous ?',
+                'priorite' => 'urgente',
+                'specialite_demandee' => 'Neurologie',
+                'expert_id' => $this->specialist->id,
+                'patient_id' => $this->patient->id,
+                'genre_patient' => 'F',
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.title', 'Avis neurologie')
+            ->assertJsonPath('data.urgency_level', 'urgent')
+            ->assertJsonPath('data.patient_gender', 'female');
     }
 
     public function test_create_validates_required_fields(): void
@@ -66,7 +94,7 @@ class TeleexpertiseTest extends TestCase
 
     public function test_expert_can_accept(): void
     {
-        $te = \App\Models\Teleexpertise::create([
+        $te = Teleexpertise::create([
             'titre' => 'Test TE',
             'description' => 'Description',
             'statut' => 'en_attente',
@@ -86,7 +114,7 @@ class TeleexpertiseTest extends TestCase
 
     public function test_expert_can_respond(): void
     {
-        $te = \App\Models\Teleexpertise::create([
+        $te = Teleexpertise::create([
             'titre' => 'Test TE',
             'description' => 'Description',
             'statut' => 'acceptee',

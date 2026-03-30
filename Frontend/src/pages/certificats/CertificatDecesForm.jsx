@@ -179,8 +179,58 @@ export default function CertificatDecesForm() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const payload = { ...form }
-    if (!payload.patient_id) delete payload.patient_id
+
+    // Grossesse: split en boolean + statut
+    const PREGNANCY_CONTRIBUTING = ['enceinte', 'moins_42_jours', '42_jours_1_an']
+    const PREGNANCY_STATUS_MAP = {
+      non_applicable: 'non_applicable',
+      non_enceinte: 'non_enceinte',
+      enceinte: 'enceinte',
+      moins_42_jours: 'moins_42_jours_postpartum',
+      '42_jours_1_an': '43_jours_a_1_an_postpartum',
+      inconnue: 'non_applicable',
+    }
+
+    const payload = {
+      // Patient (optionnel)
+      ...(form.patient_id ? { patient_id: form.patient_id } : {}),
+      // Circonstances
+      date_deces: form.date_deces,
+      heure_deces: form.heure_deces || undefined,
+      lieu_deces: form.lieu_deces || undefined,
+      sexe_defunt: form.sexe_defunt || undefined,
+      // Partie I — Chaîne causale (noms backend)
+      cause_directe: form.cause_directe,
+      cause_directe_code_icd11: form.code_icd11_cause_directe || undefined,
+      cause_directe_delai: form.intervalle_cause_directe || undefined,
+      cause_antecedente_1: form.cause_antecedente_1 || undefined,
+      cause_antecedente_1_code_icd11: form.code_icd11_cause_antecedente_1 || undefined,
+      cause_antecedente_1_delai: form.intervalle_cause_antecedente_1 || undefined,
+      cause_antecedente_2: form.cause_antecedente_2 || undefined,
+      cause_antecedente_2_code_icd11: form.code_icd11_cause_antecedente_2 || undefined,
+      cause_antecedente_2_delai: form.intervalle_cause_antecedente_2 || undefined,
+      cause_initiale: form.cause_initiale || undefined,
+      cause_initiale_code_icd11: form.code_icd11_cause_initiale || undefined,
+      cause_initiale_delai: form.intervalle_cause_initiale || undefined,
+      // Partie II
+      autres_etats_morbides: form.autres_conditions || undefined,
+      // Circonstances
+      maniere_deces: form.circonstances_deces || undefined,
+      autopsie_pratiquee: !!form.autopsie_pratiquee,
+      resultats_autopsie: form.resultats_autopsie || undefined,
+      // Grossesse (boolean + enum)
+      grossesse_contribue: PREGNANCY_CONTRIBUTING.includes(form.grossesse_contribue),
+      statut_grossesse: PREGNANCY_STATUS_MAP[form.grossesse_contribue] || 'non_applicable',
+      // Chirurgie
+      chirurgie_recente: !!form.chirurgie_recente,
+      date_chirurgie: form.date_chirurgie || undefined,
+      raison_chirurgie: form.raison_chirurgie || undefined,
+      // Notes
+      observations: form.notes || undefined,
+    }
+
+    // Retirer les clés undefined
+    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k])
     saveMutation.mutate(payload)
   }
 

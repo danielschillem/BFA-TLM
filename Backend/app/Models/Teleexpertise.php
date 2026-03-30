@@ -14,6 +14,10 @@ class Teleexpertise extends Model
         'demandeur_id', 'expert_id', 'patient_id',
     ];
 
+    protected $casts = [
+        'suivi_requis' => 'boolean',
+    ];
+
     public function demandeur()
     {
         return $this->belongsTo(User::class, 'demandeur_id');

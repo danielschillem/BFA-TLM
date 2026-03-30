@@ -14,7 +14,7 @@ class StoreCertificatDecesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'patient_id' => ['required', 'exists:patients,id'],
+            'patient_id' => ['nullable', 'exists:patients,id'],
             'dossier_patient_id' => ['nullable', 'exists:dossier_patients,id'],
             'consultation_id' => ['nullable', 'exists:consultations,id'],
 

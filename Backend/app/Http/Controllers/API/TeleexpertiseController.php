@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreTeleexpertiseRequest;
 use App\Http\Resources\TeleexpertiseResource;
 use App\Models\Teleexpertise;
 use Illuminate\Http\JsonResponse;
@@ -57,32 +58,11 @@ class TeleexpertiseController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreTeleexpertiseRequest $request): JsonResponse
     {
-        $request->validate([
-            'title'              => 'required|string|max:255',
-            'clinical_summary'   => 'required|string',
-            'question'           => 'nullable|string',
-            'specialty_requested'=> 'nullable|string|max:255',
-            'urgency_level'      => 'nullable|in:low,normal,high,urgent',
-            'specialist_id'      => 'nullable|exists:users,id',
-            'patient_id'         => 'nullable|exists:patients,id',
-            'patient_age'        => 'nullable|string|max:10',
-            'patient_gender'     => 'nullable|string|max:20',
-        ]);
-
         $item = Teleexpertise::create([
-            'titre'              => $request->input('title'),
-            'description'        => $request->input('clinical_summary'),
-            'resume_clinique'    => $request->input('clinical_summary'),
-            'question'           => $request->input('question'),
-            'specialite_demandee'=> $request->input('specialty_requested'),
-            'priorite'           => self::PRIORITY_TO_FR[$request->input('urgency_level', 'normal')] ?? 'normale',
-            'age_patient'        => $request->input('patient_age'),
-            'genre_patient'      => $request->input('patient_gender'),
-            'demandeur_id'       => $request->user()->id,
-            'expert_id'          => $request->input('specialist_id'),
-            'patient_id'         => $request->input('patient_id'),
+            ...$request->normalizedPayload(),
+            'demandeur_id' => $request->user()->id,
         ]);
 
         return response()->json([
