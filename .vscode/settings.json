@@ -1,0 +1,15 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^npx vite build 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd \"c:\\\\Users\\\\DEVBACKEND\\\\Desktop\\\\TLM DEV\"; Write-Host \"=== BACKEND ===\" ; Get-ChildItem -Recurse -Include \\*\\.php -Path Backend\\\\app,Backend\\\\routes,Backend\\\\config,Backend\\\\database,Backend\\\\resources \\| Where-Object \\{ \\$_\\.FullName -notmatch '\\\\\\\\vendor\\\\\\\\' \\} \\| ForEach-Object \\{ \\(Get-Content \\$_\\.FullName \\| Measure-Object -Line\\)\\.Lines \\} \\| Measure-Object -Sum \\| Select-Object -ExpandProperty Sum$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    },
+    "files.readonlyInclude": {
+        "{**/.c4z/.extsrcs/*.PROTSYM.cbl,**/.c4z/.extsrcs/*.PROTSYM.listing}": true
+    }
+}

@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background:   215 25% 97%;
+    --foreground:   222 47% 11%;
+    --card:         0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --border:       220 13% 91%;
+    --input:        220 13% 91%;
+    --primary:      220 100% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary:    160 78% 40%;
+    --secondary-foreground: 0 0% 100%;
+    --muted:        220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent:       292 91% 73%;
+    --accent-foreground: 292 91% 25%;
+    --destructive:  350 89% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --ring:         220 100% 60%;
+    --radius:       0.75rem;
+  }
+
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  /* ── Glass Morphism ─────────────────────────────────────────── */
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/30;
+  }
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-lg border border-white/40 shadow-glass rounded-2xl;
+  }
+  .glass-dark {
+    @apply bg-gray-900/70 backdrop-blur-xl border border-white/10;
+  }
+
+  /* ── Mediboard UI Utilities ─────────────────────────────────── */
+  .card-hover {
+    @apply transition-all duration-300 ease-out hover:shadow-card-hover hover:-translate-y-0.5;
+  }
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary-500 to-primary-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm
+           hover:from-primary-600 hover:to-primary-700 transition-all duration-200 shadow-md hover:shadow-lg
+           disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply bg-gradient-to-r from-secondary-500 to-secondary-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm
+           hover:from-secondary-600 hover:to-secondary-700 transition-all duration-200 shadow-md hover:shadow-lg
+           disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
+  }
+  .btn-outline {
+    @apply border-2 border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-semibold text-sm
+           hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50/50 transition-all duration-200;
+  }
+  .input-field {
+    @apply w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white/80 backdrop-blur-sm
+           focus:outline-none focus:ring-2 focus:ring-primary-500/25 focus:border-primary-400
+           transition-all duration-200 placeholder:text-gray-400 hover:border-gray-300;
+  }
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide;
+  }
+  .page-title {
+    @apply text-2xl font-bold text-gray-900 tracking-tight;
+  }
+  .section-title {
+    @apply text-xs font-bold text-gray-500 uppercase tracking-widest;
+  }
+
+  /* ── Gradient Headers ───────────────────────────────────────── */
+  .gradient-liptako {
+    @apply bg-gradient-to-r from-primary-600 via-primary-500 to-secondary-500;
+  }
+  .gradient-liptako-soft {
+    @apply bg-gradient-to-br from-primary-50/80 via-white to-secondary-50/60;
+  }
+
+  /* ── Table Médicale ─────────────────────────────────────────── */
+  .table-medical {
+    @apply w-full;
+  }
+  .table-medical th {
+    @apply text-2xs font-bold text-gray-500 uppercase tracking-widest py-3 px-4 text-left bg-gray-50/60 border-b border-gray-200/80;
+  }
+  .table-medical td {
+    @apply text-sm text-gray-700 py-3 px-4 border-b border-gray-100/80;
+  }
+  .table-medical tr {
+    @apply transition-colors duration-150;
+  }
+  .table-medical tbody tr:hover td {
+    @apply bg-primary-50/40;
+  }
+
+  /* ── Stat Card Gradients ────────────────────────────────────── */
+  .stat-card-blue   { @apply bg-gradient-to-br from-blue-500 to-blue-600 text-white; }
+  .stat-card-green  { @apply bg-gradient-to-br from-emerald-500 to-emerald-600 text-white; }
+  .stat-card-purple { @apply bg-gradient-to-br from-purple-500 to-purple-600 text-white; }
+  .stat-card-orange { @apply bg-gradient-to-br from-amber-500 to-orange-500 text-white; }
+  .stat-card-red    { @apply bg-gradient-to-br from-rose-500 to-red-500 text-white; }
+  .stat-card-teal   { @apply bg-gradient-to-br from-teal-500 to-teal-600 text-white; }
+  .stat-card-cyan   { @apply bg-gradient-to-br from-cyan-500 to-cyan-600 text-white; }
+
+  /* ── Mesh Background ────────────────────────────────────────── */
+  .bg-mesh {
+    background-image:
+      radial-gradient(at 40% 20%, rgba(51,139,255,0.06) 0px, transparent 50%),
+      radial-gradient(at 80% 80%, rgba(23,180,126,0.04) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, rgba(169,85,247,0.03) 0px, transparent 50%);
+  }
+}
+
+/* ── Scrollbar Ultra-Moderne ──────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #cbd5e1, #94a3b8);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #94a3b8, #64748b);
+}
+
+/* ── Sidebar custom scrollbar ─────────────────────────────────── */
+.sidebar-scroll::-webkit-scrollbar { width: 3px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+.sidebar-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ── Jitsi container ──────────────────────────────────────────── */
+#jitsi-container { width: 100%; height: 100%; min-height: 480px; border-radius: 0.75rem; overflow: hidden; }
+[data-jitsi-container] { width: 100%; height: 100%; }
+[data-jitsi-container] > iframe { width: 100% !important; height: 100% !important; border: 0; }

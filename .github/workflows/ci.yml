@@ -1,0 +1,177 @@
+name: CI — TLM-BFA
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Frontend : lint + test + build
+  # ──────────────────────────────────────────────
+  frontend:
+    name: Frontend (lint, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests (Vitest)
+        run: npm run test
+
+      - name: Build production
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: Frontend/dist
+          retention-days: 3
+
+  # ──────────────────────────────────────────────
+  # Backend : phpunit
+  # ──────────────────────────────────────────────
+  backend:
+    name: Backend (PHPUnit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: secret
+          MYSQL_DATABASE: tlm_bfa_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:dGVzdGtleWZvcmNpdGVzdGtleWZvcmNp
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: tlm_bfa_test
+      DB_USERNAME: root
+      DB_PASSWORD: secret
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          extensions: mbstring, pdo, pdo_mysql, pdo_sqlite, xml, bcmath, openssl
+          coverage: none
+
+      - name: Get Composer cache dir
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('Backend/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Generate Passport keys
+        run: php artisan passport:keys --force
+
+      - name: Run migrations
+        run: php artisan migrate --force
+
+      - name: Run PHPUnit
+        run: php artisan test --without-tty
+
+  # ──────────────────────────────────────────────
+  # Deploy (manual trigger on main only)
+  # ──────────────────────────────────────────────
+  deploy:
+    name: Deploy to Hostinger Cloud
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: Frontend/dist
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_SSH_PORT }}
+          script: |
+            cd ${{ secrets.HOSTINGER_APP_PATH }}
+            git pull origin main
+
+            # Frontend build → Backend/public/spa/
+            cd Frontend
+            npm ci --production=false
+            npx vite build
+            rm -rf ../Backend/public/spa
+            mkdir -p ../Backend/public/spa
+            cp -r dist/* ../Backend/public/spa/
+            cd ../Backend
+
+            # Backend dependencies
+            composer install --no-dev --optimize-autoloader --no-interaction
+            php artisan migrate --force
+            php artisan passport:keys --force 2>/dev/null || true
+            php artisan storage:link 2>/dev/null || true
+
+            # Laravel cache optimization
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan event:cache
+
+            # Permissions
+            chmod -R 775 storage bootstrap/cache
+
+            # Restart workers
+            php artisan queue:restart 2>/dev/null || true
+
+            echo "✓ Deploy complete"

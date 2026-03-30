@@ -1,0 +1,102 @@
+<?php
+
+namespace App\Http\Controllers\API;
+
+use App\Events\PrescriptionSigned;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\PrescriptionResource;
+use App\Models\Prescription;
+use App\Notifications\PrescriptionSharedNotification;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class PrescriptionController extends Controller
+{
+    public function index(Request $request): JsonResponse
+    {
+        $query = Prescription::with('consultation.user');
+
+        if (!$request->user()->hasRole('admin')) {
+            $query->whereHas('consultation', fn ($q) => $q->where('user_id', $request->user()->id));
+        }
+
+        $prescriptions = $query->orderBy('created_at', 'desc')
+            ->paginate($request->input('per_page', 15));
+
+        return response()->json([
+            'success' => true,
+            'data' => PrescriptionResource::collection($prescriptions),
+        ]);
+    }
+
+    public function store(int $consultationId, Request $request): JsonResponse
+    {
+        $request->validate([
+            'denomination' => 'required|string',
+            'posologie' => 'nullable|string',
+            'instructions' => 'nullable|string',
+            'duree_jours' => 'nullable|integer|min:1',
+            'urgent' => 'nullable|boolean',
+        ]);
+
+        $consultation = \App\Models\Consultation::findOrFail($consultationId);
+
+        $prescription = Prescription::create([
+            ...$request->only(['denomination', 'posologie', 'instructions', 'duree_jours', 'urgent']),
+            'consultation_id' => $consultationId,
+            'dossier_patient_id' => $consultation->dossier_patient_id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Prescription créée',
+            'data' => new PrescriptionResource($prescription),
+        ], 201);
+    }
+
+    public function sign(int $id): JsonResponse
+    {
+        $prescription = Prescription::with('consultation')->findOrFail($id);
+        $user = request()->user();
+
+        if (!$user->hasRole('admin') && $prescription->consultation->user_id !== $user->id) {
+            abort(403, 'Seul le médecin de la consultation peut signer cette prescription.');
+        }
+
+        $prescription->update(['signee' => true]);
+
+        PrescriptionSigned::dispatch($prescription);
+
+        return response()->json(['success' => true, 'message' => 'Prescription signée']);
+    }
+
+    public function share(int $id, Request $request): JsonResponse
+    {
+        $prescription = Prescription::with(['consultation.user', 'consultation.dossierPatient.patient.user'])->findOrFail($id);
+        $user = $request->user();
+
+        // Seul le médecin de la consultation ou un admin peut partager
+        if (!$user->hasRole('admin') && $prescription->consultation->user_id !== $user->id) {
+            abort(403, 'Seul le médecin de la consultation peut partager cette prescription.');
+        }
+
+        if (!$prescription->signee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La prescription doit être signée avant d\'être partagée.',
+            ], 422);
+        }
+
+        // Notifier le patient s'il a un compte utilisateur
+        $patient = $prescription->consultation->dossierPatient?->patient;
+        if ($patient?->user) {
+            $patient->user->notify(new PrescriptionSharedNotification($prescription));
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Prescription partagée avec le patient',
+            'data' => new PrescriptionResource($prescription),
+        ]);
+    }
+}

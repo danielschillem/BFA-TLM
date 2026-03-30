@@ -1,0 +1,90 @@
+LICENCE PROPRIÉTAIRE — TLM_APP-BFA (LiptakoCare)
+==================================================
+
+Copyright (c) 2025-2026 Alternatives-IT (AIT) & ANABASE INC.
+Tous droits réservés. All rights reserved.
+
+Version : 3.0.0
+Nom du système : LiptakoCare — Plateforme de Télémédecine du Burkina Faso
+
+
+1. TITULAIRES DES DROITS
+-------------------------
+Ce logiciel est la propriété conjointe de :
+
+  • Alternatives-IT (AIT) — Développeur principal
+    Conception, architecture, développement et maintenance du système.
+
+  • ANABASE INC — Financeur et co-propriétaire
+    Financement du développement, direction stratégique et droits de
+    commercialisation.
+
+
+2. RESTRICTIONS
+----------------
+Ce logiciel et sa documentation associée (ci-après « le Logiciel ») sont
+protégés par les lois sur le droit d'auteur et les traités internationaux
+relatifs à la propriété intellectuelle.
+
+Il est INTERDIT, sans autorisation écrite préalable des titulaires des
+droits, de :
+
+  a) Copier, reproduire ou dupliquer tout ou partie du Logiciel ;
+  b) Modifier, adapter, traduire ou créer des œuvres dérivées ;
+  c) Distribuer, vendre, louer, sous-licencier ou transférer le Logiciel ;
+  d) Décompiler, désassembler ou tenter d'extraire le code source ;
+  e) Supprimer ou altérer les mentions de copyright ou de licence ;
+  f) Utiliser le Logiciel à des fins concurrentes ou non autorisées.
+
+
+3. CONCESSION DE LICENCE LIMITÉE
+----------------------------------
+L'accès au code source est accordé exclusivement aux personnes autorisées
+par Alternatives-IT et/ou ANABASE INC dans le cadre du développement, de
+la maintenance ou du déploiement du système LiptakoCare.
+
+Toute utilisation en dehors de ce cadre nécessite un accord écrit.
+
+
+4. CONFIDENTIALITÉ
+-------------------
+Le Logiciel contient des informations confidentielles et des secrets
+commerciaux appartenant aux titulaires des droits. Toute personne ayant
+accès au code source s'engage à maintenir sa confidentialité.
+
+
+5. EXCLUSION DE GARANTIE
+--------------------------
+LE LOGICIEL EST FOURNI « EN L'ÉTAT », SANS GARANTIE D'AUCUNE SORTE,
+EXPRESSE OU IMPLICITE, Y COMPRIS MAIS SANS S'Y LIMITER, LES GARANTIES
+DE QUALITÉ MARCHANDE, D'ADÉQUATION À UN USAGE PARTICULIER ET DE
+NON-CONTREFAÇON.
+
+
+6. LIMITATION DE RESPONSABILITÉ
+---------------------------------
+EN AUCUN CAS LES TITULAIRES DES DROITS NE POURRONT ÊTRE TENUS
+RESPONSABLES DE TOUT DOMMAGE DIRECT, INDIRECT, ACCESSOIRE, SPÉCIAL OU
+CONSÉCUTIF DÉCOULANT DE L'UTILISATION OU DE L'IMPOSSIBILITÉ D'UTILISER
+LE LOGICIEL.
+
+
+7. DROIT APPLICABLE
+---------------------
+Cette licence est régie par le droit applicable au Burkina Faso et, à
+titre subsidiaire, par le droit français. Tout litige sera soumis à la
+compétence exclusive des tribunaux de Ouagadougou, Burkina Faso.
+
+
+8. CONTACT
+-----------
+  Alternatives-IT (AIT)
+  Email : contact@alternatives-it.com
+
+  ANABASE INC
+  Email : contact@anabase.com
+
+
+==================================================
+© 2025-2026 Alternatives-IT & ANABASE INC.
+Tous droits réservés.
