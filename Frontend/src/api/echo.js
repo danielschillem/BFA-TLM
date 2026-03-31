@@ -1,6 +1,7 @@
 import Echo from 'laravel-echo'
 import Pusher from 'pusher-js'
 import { useAuthStore } from '@/stores/authStore'
+import { apiOrigin, reverbAppKey, reverbHost, reverbPort, reverbScheme } from '@/config/appConfig'
 
 // Pusher est requis par Laravel Echo pour le protocole WebSocket Reverb
 window.Pusher = Pusher
@@ -14,7 +15,7 @@ let echoInstance = null
 export function getEcho() {
   if (echoInstance) return echoInstance
 
-  const key = import.meta.env.VITE_REVERB_APP_KEY
+  const key = reverbAppKey
   if (!key) {
     console.warn('[Echo] VITE_REVERB_APP_KEY non définie — WebSocket désactivé')
     return null
@@ -25,12 +26,12 @@ export function getEcho() {
   echoInstance = new Echo({
     broadcaster: 'reverb',
     key,
-    wsHost: import.meta.env.VITE_REVERB_HOST,
-    wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
-    wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+    wsHost: reverbHost,
+    wsPort: reverbPort || 8080,
+    wssPort: reverbPort || 443,
+    forceTLS: reverbScheme === 'https',
     enabledTransports: ['ws', 'wss'],
-    authEndpoint: `${import.meta.env.VITE_API_URL?.replace('/api/v1', '')}/broadcasting/auth`,
+    authEndpoint: `${apiOrigin}/broadcasting/auth`,
     auth: {
       headers: {
         Authorization: `Bearer ${token}`,

@@ -2,13 +2,13 @@ import axios from 'axios'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/authStore'
 import { mockClient } from './mockAdapter'
+import { apiUrl } from '@/config/appConfig'
 
-const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
 
 // Client Axios réel
 const axiosClient = axios.create({
-  baseURL: API_URL,
+  baseURL: apiUrl,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
   timeout: 30000,
 })
