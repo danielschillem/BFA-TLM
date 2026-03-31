@@ -24,6 +24,10 @@ CORS_ALLOWED_ORIGINS=https://votre-domaine.tld,https://www.votre-domaine.tld
 SESSION_DOMAIN=.votre-domaine.tld
 SESSION_SECURE_COOKIE=true
 
+Note:
+- Si vous deployez le frontend et l'API sur le meme host avec `deploy.sh` et `nginx.conf`, utilisez plutot `APP_URL=https://votre-domaine.tld` et gardez `VITE_API_URL=/api/v1`.
+- Si l'API reste sur `api.votre-domaine.tld`, `VITE_API_URL` doit etre une URL absolue vers cette API si aucun proxy HTTP ne reecrit `/api/v1`.
+
 ICD11_CLIENT_ID=__A_DEFINIR__
 ICD11_CLIENT_SECRET=__A_DEFINIR__
 ICD11_TOKEN_ENDPOINT=https://icdaccessmanagement.who.int/connect/token
@@ -80,6 +84,11 @@ npx vite build --mode production
 Verifier Frontend/.env.production:
 
 VITE_API_URL=/api/v1
+VITE_USE_MOCKS=false
+
+Si l'API est sur un sous-domaine separe sans proxy sur le frontend:
+
+VITE_API_URL=https://api.votre-domaine.tld/api/v1
 VITE_USE_MOCKS=false
 
 ## 5) Variables shell pour les tests

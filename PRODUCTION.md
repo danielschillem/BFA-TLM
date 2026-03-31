@@ -59,11 +59,16 @@ nano .env   # ← Remplir TOUTES les valeurs __À_DÉFINIR__
 ```
 
 **Valeurs OBLIGATOIRES à configurer :**
-- `APP_URL` — URL HTTPS du site
+- `APP_URL` — URL HTTPS de l'API ou du site selon votre architecture
+- `FRONTEND_URL` — URL HTTPS du frontend si l'UI n'est pas servie depuis exactement le même host
 - `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` — Base de données MySQL
 - `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD` — Serveur SMTP
-- `CORS_ALLOWED_ORIGINS` — Même domaine que APP_URL
+- `CORS_ALLOWED_ORIGINS` — Domaines frontend autorisés, sans slash final
 - `SESSION_DOMAIN` — Domaine (ex: liptakocare.bf)
+
+**Recommandation anti-CORS :**
+- Si vous utilisez `deploy.sh` + `nginx.conf` de ce dépôt, gardez le frontend et l'API sur le même host et utilisez `Frontend/.env.production` avec `VITE_API_URL=/api/v1`.
+- Si l'API est sur un sous-domaine séparé comme `api.votre-domaine.tld`, renseignez `FRONTEND_URL=https://votre-domaine.tld` et `CORS_ALLOWED_ORIGINS=https://votre-domaine.tld,https://www.votre-domaine.tld`.
 
 ### 4. Créer la base de données MySQL
 

@@ -1,11 +1,15 @@
 <?php
 
+use App\Support\CorsOriginResolver;
+
 return [
     'paths' => ['api/*', 'sanctum/csrf-cookie', 'oauth/*', 'broadcasting/*'],
     'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    'allowed_origins' => array_filter(array_map('trim', explode(',',
-        env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5173')
-    ))),
+    'allowed_origins' => CorsOriginResolver::resolve(
+        env('CORS_ALLOWED_ORIGINS'),
+        env('FRONTEND_URL'),
+        env('APP_URL'),
+    ),
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-XSRF-TOKEN'],
     'exposed_headers' => ['X-CDA-Version', 'X-CDA-Implementation'],
