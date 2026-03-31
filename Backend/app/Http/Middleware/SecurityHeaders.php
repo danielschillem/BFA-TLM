@@ -31,8 +31,15 @@ class SecurityHeaders
         ]));
 
         // Cross-Origin Isolation (protection contre Spectre/side-channel)
-        $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
-        $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');
+        // En prod, frontend et API sont sur des domaines séparés :
+        // COOP same-origin-allow-popups autorise les popups (Jitsi) tout en protégeant contre Spectre
+        // CORP cross-origin est requis pour que le frontend puisse charger les réponses API
+        if ($request->is('api/*')) {
+            $response->headers->set('Cross-Origin-Resource-Policy', 'cross-origin');
+        } else {
+            $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');
+        }
+        $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
 
         // Cache — pas de cache pour les réponses API authentifiées
         if ($request->user()) {
