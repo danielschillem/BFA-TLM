@@ -13,6 +13,10 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
+    # CORS preflight: send OPTIONS requests to Laravel so HandleCors can respond
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^ index.php [L]
+
     # Force HTTPS (décommenter quand SSL actif)
     # RewriteCond %{HTTPS} off
     # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
