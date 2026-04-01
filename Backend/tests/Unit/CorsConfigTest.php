@@ -43,4 +43,16 @@ class CorsConfigTest extends TestCase
             'http://localhost:5173',
         ], CorsOriginResolver::resolve(null, null, null));
     }
+
+    #[Test]
+    public function it_converts_wildcard_origins_to_allowed_origin_patterns(): void
+    {
+        $patterns = CorsOriginResolver::resolvePatterns(
+            'https://*.hostingersite.com, https://front.example.com',
+        );
+
+        $this->assertCount(1, $patterns);
+        $this->assertMatchesRegularExpression($patterns[0], 'https://aqua-weasel-241472.hostingersite.com');
+        $this->assertDoesNotMatchRegularExpression($patterns[0], 'https://front.example.com');
+    }
 }

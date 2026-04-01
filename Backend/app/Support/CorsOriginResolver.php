@@ -21,14 +21,55 @@ class CorsOriginResolver
         return $allowedOrigins;
     }
 
+    public static function resolvePatterns(?string $explicitOrigins, ?string $explicitPatterns = null): array
+    {
+        return array_values(array_unique([
+            ...self::parseWildcardOrigins($explicitOrigins),
+            ...self::parsePatterns($explicitPatterns),
+        ]));
+    }
+
     private static function parseOrigins(?string $origins): array
     {
-        if (!is_string($origins) || trim($origins) === '') {
+        return self::mapEntries($origins, function (string $origin): ?string {
+            $normalizedOrigin = self::normalizeOrigin($origin);
+
+            if ($normalizedOrigin === null || str_contains($normalizedOrigin, '*')) {
+                return null;
+            }
+
+            return $normalizedOrigin;
+        });
+    }
+
+    private static function parseWildcardOrigins(?string $origins): array
+    {
+        return self::mapEntries($origins, function (string $origin): ?string {
+            $normalizedOrigin = self::normalizeOrigin($origin);
+
+            if ($normalizedOrigin === null || !str_contains($normalizedOrigin, '*')) {
+                return null;
+            }
+
+            return '#^'.str_replace('\*', '[^/]+', preg_quote($normalizedOrigin, '#')).'$#';
+        });
+    }
+
+    private static function parsePatterns(?string $patterns): array
+    {
+        return self::mapEntries($patterns, fn (string $pattern): ?string => trim($pattern) !== '' ? trim($pattern) : null);
+    }
+
+    private static function mapEntries(?string $entries, callable $mapper): array
+    {
+        if (!is_string($entries) || trim($entries) === '') {
             return [];
         }
 
+        $parts = preg_split('/[\r\n,]+/', $entries) ?: [];
+
         return array_values(array_unique(array_filter(
-            array_map([self::class, 'normalizeOrigin'], explode(',', $origins))
+            array_map($mapper, $parts)
         )));
     }
 

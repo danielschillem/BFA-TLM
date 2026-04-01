@@ -8,6 +8,7 @@ use App\Http\Controllers\API\AppointmentController;
 use App\Http\Controllers\API\AuditController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\CertificatDecesController;
+use App\Http\Controllers\API\LicenseController;
 use App\Http\Controllers\API\ConstanteController;
 use App\Http\Controllers\API\ConsultationController;
 use App\Http\Controllers\API\DiagnosticController;
@@ -486,4 +487,29 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::post('/{id}/rejeter', [CertificatDecesController::class, 'rejeter'])->middleware('permission:admin.audit');
         Route::post('/{id}/annuler', [CertificatDecesController::class, 'annuler'])->middleware('permission:dossiers.update');
     });
+});
+
+// ── Licences & Démo ───────────────────────────────────────────────────────────
+
+// Routes publiques (grille tarifaire & simulation)
+Route::prefix('licenses')->group(function () {
+    Route::get('/grille', [LicenseController::class, 'grille']);
+    Route::post('/simuler', [LicenseController::class, 'simuler']);
+    Route::get('/modules', [LicenseController::class, 'modules']);
+});
+
+// Routes authentifiées
+Route::prefix('licenses')->middleware(['auth:api', 'active'])->group(function () {
+    Route::post('/demo', [LicenseController::class, 'creerDemo']);
+    Route::get('/verifier/{structureId}', [LicenseController::class, 'verifier']);
+    Route::get('/structure/{structureId}', [LicenseController::class, 'parStructure']);
+    Route::get('/{id}', [LicenseController::class, 'show'])->where('id', '\d+');
+});
+
+// Routes admin uniquement
+Route::prefix('licenses')->middleware(['auth:api', 'active', 'role:admin'])->group(function () {
+    Route::post('/', [LicenseController::class, 'store'])->middleware('permission:admin.users');
+    Route::post('/{id}/renouveler', [LicenseController::class, 'renouveler'])->middleware('permission:admin.users');
+    Route::patch('/{id}/suspendre', [LicenseController::class, 'suspendre'])->middleware('permission:admin.users');
+    Route::get('/statistiques', [LicenseController::class, 'statistiques'])->middleware('permission:admin.dashboard');
 });

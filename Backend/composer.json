@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "*",
+        "dedoc/scramble": "^0.13.17",
         "laravel/framework": "^11.31",
         "laravel/passport": "^13.7",
         "laravel/reverb": "^1.9",

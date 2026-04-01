@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolePermissionSeeder::class,
             TestDataSeeder::class,
+            LicenseModuleSeeder::class,
         ]);
 
         // Créer le Personal Access Client Passport s'il n'existe pas

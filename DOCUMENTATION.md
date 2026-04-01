@@ -925,7 +925,18 @@ Le pipeline CI/CD exécute automatiquement :
 
 ```bash
 bash deploy.sh
+
+# Variante Hostinger / frontend séparé
+FRONTEND_BUILD_MODE=production.hostinger bash deploy.sh
 ```
+
+### Couple Hostinger actuellement branché
+
+- Frontend : `https://aqua-weasel-241472.hostingersite.com`
+- API : `https://ivory-tarsier-376970.hostingersite.com/api/v1`
+- `Frontend/.env.production.hostinger` pointe déjà vers cette API
+- `Backend/.env.production.hostinger` autorise déjà cette origine frontend en CORS
+- `deploy.sh` copie automatiquement `Backend/.env.production.hostinger` quand `FRONTEND_BUILD_MODE=production.hostinger`
 
 ### Checklist pré-production
 
@@ -939,8 +950,9 @@ bash deploy.sh
 - [ ] SSL activé (Let's Encrypt via Hostinger)
 - [ ] DocumentRoot → `Backend/public/`
 - [ ] Cron pour le scheduler : `* * * * * php artisan schedule:run`
-- [ ] `CORS_ALLOWED_ORIGINS` contient uniquement les domaines frontend prod (sans slash final)
-- [ ] Frontend build avec `Frontend/.env.production` (jamais `localhost`)
+- [ ] `CORS_ALLOWED_ORIGINS` contient uniquement les domaines frontend prod exacts, ou le wildcard `https://*.hostingersite.com` pour les previews Hostinger
+- [ ] Frontend build avec `Frontend/.env.production` ou `Frontend/.env.production.hostinger` via `FRONTEND_BUILD_MODE=production.hostinger`
+- [ ] `Frontend/public/app-config.runtime.js` n'est plus édité à la main : il est généré pendant le build
 
 ### Validation CORS/Login (Hostinger)
 

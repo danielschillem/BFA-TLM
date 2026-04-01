@@ -69,6 +69,15 @@ nano .env   # ← Remplir TOUTES les valeurs __À_DÉFINIR__
 **Recommandation anti-CORS :**
 - Si vous utilisez `deploy.sh` + `nginx.conf` de ce dépôt, gardez le frontend et l'API sur le même host et utilisez `Frontend/.env.production` avec `VITE_API_URL=/api/v1`.
 - Si l'API est sur un sous-domaine séparé comme `api.votre-domaine.tld`, renseignez `FRONTEND_URL=https://votre-domaine.tld` et `CORS_ALLOWED_ORIGINS=https://votre-domaine.tld,https://www.votre-domaine.tld`.
+- Si vous déployez des previews Hostinger dont le sous-domaine change, vous pouvez autoriser le pattern `https://*.hostingersite.com` directement dans `CORS_ALLOWED_ORIGINS`.
+- `Frontend/public/app-config.runtime.js` est désormais généré automatiquement pendant le build. Ne l'éditez pas manuellement.
+
+**Couple Hostinger actuellement intégré dans le dépôt :**
+- Frontend : `https://aqua-weasel-241472.hostingersite.com`
+- API : `https://ivory-tarsier-376970.hostingersite.com/api/v1`
+- CORS backend : `CORS_ALLOWED_ORIGINS=https://aqua-weasel-241472.hostingersite.com`
+- Template backend : `Backend/.env.production.hostinger`
+- Template frontend : `Frontend/.env.production.hostinger`
 
 ### 4. Créer la base de données MySQL
 
@@ -89,6 +98,9 @@ bash deploy.sh --fresh
 
 # Déploiements suivants (migrations incrémentales uniquement)
 bash deploy.sh
+
+# Build Hostinger / frontend sur un host différent
+FRONTEND_BUILD_MODE=production.hostinger bash deploy.sh
 ```
 
 ### 6. Configurer Nginx

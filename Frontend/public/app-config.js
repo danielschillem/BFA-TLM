@@ -1,7 +1,0 @@
-window.__APP_CONFIG__ = {
-  VITE_API_URL: '',
-  VITE_REVERB_APP_KEY: '',
-  VITE_REVERB_HOST: '',
-  VITE_REVERB_PORT: '',
-  VITE_REVERB_SCHEME: '',
-}

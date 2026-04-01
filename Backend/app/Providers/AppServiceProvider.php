@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Passport;
+use Dedoc\Scramble\Scramble;
+use Dedoc\Scramble\Support\Generator\OpenApi;
+use Dedoc\Scramble\Support\Generator\SecurityScheme;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -75,5 +78,45 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(ConsultationStarted::class, LogConsultationStarted::class);
         Event::listen(ConsultationEnded::class, UpdateDossierOnConsultationEnd::class);
         Event::listen(PrescriptionSigned::class, NotifyPrescriptionSigned::class);
+
+        // ── Scramble OpenAPI documentation ─────────────────────────────────────
+        Scramble::resolveTagsUsing(function ($routeInfo) {
+            $uri = $routeInfo->route->uri;
+            $segments = explode('/', $uri);
+            $prefix = $segments[2] ?? 'general';
+
+            return match ($prefix) {
+                'auth'            => ['Authentification'],
+                'fhir'            => ['FHIR R4 — Interopérabilité'],
+                'cda'             => ['CDA R2 — Documents cliniques'],
+                'terminology'     => ['Terminologies (SNOMED CT / ATC)'],
+                'icd11'           => ['ICD-11 OMS'],
+                'dhis2'           => ['DHIS2 & ENDOS'],
+                'dicom'           => ['DICOM — Imagerie médicale'],
+                'directory'       => ['Annuaire médecins'],
+                'appointments'    => ['Rendez-vous'],
+                'consultations'   => ['Consultations'],
+                'prescriptions'   => ['Prescriptions'],
+                'patients'        => ['Patients'],
+                'teleexpertise'   => ['Téléexpertise'],
+                'documents'       => ['Documents'],
+                'messages'        => ['Messagerie'],
+                'notifications'   => ['Notifications'],
+                'payments'        => ['Paiements'],
+                'consents'        => ['Consentements (OMS/RGPD)'],
+                'admin'           => ['Administration'],
+                'gestionnaire'    => ['Gestionnaire de structure'],
+                'audit'           => ['Audit & Traçabilité'],
+                'certificats-deces' => ['Certificats de décès'],
+                'licenses'        => ['Licences & Tarification'],
+                default           => ['Référentiels'],
+            };
+        });
+
+        Scramble::afterOpenApiGenerated(function (OpenApi $openApi) {
+            $openApi->secure(
+                SecurityScheme::http('bearer', 'JWT')
+            );
+        });
     }
 }

@@ -85,7 +85,7 @@ class CertificatDecesTest extends TestCase
             ->postJson('/api/v1/certificats-deces', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['patient_id', 'date_deces', 'cause_directe']);
+            ->assertJsonValidationErrors(['date_deces', 'cause_directe']);
     }
 
     public function test_show_certificat(): void

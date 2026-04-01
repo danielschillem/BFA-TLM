@@ -6,6 +6,8 @@
 # Version : 3.0.0
 # Usage : bash deploy.sh [--fresh]
 #   --fresh : migration complète (ATTENTION : efface les données)
+# Variables utiles :
+#   FRONTEND_BUILD_MODE=production|production.hostinger
 ############################################################
 
 set -euo pipefail
@@ -32,6 +34,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$SCRIPT_DIR/Backend"
 FRONTEND_DIR="$SCRIPT_DIR/Frontend"
 SPA_DIR="$BACKEND_DIR/public/spa"
+FRONTEND_BUILD_MODE="${FRONTEND_BUILD_MODE:-production}"
+BACKEND_ENV_TEMPLATE=".env.production"
+
+if [ "$FRONTEND_BUILD_MODE" = "production.hostinger" ]; then
+    BACKEND_ENV_TEMPLATE=".env.production.hostinger"
+fi
 
 # =============================================
 # 0. PRÉ-VÉRIFICATIONS
@@ -57,8 +65,8 @@ if ! command -v composer &> /dev/null; then
 fi
 
 # Vérifier le .env de production
-if [ ! -f "$BACKEND_DIR/.env" ] && [ ! -f "$BACKEND_DIR/.env.production" ]; then
-    echo -e "${RED}✗ Aucun fichier .env trouvé ! Créez Backend/.env à partir de .env.production${NC}"
+if [ ! -f "$BACKEND_DIR/.env" ] && [ ! -f "$BACKEND_DIR/$BACKEND_ENV_TEMPLATE" ]; then
+    echo -e "${RED}✗ Aucun fichier .env trouvé ! Créez Backend/.env à partir de $BACKEND_ENV_TEMPLATE${NC}"
     exit 1
 fi
 
@@ -78,7 +86,9 @@ echo -e "${GREEN}✓ Mode maintenance activé${NC}"
 echo -e "\n${YELLOW}[2/7] Build du frontend React...${NC}"
 cd "$FRONTEND_DIR"
 npm ci --production=false
-npx vite build --mode production
+echo -e "${YELLOW}       Mode frontend : ${FRONTEND_BUILD_MODE}${NC}"
+node scripts/generate-runtime-config.mjs "$FRONTEND_BUILD_MODE"
+npx vite build --mode "$FRONTEND_BUILD_MODE"
 
 # Copier le build dans Laravel public/spa/
 echo -e "${YELLOW}       Copie du build vers Backend/public/spa/...${NC}"
@@ -99,10 +109,10 @@ composer install --no-dev --optimize-autoloader --no-interaction
 # =============================================
 echo -e "\n${YELLOW}[4/7] Configuration production...${NC}"
 
-# Copier .env.production si .env n'existe pas
+# Copier le template backend si .env n'existe pas
 if [ ! -f .env ]; then
-    cp .env.production .env
-    echo -e "${YELLOW}⚠  .env copié depuis .env.production — MODIFIEZ les valeurs __À_DÉFINIR__ !${NC}"
+    cp "$BACKEND_ENV_TEMPLATE" .env
+    echo -e "${YELLOW}⚠  .env copié depuis $BACKEND_ENV_TEMPLATE${NC}"
 fi
 
 # Vérifier que APP_DEBUG est bien désactivé
@@ -178,6 +188,7 @@ echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Checklist post-déploiement :"
 echo "  1. Vérifier .env (APP_URL, DB_*, MAIL_*, CORS_ALLOWED_ORIGINS)"
+echo "  1b. Vérifier FRONTEND_BUILD_MODE si vous utilisez Hostinger ou un frontend sur un autre host"
 echo "  2. Configurer le DocumentRoot Apache/Nginx → Backend/public/"
 echo "  3. Activer SSL (Let's Encrypt / Certbot)"
 echo "  4. Tester : https://VOTRE_DOMAINE"

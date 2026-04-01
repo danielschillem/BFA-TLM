@@ -117,6 +117,23 @@ class MiddlewareTest extends TestCase
             ->assertJsonPath('error', 'unsupported_content_type');
     }
 
+    public function test_login_preflight_accepts_allowed_hostinger_preview_origin(): void
+    {
+        config()->set('cors.allowed_origins', []);
+        config()->set('cors.allowed_origins_patterns', ['#^https://[^/]+\.hostingersite\.com$#']);
+
+        $response = $this->call('OPTIONS', '/api/v1/auth/login', [], [], [], [
+            'HTTP_ORIGIN' => 'https://aqua-weasel-241472.hostingersite.com',
+            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'POST',
+            'HTTP_ACCESS_CONTROL_REQUEST_HEADERS' => 'content-type,authorization',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $response->assertStatus(204);
+        $response->assertHeader('Access-Control-Allow-Origin', 'https://aqua-weasel-241472.hostingersite.com');
+        $response->assertHeader('Access-Control-Allow-Methods');
+    }
+
     // ── SecurityHeaders ───────────────────────────────────────────────────────
 
     public function test_security_headers_are_present(): void
@@ -126,8 +143,8 @@ class MiddlewareTest extends TestCase
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
         $response->assertHeader('X-Frame-Options', 'DENY');
         $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->assertHeader('Cross-Origin-Opener-Policy', 'same-origin');
-        $response->assertHeader('Cross-Origin-Resource-Policy', 'same-origin');
+        $response->assertHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+        $response->assertHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     }
 
     public function test_permissions_policy_allows_camera_and_microphone(): void
