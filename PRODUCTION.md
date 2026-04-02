@@ -6,16 +6,17 @@
 
 ## Prérequis serveur
 
-| Composant        | Version minimale | Recommandé        |
-|------------------|------------------|--------------------|
-| PHP              | 8.2              | 8.3                |
-| MySQL / MariaDB  | 8.0 / 10.6       | 8.0 / 11.x        |
-| Node.js          | 18 LTS           | 20 LTS             |
-| Nginx            | 1.18+            | 1.24+              |
-| Composer         | 2.x              | 2.7+               |
-| Certbot (SSL)    | —                | Dernière version   |
+| Composant       | Version minimale | Recommandé       |
+| --------------- | ---------------- | ---------------- |
+| PHP             | 8.2              | 8.3              |
+| MySQL / MariaDB | 8.0 / 10.6       | 8.0 / 11.x       |
+| Node.js         | 18 LTS           | 20 LTS           |
+| Nginx           | 1.18+            | 1.24+            |
+| Composer        | 2.x              | 2.7+             |
+| Certbot (SSL)   | —                | Dernière version |
 
 ### Extensions PHP requises
+
 ```
 php-mbstring php-xml php-curl php-zip php-gd php-mysql php-bcmath php-intl php-tokenizer php-json
 ```
@@ -59,6 +60,7 @@ nano .env   # ← Remplir TOUTES les valeurs __À_DÉFINIR__
 ```
 
 **Valeurs OBLIGATOIRES à configurer :**
+
 - `APP_URL` — URL HTTPS de l'API ou du site selon votre architecture
 - `FRONTEND_URL` — URL HTTPS du frontend si l'UI n'est pas servie depuis exactement le même host
 - `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` — Base de données MySQL
@@ -67,6 +69,7 @@ nano .env   # ← Remplir TOUTES les valeurs __À_DÉFINIR__
 - `SESSION_DOMAIN` — Domaine (ex: liptakocare.bf)
 
 **Recommandation anti-CORS :**
+
 - Si vous utilisez `deploy.sh` + `nginx.conf` de ce dépôt, gardez le frontend et l'API sur le même host et utilisez `Frontend/.env.production` avec `VITE_API_URL=/api/v1`.
 - Si l'API est sur un sous-domaine séparé comme `api.votre-domaine.tld`, renseignez `FRONTEND_URL=https://votre-domaine.tld` et `CORS_ALLOWED_ORIGINS=https://votre-domaine.tld,https://www.votre-domaine.tld`.
 - Si vous déployez des previews Hostinger dont le sous-domaine change, vous pouvez autoriser le pattern `https://*.hostingersite.com` directement dans `CORS_ALLOWED_ORIGINS`.
@@ -79,6 +82,7 @@ Le CDN Hostinger (hcdn) intercepte les requêtes vers les URL propres (`/api/v1/
 - Frontend `.env` : `VITE_API_URL=https://ivory-tarsier-376970.hostingersite.com/index.php`
 
 **Couple Hostinger actuellement intégré dans le dépôt :**
+
 - Frontend : `https://aqua-weasel-241472.hostingersite.com`
 - API (gateway) : `https://ivory-tarsier-376970.hostingersite.com/index.php`
 - CORS backend : `CORS_ALLOWED_ORIGINS=https://aqua-weasel-241472.hostingersite.com`
@@ -127,6 +131,7 @@ sudo certbot --nginx -d votre-domaine.bf
 ### 8. Configurer les services système
 
 #### Cron Laravel (tâches planifiées)
+
 ```bash
 sudo crontab -e -u www-data
 # Ajouter :
@@ -134,6 +139,7 @@ sudo crontab -e -u www-data
 ```
 
 #### Worker de queue (traitement asynchrone)
+
 ```bash
 # Créer /etc/systemd/system/liptakocare-queue.service
 [Unit]
@@ -158,6 +164,7 @@ sudo systemctl start liptakocare-queue
 ```
 
 #### WebSocket Reverb (temps réel)
+
 ```bash
 # Créer /etc/systemd/system/liptakocare-reverb.service
 [Unit]
@@ -185,24 +192,24 @@ sudo systemctl start liptakocare-reverb
 
 ## Checklist de sécurité
 
-| # | Élément                              | Statut |
-|---|--------------------------------------|--------|
-| 1 | `APP_DEBUG=false`                    | ☐      |
-| 2 | `APP_ENV=production`                 | ☐      |
-| 3 | APP_KEY générée (unique au serveur)  | ☐      |
-| 4 | HTTPS activé (Certbot)              | ☐      |
-| 5 | `SESSION_SECURE_COOKIE=true`         | ☐      |
-| 6 | `SESSION_HTTP_ONLY=true`             | ☐      |
-| 7 | `SESSION_ENCRYPT=true`               | ☐      |
-| 8 | CORS limité au domaine prod          | ☐      |
-| 9 | Clés Passport générées               | ☐      |
-| 10| Mot de passe admin changé            | ☐      |
-| 11| Comptes de test supprimés            | ☐      |
-| 12| Fichiers .env non accessibles (Nginx)| ☐      |
-| 13| Logs en mode `warning` minimum       | ☐      |
-| 14| Backup BDD configuré                 | ☐      |
-| 15| 2FA actif pour médecins/admins       | ☐      |
-| 16| SMTP fonctionnel (test email)        | ☐      |
+| #   | Élément                               | Statut |
+| --- | ------------------------------------- | ------ |
+| 1   | `APP_DEBUG=false`                     | ☐      |
+| 2   | `APP_ENV=production`                  | ☐      |
+| 3   | APP_KEY générée (unique au serveur)   | ☐      |
+| 4   | HTTPS activé (Certbot)                | ☐      |
+| 5   | `SESSION_SECURE_COOKIE=true`          | ☐      |
+| 6   | `SESSION_HTTP_ONLY=true`              | ☐      |
+| 7   | `SESSION_ENCRYPT=true`                | ☐      |
+| 8   | CORS limité au domaine prod           | ☐      |
+| 9   | Clés Passport générées                | ☐      |
+| 10  | Mot de passe admin changé             | ☐      |
+| 11  | Comptes de test supprimés             | ☐      |
+| 12  | Fichiers .env non accessibles (Nginx) | ☐      |
+| 13  | Logs en mode `warning` minimum        | ☐      |
+| 14  | Backup BDD configuré                  | ☐      |
+| 15  | 2FA actif pour médecins/admins        | ☐      |
+| 16  | SMTP fonctionnel (test email)         | ☐      |
 
 ---
 

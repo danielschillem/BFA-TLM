@@ -1,144 +1,190 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@/stores/authStore'
-import { useUIStore } from '@/stores/uiStore'
-import { cn } from '@/utils/cn'
+import { NavLink, useNavigate } from "react-router-dom";
+import { useAuthStore } from "@/stores/authStore";
+import { useUIStore } from "@/stores/uiStore";
+import { cn } from "@/utils/cn";
 import {
-  LayoutDashboard, Calendar, Users, Video, FileText, Stethoscope,
-  MessageSquare, CreditCard, ShieldCheck, Settings, LogOut,
-  ChevronLeft, Activity, Search, ClipboardList, Bell, Building2, PlusCircle, UserCog, Globe, ScrollText
-} from 'lucide-react'
-import logoImg from '@/assets/liptako-icon.jpeg'
+  LayoutDashboard,
+  Calendar,
+  Users,
+  Video,
+  FileText,
+  Stethoscope,
+  MessageSquare,
+  CreditCard,
+  ShieldCheck,
+  Settings,
+  LogOut,
+  ChevronLeft,
+  Activity,
+  Search,
+  ClipboardList,
+  Bell,
+  Building2,
+  PlusCircle,
+  UserCog,
+  Globe,
+  ScrollText,
+  Key,
+  Cog,
+} from "lucide-react";
+import logoImg from "@/assets/liptako-icon.jpeg";
 
 const navItemsByRole = {
   patient: [
-    { to: '/dashboard',      icon: LayoutDashboard, label: 'Tableau de bord' },
-    { to: '/directory',      icon: Search,          label: 'Trouver un médecin' },
-    { to: '/appointments',   icon: Calendar,        label: 'Mes rendez-vous' },
-    { to: '/consultations',  icon: Video,           label: 'Mes consultations' },
-    { to: '/documents',      icon: FileText,        label: 'Mes documents' },
-    { to: '/prescriptions',  icon: ClipboardList,   label: 'Ordonnances' },
-    { to: '/payments',       icon: CreditCard,      label: 'Paiements' },
-    { to: '/notifications',  icon: Bell,            label: 'Notifications' },
-    { to: '/consentements',  icon: ShieldCheck,     label: 'Consentements' },
-    { to: '/messages',       icon: MessageSquare,    label: 'Messagerie' },
-    { to: '/profile',        icon: Settings,        label: 'Mon profil' },
+    { to: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
+    { to: "/directory", icon: Search, label: "Trouver un médecin" },
+    { to: "/appointments", icon: Calendar, label: "Mes rendez-vous" },
+    { to: "/consultations", icon: Video, label: "Mes consultations" },
+    { to: "/documents", icon: FileText, label: "Mes documents" },
+    { to: "/prescriptions", icon: ClipboardList, label: "Ordonnances" },
+    { to: "/payments", icon: CreditCard, label: "Paiements" },
+    { to: "/notifications", icon: Bell, label: "Notifications" },
+    { to: "/consentements", icon: ShieldCheck, label: "Consentements" },
+    { to: "/messages", icon: MessageSquare, label: "Messagerie" },
+    { to: "/profile", icon: Settings, label: "Mon profil" },
   ],
   doctor: [
-    { to: '/dashboard',         icon: LayoutDashboard, label: 'Tableau de bord' },
-    { to: '/appointments/new',  icon: PlusCircle,      label: 'Nouveau RDV' },
-    { to: '/schedule',          icon: Calendar,        label: 'Mon agenda' },
-    { to: '/appointments',      icon: Calendar,        label: 'Rendez-vous' },
-    { to: '/patients',          icon: Users,           label: 'Patients' },
-    { to: '/consultations',     icon: Video,           label: 'Consultations' },
-    { to: '/teleexpertise',     icon: Stethoscope,     label: 'Téléexpertise' },
-    { to: '/certificats-deces', icon: ScrollText,      label: 'Certificats décès' },
-    { to: '/documents',         icon: FileText,        label: 'Documents' },
-    { to: '/prescriptions',     icon: ClipboardList,   label: 'Ordonnances' },
-    { to: '/interop',           icon: Globe,           label: 'Interopérabilité' },
-    { to: '/payments',          icon: CreditCard,      label: 'Paiements' },
-    { to: '/notifications',     icon: Bell,            label: 'Notifications' },
-    { to: '/messages',          icon: MessageSquare,    label: 'Messagerie' },
-    { to: '/profile',           icon: Settings,        label: 'Mon profil' },
+    { to: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
+    { to: "/appointments/new", icon: PlusCircle, label: "Nouveau RDV" },
+    { to: "/schedule", icon: Calendar, label: "Mon agenda" },
+    { to: "/appointments", icon: Calendar, label: "Rendez-vous" },
+    { to: "/patients", icon: Users, label: "Patients" },
+    { to: "/consultations", icon: Video, label: "Consultations" },
+    { to: "/teleexpertise", icon: Stethoscope, label: "Téléexpertise" },
+    { to: "/certificats-deces", icon: ScrollText, label: "Certificats décès" },
+    { to: "/documents", icon: FileText, label: "Documents" },
+    { to: "/prescriptions", icon: ClipboardList, label: "Ordonnances" },
+    { to: "/interop", icon: Globe, label: "Interopérabilité" },
+    { to: "/payments", icon: CreditCard, label: "Paiements" },
+    { to: "/notifications", icon: Bell, label: "Notifications" },
+    { to: "/messages", icon: MessageSquare, label: "Messagerie" },
+    { to: "/profile", icon: Settings, label: "Mon profil" },
   ],
   specialist: [
-    { to: '/dashboard',         icon: LayoutDashboard, label: 'Tableau de bord' },
-    { to: '/appointments/new',  icon: PlusCircle,      label: 'Nouveau RDV' },
-    { to: '/schedule',          icon: Calendar,        label: 'Mon agenda' },
-    { to: '/teleexpertise',     icon: Stethoscope,     label: 'Téléexpertise' },
-    { to: '/appointments',      icon: Calendar,        label: 'Agenda' },
-    { to: '/patients',          icon: Users,           label: 'Patients' },
-    { to: '/consultations',     icon: Video,           label: 'Consultations' },
-    { to: '/certificats-deces', icon: ScrollText,      label: 'Certificats décès' },
-    { to: '/documents',         icon: FileText,        label: 'Documents' },
-    { to: '/prescriptions',     icon: ClipboardList,   label: 'Ordonnances' },
-    { to: '/interop',           icon: Globe,           label: 'Interopérabilité' },
-    { to: '/payments',          icon: CreditCard,      label: 'Paiements' },
-    { to: '/notifications',     icon: Bell,            label: 'Notifications' },
-    { to: '/messages',          icon: MessageSquare,    label: 'Messagerie' },
-    { to: '/profile',           icon: Settings,        label: 'Mon profil' },
+    { to: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
+    { to: "/appointments/new", icon: PlusCircle, label: "Nouveau RDV" },
+    { to: "/schedule", icon: Calendar, label: "Mon agenda" },
+    { to: "/teleexpertise", icon: Stethoscope, label: "Téléexpertise" },
+    { to: "/appointments", icon: Calendar, label: "Agenda" },
+    { to: "/patients", icon: Users, label: "Patients" },
+    { to: "/consultations", icon: Video, label: "Consultations" },
+    { to: "/certificats-deces", icon: ScrollText, label: "Certificats décès" },
+    { to: "/documents", icon: FileText, label: "Documents" },
+    { to: "/prescriptions", icon: ClipboardList, label: "Ordonnances" },
+    { to: "/interop", icon: Globe, label: "Interopérabilité" },
+    { to: "/payments", icon: CreditCard, label: "Paiements" },
+    { to: "/notifications", icon: Bell, label: "Notifications" },
+    { to: "/messages", icon: MessageSquare, label: "Messagerie" },
+    { to: "/profile", icon: Settings, label: "Mon profil" },
   ],
   health_professional: [
-    { to: '/dashboard',         icon: LayoutDashboard, label: 'Tableau de bord' },
-    { to: '/appointments/new',  icon: PlusCircle,      label: 'Nouveau RDV' },
-    { to: '/schedule',          icon: Calendar,        label: 'Mon agenda' },
-    { to: '/appointments',      icon: Calendar,        label: 'Rendez-vous' },
-    { to: '/patients',          icon: Users,           label: 'Patients' },
-    { to: '/consultations',     icon: Video,           label: 'Consultations' },
-    { to: '/teleexpertise',     icon: Stethoscope,     label: 'Téléexpertise' },
-    { to: '/certificats-deces', icon: ScrollText,      label: 'Certificats décès' },
-    { to: '/documents',         icon: FileText,        label: 'Documents' },
-    { to: '/prescriptions',     icon: ClipboardList,   label: 'Ordonnances' },
-    { to: '/interop',           icon: Globe,           label: 'Interopérabilité' },
-    { to: '/payments',          icon: CreditCard,      label: 'Paiements' },
-    { to: '/notifications',     icon: Bell,            label: 'Notifications' },
-    { to: '/messages',          icon: MessageSquare,    label: 'Messagerie' },
-    { to: '/profile',           icon: Settings,        label: 'Mon profil' },
+    { to: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
+    { to: "/appointments/new", icon: PlusCircle, label: "Nouveau RDV" },
+    { to: "/schedule", icon: Calendar, label: "Mon agenda" },
+    { to: "/appointments", icon: Calendar, label: "Rendez-vous" },
+    { to: "/patients", icon: Users, label: "Patients" },
+    { to: "/consultations", icon: Video, label: "Consultations" },
+    { to: "/teleexpertise", icon: Stethoscope, label: "Téléexpertise" },
+    { to: "/certificats-deces", icon: ScrollText, label: "Certificats décès" },
+    { to: "/documents", icon: FileText, label: "Documents" },
+    { to: "/prescriptions", icon: ClipboardList, label: "Ordonnances" },
+    { to: "/interop", icon: Globe, label: "Interopérabilité" },
+    { to: "/payments", icon: CreditCard, label: "Paiements" },
+    { to: "/notifications", icon: Bell, label: "Notifications" },
+    { to: "/messages", icon: MessageSquare, label: "Messagerie" },
+    { to: "/profile", icon: Settings, label: "Mon profil" },
   ],
   structure_manager: [
-    { to: '/dashboard',             icon: LayoutDashboard, label: 'Tableau de bord' },
-    { to: '/gestionnaire',          icon: Building2,       label: 'Ma structure' },
-    { to: '/messages',              icon: MessageSquare,    label: 'Messagerie' },
-    { to: '/profile',               icon: Settings,        label: 'Mon profil' },
+    { to: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
+    { to: "/gestionnaire", icon: Building2, label: "Ma structure" },
+    { to: "/messages", icon: MessageSquare, label: "Messagerie" },
+    { to: "/profile", icon: Settings, label: "Mon profil" },
   ],
   admin: [
-    { to: '/admin/dashboard',      icon: LayoutDashboard, label: 'Tableau de bord' },
-    { to: '/admin/users',          icon: Users,           label: 'Utilisateurs' },
-    { to: '/admin/structures',     icon: Building2,       label: 'Structures' },
-    { to: '/admin/gestionnaires',  icon: UserCog,         label: 'Gestionnaires' },
-    { to: '/admin/stats',          icon: Activity,        label: 'Statistiques' },
-    { to: '/admin/audit',          icon: ShieldCheck,     label: 'Audit & Logs' },
-    { to: '/admin/announcements',  icon: Bell,            label: 'Annonces' },
-    { to: '/admin/roles',          icon: ShieldCheck,     label: 'Rôles & Permissions' },
-    { to: '/certificats-deces',    icon: ScrollText,      label: 'Certificats décès' },
-    { to: '/interop',              icon: Globe,           label: 'Interopérabilité' },
-    { to: '/notifications',        icon: Bell,            label: 'Notifications' },
-    { to: '/messages',             icon: MessageSquare,   label: 'Messagerie' },
-    { to: '/profile',              icon: Settings,        label: 'Mon profil' },
+    { to: "/admin/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
+    { to: "/admin/users", icon: Users, label: "Utilisateurs" },
+    { to: "/admin/structures", icon: Building2, label: "Structures" },
+    { to: "/admin/gestionnaires", icon: UserCog, label: "Gestionnaires" },
+    { to: "/admin/stats", icon: Activity, label: "Statistiques" },
+    { to: "/admin/audit", icon: ShieldCheck, label: "Audit & Logs" },
+    { to: "/admin/announcements", icon: Bell, label: "Annonces" },
+    { to: "/admin/roles", icon: ShieldCheck, label: "Rôles & Permissions" },
+    { to: "/admin/licenses", icon: Key, label: "Licences" },
+    { to: "/admin/settings", icon: Cog, label: "Paramètres" },
+    { to: "/certificats-deces", icon: ScrollText, label: "Certificats décès" },
+    { to: "/interop", icon: Globe, label: "Interopérabilité" },
+    { to: "/notifications", icon: Bell, label: "Notifications" },
+    { to: "/messages", icon: MessageSquare, label: "Messagerie" },
+    { to: "/profile", icon: Settings, label: "Mon profil" },
   ],
-}
+};
 
 export default function Sidebar() {
-  const { user, logout, hasRole } = useAuthStore()
-  const { sidebarOpen, toggleSidebar } = useUIStore()
-  const navigate = useNavigate()
+  const { user, logout, hasRole } = useAuthStore();
+  const { sidebarOpen, toggleSidebar } = useUIStore();
+  const navigate = useNavigate();
 
-  const role = user?.roles?.[0] ?? 'patient'
-  const navItems = navItemsByRole[role] ?? navItemsByRole.patient
-  const fullName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || user?.name || user?.full_name || 'Utilisateur'
-  const initials = fullName.split(' ').slice(0, 2).map(n => n[0] ?? '').join('').toUpperCase()
+  const role = user?.roles?.[0] ?? "patient";
+  const navItems = navItemsByRole[role] ?? navItemsByRole.patient;
+  const fullName =
+    `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() ||
+    user?.name ||
+    user?.full_name ||
+    "Utilisateur";
+  const initials = fullName
+    .split(" ")
+    .slice(0, 2)
+    .map((n) => n[0] ?? "")
+    .join("")
+    .toUpperCase();
 
   const handleLogout = async () => {
     try {
-      const { authApi } = await import('@/api')
-      await authApi.logout()
+      const { authApi } = await import("@/api");
+      await authApi.logout();
     } catch {}
-    logout()
-    navigate('/login')
-  }
+    logout();
+    navigate("/login");
+  };
 
   return (
-    <aside className={cn(
-      'fixed left-0 top-0 h-screen flex flex-col transition-all duration-300 z-40 shadow-xl',
-      sidebarOpen ? 'w-60' : 'w-16'
-    )} style={{ background: 'linear-gradient(180deg, #1e40af 0%, #2563eb 100%)' }}>
+    <aside
+      className={cn(
+        "fixed left-0 top-0 h-screen flex flex-col transition-all duration-300 z-40 shadow-xl",
+        sidebarOpen ? "w-60" : "w-16",
+      )}
+      style={{
+        background: "linear-gradient(180deg, #1e40af 0%, #2563eb 100%)",
+      }}
+    >
       {/* Logo */}
       <div className="flex items-center justify-between px-3 h-16 border-b border-white/15">
         {sidebarOpen ? (
           <div className="flex items-center gap-3">
-            <img src={logoImg} alt="LiptakoCare" className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-black/20" />
+            <img
+              src={logoImg}
+              alt="LiptakoCare"
+              className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-black/20"
+            />
             <div>
-              <span className="text-sm font-bold text-white tracking-wide block">LiptakoCare</span>
+              <span className="text-sm font-bold text-white tracking-wide block">
+                LiptakoCare
+              </span>
               <span className="text-2xs text-white/70">e-Santé BFA</span>
             </div>
           </div>
         ) : (
-          <img src={logoImg} alt="LiptakoCare" className="w-9 h-9 rounded-xl object-cover mx-auto shadow-lg shadow-black/20" />
+          <img
+            src={logoImg}
+            alt="LiptakoCare"
+            className="w-9 h-9 rounded-xl object-cover mx-auto shadow-lg shadow-black/20"
+          />
         )}
         <button
           onClick={toggleSidebar}
           className={cn(
-            'p-1.5 rounded-lg hover:bg-white/15 text-white transition-all duration-200',
-            !sidebarOpen && 'hidden'
+            "p-1.5 rounded-lg hover:bg-white/15 text-white transition-all duration-200",
+            !sidebarOpen && "hidden",
           )}
         >
           <ChevronLeft className="w-4 h-4" />
@@ -151,14 +197,21 @@ export default function Sidebar() {
           <NavLink
             key={to}
             to={to}
-            className={({ isActive }) => cn(
-              'flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200',
-              isActive
-                ? 'bg-white/20 text-white font-semibold shadow-inner-glow border border-white/20'
-                : 'text-white hover:bg-white/10 hover:text-white'
-            )}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200",
+                isActive
+                  ? "bg-white/20 text-white font-semibold shadow-inner-glow border border-white/20"
+                  : "text-white hover:bg-white/10 hover:text-white",
+              )
+            }
           >
-            <Icon className={cn('flex-shrink-0 w-[18px] h-[18px]', !sidebarOpen && 'mx-auto')} />
+            <Icon
+              className={cn(
+                "flex-shrink-0 w-[18px] h-[18px]",
+                !sidebarOpen && "mx-auto",
+              )}
+            />
             {sidebarOpen && <span className="truncate">{label}</span>}
           </NavLink>
         ))}
@@ -172,15 +225,25 @@ export default function Sidebar() {
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-white truncate">{fullName}</p>
-              <p className="text-[11px] text-white/70 truncate capitalize">{role?.replace('_', ' ')}</p>
+              <p className="text-[13px] font-semibold text-white truncate">
+                {fullName}
+              </p>
+              <p className="text-[11px] text-white/70 truncate capitalize">
+                {role?.replace("_", " ")}
+              </p>
             </div>
-            <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-red-500/20 text-white hover:text-red-300 transition-all duration-200">
+            <button
+              onClick={handleLogout}
+              className="p-1.5 rounded-lg hover:bg-red-500/20 text-white hover:text-red-300 transition-all duration-200"
+            >
               <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
-          <button onClick={handleLogout} className="w-full flex justify-center p-2.5 rounded-xl hover:bg-red-500/20 text-white hover:text-red-300 transition-all duration-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex justify-center p-2.5 rounded-xl hover:bg-red-500/20 text-white hover:text-red-300 transition-all duration-200"
+          >
             <LogOut className="w-4 h-4" />
           </button>
         )}
@@ -189,10 +252,14 @@ export default function Sidebar() {
       {/* Copyright & Version */}
       {sidebarOpen && (
         <div className="px-4 py-2.5 border-t border-white/15 text-center">
-          <p className="text-[10px] text-white/60">© {new Date().getFullYear()} LiptakoCare</p>
-          <p className="text-[10px] text-white/50">v3.0.0 — Plateforme TLM BFA</p>
+          <p className="text-[10px] text-white/60">
+            © {new Date().getFullYear()} LiptakoCare
+          </p>
+          <p className="text-[10px] text-white/50">
+            v3.0.0 — Plateforme TLM BFA
+          </p>
         </div>
       )}
     </aside>
-  )
+  );
 }

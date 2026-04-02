@@ -7,7 +7,7 @@ import { apiUrl } from "@/config/appConfig";
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
 
 // Détection du mode gateway (Hostinger CDN) : VITE_API_URL se termine par /index.php
-const isGatewayMode = apiUrl.endsWith('/index.php')
+const isGatewayMode = apiUrl.endsWith("/index.php");
 
 // Client Axios réel
 const axiosClient = axios.create({
