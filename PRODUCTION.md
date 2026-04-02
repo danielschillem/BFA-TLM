@@ -72,12 +72,16 @@ nano .env   # ← Remplir TOUTES les valeurs __À_DÉFINIR__
 - Si vous déployez des previews Hostinger dont le sous-domaine change, vous pouvez autoriser le pattern `https://*.hostingersite.com` directement dans `CORS_ALLOWED_ORIGINS`.
 - `Frontend/public/app-config.runtime.js` est désormais généré automatiquement pendant le build. Ne l'éditez pas manuellement.
 
+**Mode Gateway CDN (Hostinger hcdn) :**
+Le CDN Hostinger (hcdn) intercepte les requêtes vers les URL propres (`/api/v1/...`) et renvoie 404/405 avant qu'Apache ne puisse les router. Seul `/index.php` est transmis à PHP. Le fichier `Backend/public/index.php` intègre un gateway qui lit le chemin API réel depuis le header `X-Api-Path`. Côté frontend, quand `VITE_API_URL` se termine par `/index.php`, le client Axios active automatiquement le mode gateway.
+
+- Backend `.env` : `CORS_ALLOWED_ORIGINS=https://aqua-weasel-241472.hostingersite.com`
+- Frontend `.env` : `VITE_API_URL=https://ivory-tarsier-376970.hostingersite.com/index.php`
+
 **Couple Hostinger actuellement intégré dans le dépôt :**
 - Frontend : `https://aqua-weasel-241472.hostingersite.com`
-- API : `https://ivory-tarsier-376970.hostingersite.com/api/v1`
+- API (gateway) : `https://ivory-tarsier-376970.hostingersite.com/index.php`
 - CORS backend : `CORS_ALLOWED_ORIGINS=https://aqua-weasel-241472.hostingersite.com`
-- Template backend : `Backend/.env.production.hostinger`
-- Template frontend : `Frontend/.env.production.hostinger`
 
 ### 4. Créer la base de données MySQL
 

@@ -3,7 +3,7 @@
 use App\Support\CorsOriginResolver;
 
 return [
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'oauth/*', 'broadcasting/*'],
+    'paths' => ['api/*', 'api.php', 'sanctum/csrf-cookie', 'oauth/*', 'broadcasting/*'],
     'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     'allowed_origins' => CorsOriginResolver::resolve(
         env('CORS_ALLOWED_ORIGINS'),
@@ -14,7 +14,7 @@ return [
         env('CORS_ALLOWED_ORIGINS'),
         env('CORS_ALLOWED_ORIGIN_PATTERNS'),
     ),
-    'allowed_headers' => ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-XSRF-TOKEN'],
+    'allowed_headers' => ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-XSRF-TOKEN', 'X-Api-Path'],
     'exposed_headers' => ['X-CDA-Version', 'X-CDA-Implementation'],
     'max_age' => 3600,
     'supports_credentials' => true,
