@@ -17,6 +17,7 @@ import {
   Banknote,
   Building,
   CircleCheck,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { directoryApi, appointmentsApi, paymentsApi } from "@/api";
@@ -109,6 +110,13 @@ export default function PatientBookAppointment() {
     enabled: !!doctorId && !!selectedDate,
   });
 
+  // Paramètres de frais de la plateforme
+  const { data: paymentSettings } = useQuery({
+    queryKey: ["payment-settings"],
+    queryFn: () => paymentsApi.getSettings().then((r) => r.data.data),
+    staleTime: 300_000, // 5 minutes
+  });
+
   const availableSlots = useMemo(
     () => (slotsData?.slots ?? []).filter((s) => s.available),
     [slotsData],
@@ -118,6 +126,33 @@ export default function PatientBookAppointment() {
     slotsData?.tarif ??
     availability.find((d) => d.date === selectedDate)?.tarif ??
     0;
+
+  // Calcul des frais en fonction du mode de paiement
+  const feeBreakdown = useMemo(() => {
+    if (!tarif || tarif <= 0) return null;
+
+    const platformFee = paymentSettings?.platform_fee_enabled
+      ? (paymentSettings?.platform_fee ?? 500)
+      : 0;
+    const mobileMoneyRate = paymentSettings?.mobile_money_rate ?? 1.5;
+
+    // Pour mobile money, calculer les frais API
+    const subtotal = tarif + platformFee;
+    const isMobileMoney = paymentMethod && paymentMethod !== "especes";
+    const mobileMoneyFee = isMobileMoney
+      ? Math.ceil(subtotal * (mobileMoneyRate / 100))
+      : 0;
+    const total = subtotal + mobileMoneyFee;
+
+    return {
+      consultation: tarif,
+      platformFee,
+      mobileMoneyFee,
+      mobileMoneyRate,
+      total,
+      isMobileMoney,
+    };
+  }, [tarif, paymentSettings, paymentMethod]);
 
   // ── Mutations ───────────────────────────────────────────────────────────────
 
@@ -145,7 +180,7 @@ export default function PatientBookAppointment() {
         payment = payRes.data?.data;
       }
 
-      return { rdv, payment };
+      return { rdv, payment, feeBreakdown };
     },
     onSuccess: ({ rdv, payment }) => {
       setBookingResult({ rdv, payment });
@@ -295,9 +330,43 @@ export default function PatientBookAppointment() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Montant</span>
+                  <span className="text-gray-500">Consultation</span>
+                  <span className="font-medium">
+                    {Number(
+                      bookingResult.feeBreakdown?.consultation ?? tarif,
+                    ).toLocaleString()}{" "}
+                    FCFA
+                  </span>
+                </div>
+                {bookingResult.feeBreakdown?.platformFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Frais plateforme</span>
+                    <span className="font-medium">
+                      {Number(
+                        bookingResult.feeBreakdown.platformFee,
+                      ).toLocaleString()}{" "}
+                      FCFA
+                    </span>
+                  </div>
+                )}
+                {bookingResult.feeBreakdown?.mobileMoneyFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Frais Mobile Money</span>
+                    <span className="font-medium">
+                      {Number(
+                        bookingResult.feeBreakdown.mobileMoneyFee,
+                      ).toLocaleString()}{" "}
+                      FCFA
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t pt-2 mt-2">
+                  <span className="text-gray-700 font-medium">Total</span>
                   <span className="font-bold text-primary-600">
-                    {Number(tarif).toLocaleString()} FCFA
+                    {Number(
+                      bookingResult.feeBreakdown?.total ?? tarif,
+                    ).toLocaleString()}{" "}
+                    FCFA
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -701,14 +770,57 @@ export default function PatientBookAppointment() {
               <CardContent className="space-y-4">
                 {tarif > 0 ? (
                   <>
-                    {/* Amount */}
-                    <div className="bg-primary-50 rounded-xl p-5 text-center">
-                      <p className="text-sm text-primary-600 mb-1">
-                        Montant de la consultation
-                      </p>
-                      <p className="text-3xl font-bold text-primary-800">
-                        {Number(tarif).toLocaleString()} FCFA
-                      </p>
+                    {/* Fee breakdown */}
+                    <div className="bg-primary-50 rounded-xl p-5 space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Consultation</span>
+                        <span className="font-medium text-gray-800">
+                          {Number(tarif).toLocaleString()} FCFA
+                        </span>
+                      </div>
+
+                      {feeBreakdown?.platformFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 flex items-center gap-1">
+                            Frais de service plateforme
+                            <span className="text-xs text-gray-400 inline-flex items-center">
+                              <Info className="w-3 h-3 ml-0.5" />
+                            </span>
+                          </span>
+                          <span className="font-medium text-gray-800">
+                            {Number(feeBreakdown.platformFee).toLocaleString()}{" "}
+                            FCFA
+                          </span>
+                        </div>
+                      )}
+
+                      {feeBreakdown?.isMobileMoney &&
+                        feeBreakdown?.mobileMoneyFee > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">
+                              Frais Mobile Money ({feeBreakdown.mobileMoneyRate}
+                              %)
+                            </span>
+                            <span className="font-medium text-gray-800">
+                              {Number(
+                                feeBreakdown.mobileMoneyFee,
+                              ).toLocaleString()}{" "}
+                              FCFA
+                            </span>
+                          </div>
+                        )}
+
+                      <div className="border-t border-primary-200 pt-3 flex justify-between">
+                        <span className="font-semibold text-primary-700">
+                          Total à payer
+                        </span>
+                        <span className="text-xl font-bold text-primary-800">
+                          {feeBreakdown
+                            ? Number(feeBreakdown.total).toLocaleString()
+                            : Number(tarif).toLocaleString()}{" "}
+                          FCFA
+                        </span>
+                      </div>
                     </div>
 
                     {/* Method selection */}

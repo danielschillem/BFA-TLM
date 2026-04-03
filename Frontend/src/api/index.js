@@ -167,6 +167,10 @@ export const paymentsApi = {
   downloadInvoice: (id) =>
     apiClient.get(`/payments/${id}/invoice`, { responseType: "blob" }),
   statement: (params) => apiClient.get("/payments/statement", { params }),
+  // Paramètres de frais publics
+  getSettings: () => apiClient.get("/payments/settings"),
+  // Calculer les frais avant paiement
+  calculateFees: (d) => apiClient.post("/payments/calculate-fees", d),
 };
 
 // ── Messagerie ────────────────────────────────────────────────────────────────

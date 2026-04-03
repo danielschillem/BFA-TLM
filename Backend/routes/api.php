@@ -27,6 +27,7 @@ use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\PatientConsentController;
 use App\Http\Controllers\API\PatientController;
 use App\Http\Controllers\API\PaymentController;
+use App\Http\Controllers\API\PlatformSettingsController;
 use App\Http\Controllers\API\RolePermissionController;
 use App\Http\Controllers\API\PrescriptionController;
 use App\Http\Controllers\API\StructureManagementController;
@@ -411,6 +412,13 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::get('/announcements/{id}', [AnnouncementController::class, 'show']);
         Route::put('/announcements/{id}', [AnnouncementController::class, 'update']);
         Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy']);
+
+        // ── Paramètres de la plateforme (Admin) ──
+        Route::prefix('settings')->middleware('permission:admin.settings')->group(function () {
+            Route::get('/', [PlatformSettingsController::class, 'index']);
+            Route::put('/{key}', [PlatformSettingsController::class, 'update']);
+            Route::put('/', [PlatformSettingsController::class, 'batchUpdate']);
+        });
     });
 
     // Annonces publiées (tous utilisateurs authentifiés)
@@ -460,6 +468,10 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::post('/{id}/doctor-validate', [PaymentController::class, 'doctorValidate'])->middleware('permission:payments.validate');
         Route::get('/{id}/invoice', [PaymentController::class, 'downloadInvoice'])->middleware('permission:payments.view');
         Route::get('/statement', [PaymentController::class, 'statement'])->middleware('permission:payments.view');
+        // Paramètres de frais publics (pour afficher au patient)
+        Route::get('/settings', [PlatformSettingsController::class, 'publicSettings']);
+        // Calculer les frais avant paiement
+        Route::post('/calculate-fees', [PaymentController::class, 'calculateFees']);
     });
 
     // Imagerie médicale (DICOM / dcm4chee-arc)

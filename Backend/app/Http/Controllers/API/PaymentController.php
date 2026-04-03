@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Resources\PaiementResource;
 use App\Models\Paiement;
+use App\Models\PlatformSetting;
 use App\Models\RendezVous;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -73,9 +74,9 @@ class PaymentController extends Controller
     public function initiateForAppointment(int $appointmentId, Request $request): JsonResponse
     {
         $request->validate([
-            'amount'  => 'required|numeric|min:0',
-            'method'  => 'required|string',
-            'phone'   => 'nullable|string|max:20',
+            'consultation_amount' => 'required|numeric|min:0',
+            'method'              => 'required|string',
+            'phone'               => 'nullable|string|max:20',
         ]);
 
         $rdv = RendezVous::findOrFail($appointmentId);
@@ -88,10 +89,24 @@ class PaymentController extends Controller
             abort(403, 'Accès non autorisé à ce rendez-vous.');
         }
 
+        // Calculer les frais avec le modèle économique
+        $consultationAmount = (float) $request->input('consultation_amount');
+        $fees = PlatformSetting::calculateTotalWithFees($consultationAmount);
+
+        // Pour les paiements en espèces, pas de frais mobile money
+        $method = self::METHOD_MAP[$request->input('method')] ?? $request->input('method');
+        if ($method === 'especes') {
+            $fees['mobile_money_fee'] = 0;
+            $fees['total'] = $fees['consultation_amount'] + $fees['platform_fee'];
+        }
+
         $paiement = Paiement::create([
             'telephone'           => $request->input('phone', $user->telephone_1),
-            'montant'             => $request->input('amount'),
-            'methode'             => self::METHOD_MAP[$request->input('method')] ?? $request->input('method'),
+            'montant'             => $fees['total'],
+            'montant_consultation' => $fees['consultation_amount'],
+            'frais_plateforme'    => $fees['platform_fee'],
+            'frais_mobile_money'  => $fees['mobile_money_fee'],
+            'methode'             => $method,
             'statut'              => 'en_attente',
             'reference'           => 'PAY-' . strtoupper(Str::random(10)),
             'rendez_vous_id'      => $rdv->id,
@@ -102,7 +117,35 @@ class PaymentController extends Controller
             'success'   => true,
             'message'   => 'Paiement initié',
             'data'      => new PaiementResource($paiement),
+            'fees'      => $fees,
         ], 201);
+    }
+
+    /**
+     * Calculer les frais pour un montant donné (preview avant paiement).
+     * GET /payments/calculate-fees
+     */
+    public function calculateFees(Request $request): JsonResponse
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'method' => 'nullable|string',
+        ]);
+
+        $amount = (float) $request->input('amount');
+        $fees = PlatformSetting::calculateTotalWithFees($amount);
+
+        // Pour les paiements en espèces, pas de frais mobile money
+        $method = $request->input('method');
+        if ($method && (self::METHOD_MAP[$method] ?? $method) === 'especes') {
+            $fees['mobile_money_fee'] = 0;
+            $fees['total'] = $fees['consultation_amount'] + $fees['platform_fee'];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => $fees,
+        ]);
     }
 
     /**

@@ -36,7 +36,7 @@ class RolePermissionSeeder extends Seeder
             // Téléexpertise
             'teleexpertise.view', 'teleexpertise.create', 'teleexpertise.respond',
             // Admin
-            'admin.dashboard', 'admin.users', 'admin.audit',
+            'admin.dashboard', 'admin.users', 'admin.audit', 'admin.settings',
             // Structures
             'structures.view', 'structures.manage',
             // Types de structure
