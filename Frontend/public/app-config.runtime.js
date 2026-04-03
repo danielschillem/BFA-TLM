@@ -1,5 +1,5 @@
 window.__APP_CONFIG__ = {
-  "VITE_API_URL": "https://liptakocare.bfa-tlm.online/api/v1",
+  "VITE_API_URL": "/api/v1",
   "VITE_APP_NAME": "LiptakoCare",
   "VITE_JITSI_DOMAIN": "meet.jit.si",
   "VITE_REVERB_APP_KEY": "",
