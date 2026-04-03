@@ -192,7 +192,8 @@ Route::prefix('auth')->middleware('throttle:auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])->middleware('throttle:password-reset');
     Route::post('/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
-    Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor']);
+    Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor'])->middleware(['auth:api', 'active']);
+    Route::post('/two-factor/resend', [AuthController::class, 'resendTwoFactor'])->middleware(['auth:api', 'active']);
 
     // Authentifié
     Route::middleware(['auth:api', 'active'])->group(function () {
@@ -222,11 +223,13 @@ Route::middleware(['auth:api', 'active'])->group(function () {
 
     // Annuaire médecins (lecture accessible à tout utilisateur authentifié)
     Route::prefix('directory')->group(function () {
+        Route::get('/structures', [DirectoryController::class, 'structures']);
         Route::get('/doctors', [DirectoryController::class, 'searchDoctors']);
         Route::get('/doctors/{id}', [DirectoryController::class, 'getDoctor']);
         Route::get('/specialties', [DirectoryController::class, 'getSpecialties']);
         Route::get('/appointments/slots', [DirectoryController::class, 'getSlots']);
-        // Gestion des plannings (médecins/spécialistes uniquement)
+        Route::get('/appointments/availability', [DirectoryController::class, 'getAvailability']);
+        // Gestion des disponibilités (médecins/spécialistes uniquement)
         Route::post('/schedule', [DirectoryController::class, 'createSchedule'])->middleware('permission:appointments.update');
         Route::delete('/schedule/{id}', [DirectoryController::class, 'deleteSchedule'])->middleware('permission:appointments.update');
         Route::get('/schedule', [DirectoryController::class, 'mySchedule'])->middleware('permission:appointments.view');
@@ -452,6 +455,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     // Paiements
     Route::prefix('payments')->group(function () {
         Route::post('/consultations/{consultationId}/initiate', [PaymentController::class, 'initiate'])->middleware('permission:payments.initiate');
+        Route::post('/appointments/{appointmentId}/initiate', [PaymentController::class, 'initiateForAppointment'])->middleware('permission:payments.initiate');
         Route::post('/confirm', [PaymentController::class, 'confirm'])->middleware('permission:payments.confirm');
         Route::post('/{id}/doctor-validate', [PaymentController::class, 'doctorValidate'])->middleware('permission:payments.validate');
         Route::get('/{id}/invoice', [PaymentController::class, 'downloadInvoice'])->middleware('permission:payments.view');

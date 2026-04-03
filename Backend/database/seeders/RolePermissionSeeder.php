@@ -86,6 +86,7 @@ class RolePermissionSeeder extends Seeder
         $patient = Role::firstOrCreate(['name' => 'patient', 'guard_name' => 'api']);
         $patient->syncPermissions([
             'appointments.view', 'appointments.create', 'appointments.cancel',
+            'consultations.view',
             'dossiers.view',
             'documents.view',
             'messages.view', 'messages.send',

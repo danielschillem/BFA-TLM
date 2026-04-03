@@ -14,9 +14,30 @@ class DocumentController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Document::with('user');
+        $user = $request->user();
 
-        if (!$request->user()->hasRole('admin')) {
-            $query->where('user_id', $request->user()->id);
+        if ($user->hasRole('admin')) {
+            // Admin voit tout
+        } elseif ($user->hasRole('patient')) {
+            // Le patient ne voit que ses propres documents (liés à son dossier ou uploadés par lui)
+            $patient = $user->patient;
+            $query->where(function ($q) use ($user, $patient) {
+                $q->where('user_id', $user->id);
+                if ($patient) {
+                    $q->orWhere(function ($q2) use ($patient) {
+                        $q2->where('documentable_type', 'App\\Models\\Patient')
+                           ->where('documentable_id', $patient->id);
+                    });
+                    if ($patient->dossier) {
+                        $q->orWhere(function ($q2) use ($patient) {
+                            $q2->where('documentable_type', 'App\\Models\\DossierPatient')
+                               ->where('documentable_id', $patient->dossier->id);
+                        });
+                    }
+                }
+            });
+        } else {
+            $query->where('user_id', $user->id);
         }
 
         $documents = $query->orderBy('created_at', 'desc')

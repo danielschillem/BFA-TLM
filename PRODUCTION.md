@@ -211,6 +211,9 @@ sudo systemctl start liptakocare-reverb
 | 15  | 2FA actif pour médecins/admins        | ☐      |
 | 16  | SMTP fonctionnel (test email)         | ☐      |
 
+Note:
+Les emails critiques d'authentification (code 2FA et réinitialisation de mot de passe) sont envoyés de manière synchrone pour éviter qu'une panne de worker casse le parcours de connexion. Le worker reste requis pour les autres traitements asynchrones.
+
 ---
 
 ## Vérification post-déploiement

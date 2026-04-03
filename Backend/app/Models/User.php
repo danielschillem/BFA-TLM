@@ -123,6 +123,14 @@ class User extends Authenticatable
         return $this->hasMany(Patient::class, 'created_by_id');
     }
 
+    /**
+     * Le dossier patient lié à cet utilisateur (pour les utilisateurs avec rôle patient).
+     */
+    public function patient()
+    {
+        return $this->hasOne(Patient::class);
+    }
+
     public function services()
     {
         return $this->belongsToMany(Service::class, 'service_user');

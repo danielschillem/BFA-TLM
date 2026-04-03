@@ -4,6 +4,84 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+function tlm_read_env_value(string $key, string $default = ''): string
+{
+    $value = getenv($key);
+
+    if ($value === false && isset($_SERVER[$key])) {
+        $value = $_SERVER[$key];
+    }
+
+    if ($value === false && isset($_ENV[$key])) {
+        $value = $_ENV[$key];
+    }
+
+    if ($value === false) {
+        static $envFile = null;
+
+        if ($envFile === null) {
+            $envFile = [];
+            $envPath = dirname(__DIR__) . '/.env';
+
+            if (is_file($envPath)) {
+                foreach (file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+                    $line = trim($line);
+
+                    if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) {
+                        continue;
+                    }
+
+                    [$envKey, $envValue] = explode('=', $line, 2);
+                    $envFile[trim($envKey)] = trim($envValue, " \t\n\r\0\x0B\"'");
+                }
+            }
+        }
+
+        $value = $envFile[$key] ?? $default;
+    }
+
+    return is_string($value) ? trim($value) : $default;
+}
+
+function tlm_parse_csv_env(string $key, string $default = ''): array
+{
+    $value = tlm_read_env_value($key, $default);
+
+    return array_values(array_filter(array_map('trim', explode(',', $value))));
+}
+
+function tlm_origin_matches(string $origin, array $allowedOrigins, array $allowedPatterns): bool
+{
+    if ($origin === '') {
+        return false;
+    }
+
+    foreach ($allowedOrigins as $allowedOrigin) {
+        if (str_contains($allowedOrigin, '*')) {
+            $pattern = '/^' . str_replace('\\*', '.*', preg_quote($allowedOrigin, '/')) . '$/i';
+            if (preg_match($pattern, $origin)) {
+                return true;
+            }
+
+            continue;
+        }
+
+        if (strcasecmp($allowedOrigin, $origin) === 0) {
+            return true;
+        }
+    }
+
+    foreach ($allowedPatterns as $allowedPattern) {
+        if ($allowedPattern !== '' && @preg_match('/' . $allowedPattern . '/i', $origin)) {
+            if (preg_match('/' . $allowedPattern . '/i', $origin)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 // ── CORS preflight global ───────────────────────────────────────────────────
 // Le navigateur envoie OPTIONS automatiquement SANS le header X-Api-Path.
 // On doit donc intercepter OPTIONS ici, avant tout le reste, pour renvoyer
@@ -11,6 +89,15 @@ define('LARAVEL_START', microtime(true));
 // la vraie requête (POST/GET/PUT...).
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+    $allowedOrigins = tlm_parse_csv_env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5173');
+    $allowedOriginPatterns = tlm_parse_csv_env('CORS_ALLOWED_ORIGINS_PATTERNS', '');
+
+    if ($origin !== '' && !tlm_origin_matches($origin, $allowedOrigins, $allowedOriginPatterns)) {
+        http_response_code(403);
+        exit;
+    }
+
     if ($origin !== '') {
         header('Access-Control-Allow-Origin: ' . $origin);
         header('Access-Control-Allow-Credentials: true');

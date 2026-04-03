@@ -2,9 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Notifications\ResetPasswordNotification;
+use App\Notifications\TwoFactorCodeNotification;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Passport\ClientRepository;
 use Tests\TestCase;
 
@@ -91,8 +95,102 @@ class AuthTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_sensitive_role_login_requires_two_factor_in_production(): void
+    {
+        config(['app.env' => 'production']);
+        Notification::fake();
+
+        $user = User::factory()->doctor()->create(['status' => 'actif']);
+        $user->assignRole('doctor');
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.requires_two_factor', true)
+            ->assertJsonStructure(['data' => ['user', 'token', 'requires_two_factor']]);
+
+        Notification::assertSentTo($user, TwoFactorCodeNotification::class);
+    }
+
+    public function test_two_factor_code_can_be_resent_with_pending_token(): void
+    {
+        config(['app.env' => 'production']);
+        Notification::fake();
+
+        $user = User::factory()->doctor()->create(['status' => 'actif']);
+        $user->assignRole('doctor');
+
+        $loginResponse = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $pendingToken = $loginResponse->json('data.token');
+        $initialHash = $user->fresh()->two_factor_code;
+
+        $response = $this->withHeader('Authorization', "Bearer {$pendingToken}")
+            ->postJson('/api/v1/auth/two-factor/resend');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertNotSame($initialHash, $user->fresh()->two_factor_code);
+    }
+
+    public function test_two_factor_verification_requires_pending_token(): void
+    {
+        config(['app.env' => 'production']);
+        Notification::fake();
+
+        $user = User::factory()->doctor()->create(['status' => 'actif']);
+        $user->assignRole('doctor');
+        $user->update([
+            'two_factor_code' => bcrypt('123456'),
+            'two_factor_expires_at' => now()->addMinutes(10),
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/two-factor/verify', [
+            'user_id' => $user->id,
+            'code' => '123456',
+        ]);
+
+        $response->assertStatus(401);
+    }
+
+    public function test_two_factor_verification_rejects_user_mismatch(): void
+    {
+        config(['app.env' => 'production']);
+        Notification::fake();
+
+        $user = User::factory()->doctor()->create(['status' => 'actif']);
+        $user->assignRole('doctor');
+
+        $otherUser = User::factory()->doctor()->create(['status' => 'actif']);
+        $otherUser->assignRole('doctor');
+
+        $loginResponse = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $pendingToken = $loginResponse->json('data.token');
+
+        $response = $this->withHeader('Authorization', "Bearer {$pendingToken}")
+            ->postJson('/api/v1/auth/two-factor/verify', [
+                'user_id' => $otherUser->id,
+                'code' => '000000',
+            ]);
+
+        $response->assertStatus(403);
+    }
+
     public function test_me_returns_authenticated_user(): void
     {
+        /** @var User $user */
         $user = User::factory()->create(['status' => 'actif']);
         $user->assignRole('patient');
 
@@ -147,8 +245,37 @@ class AuthTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
+    public function test_reset_password_notification_uses_configured_frontend_url(): void
+    {
+        config(['app.frontend_url' => 'https://front.example.test']);
+
+        $user = User::factory()->make([
+            'email' => 'fatima@example.test',
+            'prenoms' => 'Fatima',
+        ]);
+
+        $notification = new ResetPasswordNotification('token-123');
+        $mail = $notification->toMail($user);
+
+        $this->assertStringContainsString(
+            'https://front.example.test/reset-password?token=token-123&email=fatima%40example.test',
+            $mail->actionUrl,
+        );
+    }
+
+    public function test_two_factor_notification_is_sent_synchronously(): void
+    {
+        $this->assertNotContains(ShouldQueue::class, class_implements(TwoFactorCodeNotification::class));
+    }
+
+    public function test_reset_password_notification_is_sent_synchronously(): void
+    {
+        $this->assertNotContains(ShouldQueue::class, class_implements(ResetPasswordNotification::class));
+    }
+
     public function test_change_password(): void
     {
+        /** @var User $user */
         $user = User::factory()->create(['status' => 'actif']);
 
         $response = $this->actingAs($user, 'api')
@@ -164,6 +291,7 @@ class AuthTest extends TestCase
 
     public function test_update_profile(): void
     {
+        /** @var User $user */
         $user = User::factory()->create(['status' => 'actif']);
 
         $response = $this->actingAs($user, 'api')

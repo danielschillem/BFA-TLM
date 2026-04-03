@@ -52,6 +52,7 @@ export const authApi = {
   register: (data) => apiClient.post("/auth/register", data),
   login: (data) => apiClient.post("/auth/login", data),
   verifyTwoFactor: (data) => apiClient.post("/auth/two-factor/verify", data),
+  resendTwoFactor: () => apiClient.post("/auth/two-factor/resend", {}),
   logout: () => apiClient.post("/auth/logout", {}),
   me: () => apiClient.get("/auth/me"),
   updateProfile: (data) => apiClient.put("/auth/profile", data),
@@ -65,8 +66,11 @@ export const directoryApi = {
   search: (params) => apiClient.get("/directory/doctors", { params }),
   getDoctor: (id) => apiClient.get(`/directory/doctors/${id}`),
   getSpecialties: () => apiClient.get("/directory/specialties"),
+  getStructures: (params) => apiClient.get("/directory/structures", { params }),
   getSlots: (params) =>
     apiClient.get("/directory/appointments/slots", { params }),
+  getAvailability: (params) =>
+    apiClient.get("/directory/appointments/availability", { params }),
   createSchedule: (data) => apiClient.post("/directory/schedule", data),
   deleteSchedule: (id) => apiClient.delete(`/directory/schedule/${id}`),
   mySchedule: () => apiClient.get("/directory/schedule"),
@@ -156,6 +160,8 @@ export const prescriptionsApi = {
 export const paymentsApi = {
   initiate: (cId, d) =>
     apiClient.post(`/payments/consultations/${cId}/initiate`, d),
+  initiateForAppointment: (rdvId, d) =>
+    apiClient.post(`/payments/appointments/${rdvId}/initiate`, d),
   confirm: (data) => apiClient.post("/payments/confirm", data),
   doctorValidate: (id) => apiClient.post(`/payments/${id}/doctor-validate`, {}),
   downloadInvoice: (id) =>

@@ -22,6 +22,9 @@ import DashboardAdmin from "@/pages/dashboard/DashboardAdmin";
 const DoctorSearch = lazy(() => import("@/pages/directory/DoctorSearch"));
 const DoctorProfile = lazy(() => import("@/pages/directory/DoctorProfile"));
 const BookAppointment = lazy(() => import("@/pages/directory/BookAppointment"));
+const PatientBookAppointment = lazy(
+  () => import("@/pages/directory/PatientBookAppointment"),
+);
 const AppointmentList = lazy(
   () => import("@/pages/appointments/AppointmentList"),
 );
@@ -325,6 +328,16 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <DoctorProfile />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Prise de rendez-vous par le patient */}
+            <Route
+              path="/directory/:doctorId/book"
+              element={
+                <ProtectedRoute>
+                  <PatientBookAppointment />
                 </ProtectedRoute>
               }
             />

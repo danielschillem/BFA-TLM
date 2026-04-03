@@ -20,9 +20,12 @@ class AppointmentController extends Controller
         $user = $request->user();
 
         if ($user->hasRole('patient')) {
-            $patient = $user->patients ?? $user->patient;
+            $patient = $user->patient;
             if ($patient) {
                 $query->where('patient_id', $patient->id);
+            } else {
+                // Pas de fiche patient liée → aucun RDV à montrer
+                $query->whereRaw('1 = 0');
             }
         } elseif (!$user->hasRole('admin')) {
             // Le PS voit ses propres RDV + ceux où il est assistant invité
@@ -78,13 +81,21 @@ class AppointmentController extends Controller
 
         $user = $request->user();
 
-        // Le PS connecté est le médecin consultant principal (user_id)
-        if (empty($data['user_id'])) {
-            $data['user_id'] = $user->id;
+        // Si le patient prend lui-même rendez-vous, lier automatiquement à sa fiche patient
+        if ($user->hasRole('patient')) {
+            $patient = $user->patient;
+            if ($patient) {
+                $data['patient_id'] = $patient->id;
+            }
+            // user_id = le médecin choisi (envoyé par le frontend), sinon null
+            $data['created_by_doctor_id'] = null;
+        } else {
+            // Le PS connecté est le médecin consultant principal (user_id)
+            if (empty($data['user_id'])) {
+                $data['user_id'] = $user->id;
+            }
+            $data['created_by_doctor_id'] = $user->id;
         }
-
-        // Tracer qui a créé le RDV
-        $data['created_by_doctor_id'] = $user->id;
 
         // Default status
         $data['statut'] = 'planifie';

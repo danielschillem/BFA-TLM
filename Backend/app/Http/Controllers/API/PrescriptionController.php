@@ -17,9 +17,21 @@ class PrescriptionController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Prescription::with('consultation.user');
+        $user = $request->user();
 
-        if (!$request->user()->hasRole('admin')) {
-            $query->whereHas('consultation', fn ($q) => $q->where('user_id', $request->user()->id));
+        if ($user->hasRole('admin')) {
+            // Admin voit tout
+        } elseif ($user->hasRole('patient')) {
+            // Le patient ne voit que ses propres prescriptions (via son dossier)
+            $patient = $user->patient;
+            if ($patient && $patient->dossier) {
+                $query->whereHas('consultation', fn ($q) => $q->where('dossier_patient_id', $patient->dossier->id));
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            // PS voit les prescriptions de ses consultations
+            $query->whereHas('consultation', fn ($q) => $q->where('user_id', $user->id));
         }
 
         $prescriptions = $query->orderBy('created_at', 'desc')

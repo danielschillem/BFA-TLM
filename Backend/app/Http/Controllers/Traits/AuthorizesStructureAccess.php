@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 trait AuthorizesStructureAccess
 {
     /**
-     * Vérifie que l'utilisateur a accès à un patient donné (même structure).
+     * Vérifie que l'utilisateur a accès à un patient donné (même structure ou patient autonome).
      */
     protected function authorizePatientAccess(Patient $patient): void
     {
@@ -24,6 +24,11 @@ trait AuthorizesStructureAccess
         if ($user->hasRole('admin')) {
             return;
         }
+        // Un patient autonome peut accéder à sa propre fiche
+        if ($user->hasRole('patient') && $patient->user_id === $user->id) {
+            return;
+        }
+        // Un PS peut accéder aux patients de sa structure
         if ($user->structure_id && $patient->structure_id === $user->structure_id) {
             return;
         }
@@ -68,13 +73,17 @@ trait AuthorizesStructureAccess
 
     /**
      * Filtre un query builder par la structure de l'utilisateur (sauf admin).
-     * Applicable aux modèles ayant une colonne `structure_id`.
+     * Les patients autonomes ne voient que leurs propres enregistrements.
      */
     protected function scopeByStructure($query, ?string $column = 'structure_id')
     {
         $user = request()->user();
         if ($user->hasRole('admin')) {
             return $query;
+        }
+        // Patient autonome : filtrer par user_id (sa propre fiche)
+        if ($user->hasRole('patient')) {
+            return $query->where('user_id', $user->id);
         }
         return $query->where($column, $user->structure_id);
     }

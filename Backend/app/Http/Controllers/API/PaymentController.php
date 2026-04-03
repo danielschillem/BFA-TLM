@@ -67,6 +67,45 @@ class PaymentController extends Controller
     }
 
     /**
+     * Initier un paiement directement sur un rendez-vous (booking patient).
+     * POST /payments/appointments/{appointmentId}/initiate
+     */
+    public function initiateForAppointment(int $appointmentId, Request $request): JsonResponse
+    {
+        $request->validate([
+            'amount'  => 'required|numeric|min:0',
+            'method'  => 'required|string',
+            'phone'   => 'nullable|string|max:20',
+        ]);
+
+        $rdv = RendezVous::findOrFail($appointmentId);
+
+        // Vérifier que l'utilisateur est impliqué dans ce RDV
+        $user = $request->user();
+        if (!$user->hasRole('admin')
+            && $rdv->user_id !== $user->id
+            && (!$rdv->patient || $rdv->patient->user_id !== $user->id)) {
+            abort(403, 'Accès non autorisé à ce rendez-vous.');
+        }
+
+        $paiement = Paiement::create([
+            'telephone'           => $request->input('phone', $user->telephone_1),
+            'montant'             => $request->input('amount'),
+            'methode'             => self::METHOD_MAP[$request->input('method')] ?? $request->input('method'),
+            'statut'              => 'en_attente',
+            'reference'           => 'PAY-' . strtoupper(Str::random(10)),
+            'rendez_vous_id'      => $rdv->id,
+            'type_facturation_id' => $request->input('billing_type_id'),
+        ]);
+
+        return response()->json([
+            'success'   => true,
+            'message'   => 'Paiement initié',
+            'data'      => new PaiementResource($paiement),
+        ], 201);
+    }
+
+    /**
      * Confirmer un paiement (callback mobile money ou validation manuelle).
      * POST /payments/confirm
      */

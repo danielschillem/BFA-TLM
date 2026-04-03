@@ -1,43 +1,75 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
-import { Search, MapPin, Star, Video, Filter, ChevronDown, X } from 'lucide-react'
-import { directoryApi } from '@/api'
-import AppLayout from '@/components/layout/AppLayout'
-import { Card, CardContent } from '@/components/ui/Card'
-import { LoadingPage } from '@/components/common/LoadingSpinner'
-import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import { getInitials } from '@/utils/helpers'
-
-const SPECIALTIES = [
-  'Médecine générale','Cardiologie','Pédiatrie','Gynécologie','Dermatologie',
-  'Ophtalmologie','Neurologie','Psychiatrie','Orthopédie','Radiologie',
-  'Infectiologie','Endocrinologie',
-]
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import {
+  Search,
+  MapPin,
+  Star,
+  Video,
+  Filter,
+  ChevronDown,
+  X,
+  Building2,
+} from "lucide-react";
+import { directoryApi } from "@/api";
+import AppLayout from "@/components/layout/AppLayout";
+import { Card, CardContent } from "@/components/ui/Card";
+import { LoadingPage } from "@/components/common/LoadingSpinner";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { getInitials } from "@/utils/helpers";
 
 export default function DoctorSearch() {
-  const navigate = useNavigate()
-  const [filters, setFilters] = useState({ search: '', specialty: '', consultation_type: '', city: '' })
-  const [showFilters, setShowFilters] = useState(false)
-  const [search, setSearch] = useState('')
+  const navigate = useNavigate();
+  const [filters, setFilters] = useState({
+    search: "",
+    specialty: "",
+    structure_id: "",
+    consultation_type: "",
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // Charger les spécialités dynamiquement
+  const { data: specialtiesData } = useQuery({
+    queryKey: ["directory", "specialties"],
+    queryFn: () => directoryApi.getSpecialties().then((r) => r.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+  const specialties = specialtiesData ?? [];
+
+  // Charger les structures disponibles
+  const { data: structuresData } = useQuery({
+    queryKey: ["directory", "structures"],
+    queryFn: () =>
+      directoryApi
+        .getStructures({ per_page: 100 })
+        .then((r) => r.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+  const structures = structuresData ?? [];
 
   const { data, isLoading } = useQuery({
-    queryKey: ['directory', filters],
-    queryFn: () => directoryApi.search(filters).then(r => r.data.data?.data ?? []),
+    queryKey: ["directory", "doctors", filters],
+    queryFn: () => directoryApi.search(filters).then((r) => r.data.data ?? []),
     enabled: true,
-  })
+  });
 
-  const doctors = data ?? []
+  const doctors = data ?? [];
 
-  const applySearch = () => setFilters(f => ({ ...f, search }))
+  const applySearch = () => setFilters((f) => ({ ...f, search }));
 
   const clearFilters = () => {
-    setFilters({ search: '', specialty: '', consultation_type: '', city: '' })
-    setSearch('')
-  }
+    setFilters({
+      search: "",
+      specialty: "",
+      structure_id: "",
+      consultation_type: "",
+    });
+    setSearch("");
+  };
 
-  const activeFiltersCount = Object.values(filters).filter(Boolean).length
+  const activeFiltersCount = Object.values(filters).filter(Boolean).length;
 
   return (
     <AppLayout title="Annuaire médical">
@@ -49,16 +81,18 @@ export default function DoctorSearch() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && applySearch()}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applySearch()}
                 placeholder="Chercher par nom, spécialité…"
                 className="input-field pl-9 w-full"
               />
             </div>
-            <Button onClick={applySearch} icon={Search}>Rechercher</Button>
+            <Button onClick={applySearch} icon={Search}>
+              Rechercher
+            </Button>
             <Button
               variant="outline"
-              onClick={() => setShowFilters(v => !v)}
+              onClick={() => setShowFilters((v) => !v)}
               className="relative"
             >
               <Filter className="w-4 h-4" />
@@ -73,41 +107,71 @@ export default function DoctorSearch() {
           {showFilters && (
             <div className="mt-4 pt-4 border-t border-gray-100 grid sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Spécialité</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Spécialité
+                </label>
                 <select
                   value={filters.specialty}
-                  onChange={e => setFilters(f => ({ ...f, specialty: e.target.value }))}
+                  onChange={(e) =>
+                    setFilters((f) => ({ ...f, specialty: e.target.value }))
+                  }
                   className="input-field w-full text-sm"
                 >
                   <option value="">Toutes les spécialités</option>
-                  {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
+                  {specialties.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Type de consultation</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Type de consultation
+                </label>
                 <select
                   value={filters.consultation_type}
-                  onChange={e => setFilters(f => ({ ...f, consultation_type: e.target.value }))}
+                  onChange={(e) =>
+                    setFilters((f) => ({
+                      ...f,
+                      consultation_type: e.target.value,
+                    }))
+                  }
                   className="input-field w-full text-sm"
                 >
                   <option value="">Tous types</option>
                   <option value="video">Vidéo</option>
                   <option value="in_person">Présentiel</option>
-                  <option value="phone">Téléphone</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Ville</label>
-                <input
-                  value={filters.city}
-                  onChange={e => setFilters(f => ({ ...f, city: e.target.value }))}
-                  placeholder="Ouagadougou, Bobo…"
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Structure de santé
+                </label>
+                <select
+                  value={filters.structure_id}
+                  onChange={(e) =>
+                    setFilters((f) => ({ ...f, structure_id: e.target.value }))
+                  }
                   className="input-field w-full text-sm"
-                />
+                >
+                  <option value="">Toutes les structures</option>
+                  {structures.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.libelle} — {s.localite?.commune}
+                    </option>
+                  ))}
+                </select>
               </div>
               {activeFiltersCount > 0 && (
                 <div className="sm:col-span-3 flex justify-end">
-                  <Button size="sm" variant="ghost" onClick={clearFilters} icon={X} className="text-gray-500">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={clearFilters}
+                    icon={X}
+                    className="text-gray-500"
+                  >
                     Réinitialiser les filtres
                   </Button>
                 </div>
@@ -119,7 +183,9 @@ export default function DoctorSearch() {
         {/* Résultats */}
         <div>
           <p className="text-sm text-gray-500 mb-3">
-            {isLoading ? 'Recherche…' : `${doctors.length} médecin${doctors.length !== 1 ? 's' : ''} trouvé${doctors.length !== 1 ? 's' : ''}`}
+            {isLoading
+              ? "Recherche…"
+              : `${doctors.length} médecin${doctors.length !== 1 ? "s" : ""} trouvé${doctors.length !== 1 ? "s" : ""}`}
           </p>
           {isLoading ? (
             <LoadingPage />
@@ -127,35 +193,49 @@ export default function DoctorSearch() {
             <Card>
               <CardContent className="text-center py-12">
                 <Search className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <p className="font-medium text-gray-700">Aucun médecin trouvé</p>
-                <p className="text-sm text-gray-500 mt-1">Essayez de modifier vos critères de recherche</p>
+                <p className="font-medium text-gray-700">
+                  Aucun médecin trouvé
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Essayez de modifier vos critères de recherche
+                </p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {doctors.map(doc => (
-                <DoctorCard key={doc.id} doctor={doc} onSelect={() => navigate(`/directory/${doc.id}`)} />
+              {doctors.map((doc) => (
+                <DoctorCard
+                  key={doc.id}
+                  doctor={doc}
+                  onSelect={() => navigate(`/directory/${doc.id}`)}
+                />
               ))}
             </div>
           )}
         </div>
       </div>
     </AppLayout>
-  )
+  );
 }
 
 function DoctorCard({ doctor, onSelect }) {
-  const structureName = doctor.structure?.name
+  const structureName = doctor.structure?.name;
   return (
-    <div onClick={onSelect}
-      className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-primary-100 cursor-pointer transition-all">
+    <div
+      onClick={onSelect}
+      className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-primary-100 cursor-pointer transition-all"
+    >
       <div className="flex items-start gap-3">
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
           {getInitials(`${doctor.first_name} ${doctor.last_name}`)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 truncate">Dr. {doctor.first_name} {doctor.last_name}</p>
-          <p className="text-sm text-primary-600 truncate">{doctor.specialty ?? 'Médecin'}</p>
+          <p className="font-semibold text-gray-900 truncate">
+            Dr. {doctor.first_name} {doctor.last_name}
+          </p>
+          <p className="text-sm text-primary-600 truncate">
+            {doctor.specialty ?? "Médecin"}
+          </p>
           {structureName && (
             <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
               <MapPin className="w-3 h-3" /> {structureName}
@@ -170,8 +250,11 @@ function DoctorCard({ doctor, onSelect }) {
             <Video className="w-3 h-3" /> Téléconsultation
           </span>
         )}
-        {doctor.status === 'active' && (
-          <span className="w-2 h-2 rounded-full bg-green-400 inline-block" title="Disponible" />
+        {doctor.status === "active" && (
+          <span
+            className="w-2 h-2 rounded-full bg-green-400 inline-block"
+            title="Disponible"
+          />
         )}
       </div>
 
@@ -179,5 +262,5 @@ function DoctorCard({ doctor, onSelect }) {
         Prendre rendez-vous
       </Button>
     </div>
-  )
+  );
 }
