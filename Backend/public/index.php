@@ -4,6 +4,24 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+// ── CORS preflight global ───────────────────────────────────────────────────
+// Le navigateur envoie OPTIONS automatiquement SANS le header X-Api-Path.
+// On doit donc intercepter OPTIONS ici, avant tout le reste, pour renvoyer
+// les bons headers CORS — sinon le preflight échoue et le navigateur bloque
+// la vraie requête (POST/GET/PUT...).
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if ($origin !== '') {
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Credentials: true');
+    }
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, Accept, X-Requested-With, X-XSRF-TOKEN, X-Api-Path');
+    header('Access-Control-Max-Age: 86400');
+    http_response_code(204);
+    exit;
+}
+
 // ── CDN Gateway (Hostinger hcdn) ────────────────────────────────────────────
 // Le CDN Hostinger bloque les GET/POST vers des URL propres (/api/v1/...).
 // Seul POST/GET /index.php est transmis à PHP.
@@ -23,18 +41,6 @@ if ($gatewayPath !== null && $gatewayPath !== '') {
     $_SERVER['REQUEST_URI']  = '/api/v1' . $gatewayPath . ($qs ? '?' . $qs : '');
     $_SERVER['SCRIPT_NAME']  = '/index.php';
     $_SERVER['PHP_SELF']     = '/index.php';
-
-    // OPTIONS preflight rapide — répondre sans booter Laravel
-    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-        header('Access-Control-Allow-Origin: ' . $origin);
-        header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization, Accept, X-Requested-With, X-XSRF-TOKEN, X-Api-Path');
-        header('Access-Control-Allow-Credentials: true');
-        header('Access-Control-Max-Age: 86400');
-        http_response_code(204);
-        exit;
-    }
 }
 
 // Determine if the application is in maintenance mode...
