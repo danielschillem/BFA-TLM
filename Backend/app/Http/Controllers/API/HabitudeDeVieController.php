@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Requests\StoreHabitudeDeVieRequest;
 use App\Http\Resources\HabitudeDeVieResource;
 use App\Models\HabitudeDeVie;
@@ -10,9 +11,15 @@ use Illuminate\Http\JsonResponse;
 
 class HabitudeDeVieController extends Controller
 {
+    use AuthorizesStructureAccess;
     public function store(StoreHabitudeDeVieRequest $request): JsonResponse
     {
-        $habitude = HabitudeDeVie::create($request->validated());
+        $validated = $request->validated();
+        if (!empty($validated['dossier_patient_id'])) {
+            $this->authorizeDossierAccess($validated['dossier_patient_id']);
+        }
+
+        $habitude = HabitudeDeVie::create($validated);
 
         return response()->json([
             'success' => true,
@@ -24,6 +31,7 @@ class HabitudeDeVieController extends Controller
     public function update(StoreHabitudeDeVieRequest $request, int $id): JsonResponse
     {
         $habitude = HabitudeDeVie::findOrFail($id);
+        $this->authorizeDossierResource($habitude);
         $habitude->update($request->validated());
 
         return response()->json([
@@ -35,7 +43,9 @@ class HabitudeDeVieController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        HabitudeDeVie::findOrFail($id)->delete();
+        $habitude = HabitudeDeVie::findOrFail($id);
+        $this->authorizeDossierResource($habitude);
+        $habitude->delete();
 
         return response()->json([
             'success' => true,

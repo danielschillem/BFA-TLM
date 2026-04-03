@@ -8,7 +8,7 @@ class StoreRendezVousRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->hasPermissionTo('appointments.create') ?? false;
     }
 
     public function rules(): array

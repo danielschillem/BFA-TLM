@@ -8,7 +8,7 @@ class StoreAntecedentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->hasPermissionTo('dossiers.update') ?? false;
     }
 
     public function rules(): array

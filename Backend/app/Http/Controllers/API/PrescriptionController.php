@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Events\PrescriptionSigned;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Resources\PrescriptionResource;
 use App\Models\Prescription;
 use App\Notifications\PrescriptionSharedNotification;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 
 class PrescriptionController extends Controller
 {
+    use AuthorizesStructureAccess;
     public function index(Request $request): JsonResponse
     {
         $query = Prescription::with('consultation.user');
@@ -40,6 +42,12 @@ class PrescriptionController extends Controller
         ]);
 
         $consultation = \App\Models\Consultation::findOrFail($consultationId);
+
+        // Vérifier que le médecin est le propriétaire de la consultation
+        $user = $request->user();
+        if (!$user->hasRole('admin') && $consultation->user_id !== $user->id) {
+            abort(403, 'Vous n\'\u00eates pas autoris\u00e9 \u00e0 prescrire pour cette consultation.');
+        }
 
         $prescription = Prescription::create([
             ...$request->only(['denomination', 'posologie', 'instructions', 'duree_jours', 'urgent']),

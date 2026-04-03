@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CertificatDeces;
 use App\Models\DossierPatient;
 use App\Models\Patient;
+use App\Models\Structure;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,19 +19,24 @@ class CertificatDecesTest extends TestCase
     protected User $admin;
     protected Patient $patient;
     protected DossierPatient $dossier;
+    protected Structure $structure;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(RolePermissionSeeder::class);
 
-        $this->doctor = User::factory()->doctor()->create(['status' => 'actif']);
+        $this->structure = Structure::factory()->create();
+        $this->doctor = User::factory()->doctor()->create([
+            'status' => 'actif',
+            'structure_id' => $this->structure->id,
+        ]);
         $this->doctor->assignRole('doctor');
 
         $this->admin = User::factory()->create(['status' => 'actif']);
         $this->admin->assignRole('admin');
 
-        $this->patient = Patient::factory()->create();
+        $this->patient = Patient::factory()->create(['structure_id' => $this->structure->id]);
         $this->dossier = DossierPatient::factory()->create(['patient_id' => $this->patient->id]);
     }
 
@@ -100,7 +106,61 @@ class CertificatDecesTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.numero_certificat', $certificat->numero_certificat);
+            ->assertJsonPath('data.numero_certificat', $certificat->numero_certificat)
+            ->assertJsonPath('data.nom_defunt', $this->patient->nom)
+            ->assertJsonPath('data.prenoms_defunt', $this->patient->prenoms);
+    }
+
+    public function test_create_certificat_without_patient_persists_manual_identity(): void
+    {
+        $response = $this->actingAs($this->doctor, 'api')
+            ->postJson('/api/v1/certificats-deces', [
+                'nom_defunt' => 'SAWADOGO',
+                'prenoms_defunt' => 'Aminata',
+                'date_naissance_defunt' => '1987-04-12',
+                'sexe_defunt' => 'F',
+                'lieu_naissance_defunt' => 'Koudougou',
+                'nationalite_defunt' => 'Burkinabè',
+                'profession_defunt' => 'Commerçante',
+                'adresse_defunt' => 'Secteur 4',
+                'date_deces' => '2026-03-25 14:30:00',
+                'lieu_deces' => 'CHU Yalgado',
+                'cause_directe' => 'Choc septique',
+                'cause_directe_code_icd11' => '1A40',
+                'cause_directe_delai' => '2 jours',
+                'maniere_deces' => 'naturelle',
+                'observations' => 'Cas sans patient lié.',
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.nom_defunt', 'SAWADOGO')
+            ->assertJsonPath('data.prenoms_defunt', 'Aminata')
+            ->assertJsonPath('data.code_icd11_cause_directe', '1A40')
+            ->assertJsonPath('data.intervalle_cause_directe', '2 jours')
+            ->assertJsonPath('data.notes', 'Cas sans patient lié.');
+
+        $this->assertDatabaseHas('certificat_deces', [
+            'id' => $response->json('data.id'),
+            'nom_defunt' => 'SAWADOGO',
+            'prenoms_defunt' => 'Aminata',
+            'structure_id' => $this->structure->id,
+        ]);
+    }
+
+    public function test_create_certificat_auto_links_patient_dossier(): void
+    {
+        $response = $this->actingAs($this->doctor, 'api')
+            ->postJson('/api/v1/certificats-deces', [
+                'patient_id' => $this->patient->id,
+                'date_deces' => '2026-03-25 14:30:00',
+                'lieu_deces' => 'CHU Yalgado',
+                'cause_directe' => 'Insuffisance respiratoire aiguë',
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.dossier_patient_id', $this->dossier->id)
+            ->assertJsonPath('data.nom_defunt', $this->patient->nom)
+            ->assertJsonPath('data.prenoms_defunt', $this->patient->prenoms);
     }
 
     public function test_update_brouillon(): void
@@ -286,6 +346,40 @@ class CertificatDecesTest extends TestCase
                     'mortalite_maternelle',
                 ],
             ]);
+    }
+
+    public function test_statistiques_are_scoped_to_user_structure(): void
+    {
+        $otherStructure = Structure::factory()->create();
+        $otherDoctor = User::factory()->doctor()->create([
+            'status' => 'actif',
+            'structure_id' => $otherStructure->id,
+        ]);
+        $otherDoctor->assignRole('doctor');
+
+        $otherPatient = Patient::factory()->create(['structure_id' => $otherStructure->id]);
+
+        CertificatDeces::factory()->certifie()->create([
+            'patient_id' => $this->patient->id,
+            'medecin_certificateur_id' => $this->doctor->id,
+            'structure_id' => $this->structure->id,
+            'maniere_deces' => 'naturelle',
+        ]);
+
+        CertificatDeces::factory()->certifie()->create([
+            'patient_id' => $otherPatient->id,
+            'medecin_certificateur_id' => $otherDoctor->id,
+            'structure_id' => $otherStructure->id,
+            'maniere_deces' => 'accident',
+        ]);
+
+        $response = $this->actingAs($this->doctor, 'api')
+            ->getJson('/api/v1/certificats-deces/statistiques');
+
+        $response->assertOk()
+            ->assertJsonPath('data.total_deces', 1)
+            ->assertJsonPath('data.par_maniere.naturelle', 1)
+            ->assertJsonMissingPath('data.par_maniere.accident');
     }
 
     // ── Filtrage ──────────────────────────────────────────────────────────────

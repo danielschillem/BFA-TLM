@@ -3,20 +3,27 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Requests\StoreCertificatDecesRequest;
 use App\Http\Resources\CertificatDecesResource;
 use App\Models\CertificatDeces;
+use App\Models\DossierPatient;
+use App\Models\Patient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class CertificatDecesController extends Controller
 {
+    use AuthorizesStructureAccess;
     /**
      * Liste des certificats de décès (filtrable).
      */
     public function index(Request $request): JsonResponse
     {
-        $query = CertificatDeces::with(['patient', 'medecinCertificateur', 'structure']);
+        $query = $this->scopeAccessibleCertificates(
+            CertificatDeces::with(['patient', 'medecinCertificateur', 'structure']),
+            $request->user()
+        );
 
         if ($request->filled('statut')) {
             $query->where('statut', $request->input('statut'));
@@ -38,6 +45,18 @@ class CertificatDecesController extends Controller
             $query->where('patient_id', $request->integer('patient_id'));
         }
 
+        if ($request->filled('search')) {
+            $search = trim((string) $request->input('search'));
+            $query->where(function ($builder) use ($search) {
+                $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $search) . '%';
+
+                $builder->where('numero_certificat', 'like', $like)
+                    ->orWhere('nom_defunt', 'like', $like)
+                    ->orWhere('prenoms_defunt', 'like', $like)
+                    ->orWhere('cause_directe', 'like', $like);
+            });
+        }
+
         $certificats = $query->orderByDesc('date_deces')->paginate(15);
 
         return response()->json([
@@ -57,8 +76,9 @@ class CertificatDecesController extends Controller
     public function store(StoreCertificatDecesRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        [$validated] = $this->normalizeCertificatPayload($validated, $request->user());
         $validated['medecin_certificateur_id'] = $request->user()->id;
-        $validated['structure_id'] = $request->user()->structure_id;
+        $validated['structure_id'] = $validated['structure_id'] ?? $request->user()->structure_id;
 
         $certificat = CertificatDeces::create($validated);
         $certificat->refresh();
@@ -80,6 +100,8 @@ class CertificatDecesController extends Controller
             'patient', 'dossierPatient', 'medecinCertificateur',
             'validateur', 'structure', 'consultation',
         ])->findOrFail($id);
+
+        $this->authorizeCertificateAccess($certificat, request()->user());
 
         return response()->json([
             'success' => true,
@@ -103,7 +125,9 @@ class CertificatDecesController extends Controller
 
         $this->authorizeOwnerOrAdmin($certificat, $request->user());
 
-        $certificat->update($request->validated());
+        [$validated] = $this->normalizeCertificatPayload($request->validated(), $request->user());
+
+        $certificat->update($validated);
         $certificat->load(['patient', 'medecinCertificateur', 'structure']);
 
         return response()->json([
@@ -236,8 +260,92 @@ class CertificatDecesController extends Controller
      */
     public function statistiques(Request $request): JsonResponse
     {
-        $query = CertificatDeces::query()->whereIn('statut', ['certifie', 'valide']);
+        $baseQuery = $this->scopeAccessibleCertificates(CertificatDeces::query(), $request->user());
+        $this->applyStatisticsFilters($baseQuery, $request);
 
+        $publishedQuery = (clone $baseQuery)->whereIn('statut', ['certifie', 'valide']);
+
+        $statusCounts = (clone $baseQuery)
+            ->selectRaw('statut, COUNT(*) as total')
+            ->groupBy('statut')
+            ->pluck('total', 'statut');
+
+        $totalCertificates = (clone $baseQuery)->count();
+        $totalDeaths = (clone $publishedQuery)->count();
+
+        $parManiere = (clone $publishedQuery)->selectRaw('maniere_deces, COUNT(*) as total')
+            ->groupBy('maniere_deces')
+            ->pluck('total', 'maniere_deces');
+
+        $parLieu = (clone $publishedQuery)->selectRaw('type_lieu_deces, COUNT(*) as total')
+            ->groupBy('type_lieu_deces')
+            ->pluck('total', 'type_lieu_deces');
+
+        $parSexe = (clone $publishedQuery)->selectRaw('sexe_defunt, COUNT(*) as total')
+            ->groupBy('sexe_defunt')
+            ->pluck('total', 'sexe_defunt')
+            ->map(fn ($count) => (int) $count)
+            ->toArray();
+
+        $topCauses = (clone $publishedQuery)->selectRaw('cause_directe_code_icd11, cause_directe, COUNT(*) as total')
+            ->whereNotNull('cause_directe_code_icd11')
+            ->groupBy('cause_directe_code_icd11', 'cause_directe')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get()
+            ->map(function (CertificatDeces $item) use ($totalDeaths) {
+                $count = (int) $item->total;
+                $percentage = $totalDeaths > 0
+                    ? round(($count / $totalDeaths) * 100, 1)
+                    : 0.0;
+
+                return [
+                    'cause' => $item->cause_directe,
+                    'label' => $item->cause_directe,
+                    'code_icd11' => $item->cause_directe_code_icd11,
+                    'icd11_code' => $item->cause_directe_code_icd11,
+                    'count' => $count,
+                    'nombre' => $count,
+                    'percentage' => $percentage,
+                    'pourcentage' => $percentage,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $mortaliteMaternelle = (clone $publishedQuery)->where('grossesse_contribue', true)->count();
+        $parTrancheAge = $this->buildAgeGroups(
+            (clone $publishedQuery)->get(['age_defunt', 'unite_age'])
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => $totalDeaths,
+                'total_deces' => $totalDeaths,
+                'total_certificats' => $totalCertificates,
+                'brouillons' => (int) ($statusCounts['brouillon'] ?? 0),
+                'certifies' => (int) ($statusCounts['certifie'] ?? 0),
+                'valides' => (int) ($statusCounts['valide'] ?? 0),
+                'rejetes' => (int) ($statusCounts['rejete'] ?? 0),
+                'annules' => (int) ($statusCounts['annule'] ?? 0),
+                'par_maniere' => $parManiere,
+                'par_lieu' => $parLieu,
+                'par_sexe' => $parSexe,
+                'by_sex' => $parSexe,
+                'top_causes_icd11' => $topCauses,
+                'top_causes' => $topCauses,
+                'causes_principales' => $topCauses,
+                'par_tranche_age' => $parTrancheAge,
+                'by_age_group' => $parTrancheAge,
+                'mortalite_maternelle' => $mortaliteMaternelle,
+                'rate' => null,
+            ],
+        ]);
+    }
+
+    private function applyStatisticsFilters($query, Request $request): void
+    {
         if ($request->filled('structure_id')) {
             $query->byStructure($request->integer('structure_id'));
         }
@@ -245,46 +353,149 @@ class CertificatDecesController extends Controller
         if ($request->filled('date_debut') && $request->filled('date_fin')) {
             $query->byPeriode($request->input('date_debut'), $request->input('date_fin'));
         }
+    }
 
-        $total = $query->count();
+    private function buildAgeGroups($certificats): array
+    {
+        $buckets = [
+            '0-28 jours' => 0,
+            '29 jours - 11 mois' => 0,
+            '1-4 ans' => 0,
+            '5-14 ans' => 0,
+            '15-24 ans' => 0,
+            '25-44 ans' => 0,
+            '45-64 ans' => 0,
+            '65+ ans' => 0,
+            'Inconnu' => 0,
+        ];
 
-        // Répartition par manière de décès
-        $parManiere = (clone $query)->selectRaw('maniere_deces, COUNT(*) as total')
-            ->groupBy('maniere_deces')
-            ->pluck('total', 'maniere_deces');
+        foreach ($certificats as $certificat) {
+            $range = $this->resolveAgeRange($certificat->age_defunt, $certificat->unite_age);
+            $buckets[$range] = ($buckets[$range] ?? 0) + 1;
+        }
 
-        // Répartition par type de lieu
-        $parLieu = (clone $query)->selectRaw('type_lieu_deces, COUNT(*) as total')
-            ->groupBy('type_lieu_deces')
-            ->pluck('total', 'type_lieu_deces');
+        return collect($buckets)
+            ->map(fn ($count, $range) => [
+                'range' => $range,
+                'tranche' => $range,
+                'count' => $count,
+                'nombre' => $count,
+            ])
+            ->values()
+            ->all();
+    }
 
-        // Répartition par sexe
-        $parSexe = (clone $query)->selectRaw('sexe_defunt, COUNT(*) as total')
-            ->groupBy('sexe_defunt')
-            ->pluck('total', 'sexe_defunt');
+    private function resolveAgeRange($age, ?string $unit): string
+    {
+        if ($age === null || $age === '') {
+            return 'Inconnu';
+        }
 
-        // Top 10 causes directes (codes ICD-11)
-        $topCauses = (clone $query)->selectRaw('cause_directe_code_icd11, cause_directe, COUNT(*) as total')
-            ->whereNotNull('cause_directe_code_icd11')
-            ->groupBy('cause_directe_code_icd11', 'cause_directe')
-            ->orderByDesc('total')
-            ->limit(10)
-            ->get();
+        $value = (float) $age;
+        $normalizedUnit = strtolower(trim((string) $unit));
 
-        // Mortalité maternelle
-        $mortaliteMaternelle = (clone $query)->where('grossesse_contribue', true)->count();
+        if (in_array($normalizedUnit, ['jour', 'jours', 'day', 'days'], true)) {
+            return $value <= 28 ? '0-28 jours' : '29 jours - 11 mois';
+        }
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'total_deces' => $total,
-                'par_maniere' => $parManiere,
-                'par_lieu' => $parLieu,
-                'par_sexe' => $parSexe,
-                'top_causes_icd11' => $topCauses,
-                'mortalite_maternelle' => $mortaliteMaternelle,
-            ],
-        ]);
+        if (in_array($normalizedUnit, ['semaine', 'semaines', 'week', 'weeks'], true)) {
+            return $value <= 4 ? '0-28 jours' : '29 jours - 11 mois';
+        }
+
+        if (in_array($normalizedUnit, ['mois', 'month', 'months'], true)) {
+            return $value <= 11 ? '29 jours - 11 mois' : $this->resolveYearBucket($value / 12);
+        }
+
+        return $this->resolveYearBucket($value);
+    }
+
+    private function resolveYearBucket(float $years): string
+    {
+        return match (true) {
+            $years < 1 => '29 jours - 11 mois',
+            $years <= 4 => '1-4 ans',
+            $years <= 14 => '5-14 ans',
+            $years <= 24 => '15-24 ans',
+            $years <= 44 => '25-44 ans',
+            $years <= 64 => '45-64 ans',
+            default => '65+ ans',
+        };
+    }
+
+    private function normalizeCertificatPayload(array $validated, $user): array
+    {
+        $patient = null;
+        $dossier = null;
+
+        if (!empty($validated['patient_id'])) {
+            $patient = Patient::with('dossier')->findOrFail($validated['patient_id']);
+            $this->authorizePatientAccess($patient);
+        }
+
+        if (!empty($validated['dossier_patient_id'])) {
+            $dossier = DossierPatient::with('patient.dossier')->findOrFail($validated['dossier_patient_id']);
+            $this->authorizeDossierAccess($dossier->id);
+
+            if ($patient && $dossier->patient_id !== $patient->id) {
+                abort(422, 'Le dossier patient ne correspond pas au patient sélectionné.');
+            }
+
+            $patient ??= $dossier->patient;
+            $validated['patient_id'] = $patient?->id;
+        }
+
+        if (!$dossier && $patient?->dossier) {
+            $dossier = $patient->dossier;
+            $validated['dossier_patient_id'] = $dossier->id;
+        }
+
+        if ($patient) {
+            $validated['nom_defunt'] = $validated['nom_defunt'] ?? $patient->nom;
+            $validated['prenoms_defunt'] = $validated['prenoms_defunt'] ?? $patient->prenoms;
+            $validated['date_naissance_defunt'] = $validated['date_naissance_defunt'] ?? ($patient->getRawOriginal('date_naissance') ?: null);
+            $validated['lieu_naissance_defunt'] = $validated['lieu_naissance_defunt'] ?? $patient->lieu_naissance;
+            $validated['sexe_defunt'] = $validated['sexe_defunt'] ?? $patient->sexe;
+            $validated['structure_id'] = $validated['structure_id'] ?? $patient->structure_id;
+        }
+
+        $validated['structure_id'] = $validated['structure_id'] ?? $user->structure_id;
+
+        return [$validated, $patient, $dossier];
+    }
+
+    private function scopeAccessibleCertificates($query, $user)
+    {
+        if ($user->hasRole('admin')) {
+            return $query;
+        }
+
+        return $query->where(function ($builder) use ($user) {
+            if ($user->structure_id) {
+                $builder->where('structure_id', $user->structure_id)
+                    ->orWhere('medecin_certificateur_id', $user->id);
+
+                return;
+            }
+
+            $builder->where('medecin_certificateur_id', $user->id);
+        });
+    }
+
+    private function authorizeCertificateAccess(CertificatDeces $certificat, $user): void
+    {
+        if ($user->hasRole('admin')) {
+            return;
+        }
+
+        if ($certificat->medecin_certificateur_id === $user->id) {
+            return;
+        }
+
+        if ($user->structure_id && $certificat->structure_id && (int) $certificat->structure_id === (int) $user->structure_id) {
+            return;
+        }
+
+        abort(403, 'Vous n\'êtes pas autorisé à consulter ce certificat.');
     }
 
     private function authorizeOwnerOrAdmin(CertificatDeces $certificat, $user): void

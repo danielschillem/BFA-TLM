@@ -51,6 +51,11 @@ class AppServiceProvider extends ServiceProvider
             '2fa-pending' => 'Token en attente de vérification 2FA',
         ]);
 
+        // Passport token lifetimes (sécurité : limiter la durée de vie des tokens)
+        Passport::tokensExpireIn(now()->addMinutes(config('passport.tokens_expire_in', 60)));
+        Passport::refreshTokensExpireIn(now()->addDays(config('passport.refresh_tokens_expire_in', 14)));
+        Passport::personalAccessTokensExpireIn(now()->addHours(config('passport.personal_access_tokens_expire_in', 6)));
+
         // ── Rate limiters ──────────────────────────────────────────────────────
         RateLimiter::for('auth', fn (Request $request) =>
             Limit::perMinute(30)->by($request->ip())
@@ -72,6 +77,21 @@ class AppServiceProvider extends ServiceProvider
         // Limiter les exports / téléchargements volumineux
         RateLimiter::for('export', fn (Request $request) =>
             Limit::perMinute(10)->by($request->user()?->id ?: $request->ip())
+        );
+
+        // Limiter les endpoints d'interopérabilité (FHIR, CDA, terminologies)
+        RateLimiter::for('interop', fn (Request $request) =>
+            Limit::perMinute(60)->by($request->user()?->id ?: $request->ip())
+        );
+
+        // Limiter les endpoints sensibles (patients, dossiers, DICOM)
+        RateLimiter::for('sensitive', fn (Request $request) =>
+            Limit::perMinute(60)->by($request->user()?->id ?: $request->ip())
+        );
+
+        // Limiter les endpoints admin
+        RateLimiter::for('admin', fn (Request $request) =>
+            Limit::perMinute(30)->by($request->user()?->id ?: $request->ip())
         );
 
         Event::listen(AppointmentConfirmed::class, SendAppointmentConfirmedNotification::class);

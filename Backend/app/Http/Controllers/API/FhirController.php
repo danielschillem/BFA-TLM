@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Models\Allergie;
 use App\Models\Antecedent;
 use App\Models\Constante;
@@ -23,6 +24,8 @@ use Illuminate\Http\Request;
 
 class FhirController extends Controller
 {
+    use AuthorizesStructureAccess;
+
     public function __construct(private FhirTransformer $transformer)
     {
     }
@@ -105,6 +108,7 @@ class FhirController extends Controller
     public function patientRead(int $id): JsonResponse
     {
         $patient = Patient::with('dossier')->findOrFail($id);
+        $this->authorizePatientAccess($patient);
         return $this->fhirResponse($this->transformer->toPatient($patient));
     }
 
@@ -436,6 +440,7 @@ class FhirController extends Controller
     public function patientEverything(int $id): JsonResponse
     {
         $patient = Patient::with('dossier')->findOrFail($id);
+        $this->authorizePatientAccess($patient);
         $dossierIds = DossierPatient::where('patient_id', $id)->pluck('id');
 
         $resources = [];

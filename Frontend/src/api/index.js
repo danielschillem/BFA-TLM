@@ -4,15 +4,35 @@ const defaultSharePayload = { share_with: ["patient"] };
 
 const toConsultationStartRequest = (input, payload = {}) => {
   if (typeof input === "object" && input !== null) {
-    const { appointment_id, appointmentId, ...rest } = input;
-    const id = appointment_id ?? appointmentId;
-    if (id) {
-      return { url: `/consultations/appointments/${id}/start`, data: rest };
+    const { appointment_id, appointmentId, id, ...rest } = input;
+    const appointment = appointment_id ?? appointmentId ?? id;
+    if (appointment) {
+      return {
+        url: `/consultations/appointments/${appointment}/start`,
+        data: rest,
+      };
     }
-    return { url: "/consultations/start", data: input };
+  } else if (input !== undefined && input !== null && input !== "") {
+    return { url: `/consultations/appointments/${input}/start`, data: payload };
   }
-  return { url: `/consultations/appointments/${input}/start`, data: payload };
+
+  throw new Error(
+    "appointment_id est requis pour demarrer une consultation depuis un rendez-vous.",
+  );
 };
+
+const toTerminologySearchParams = (params = {}) => {
+  if (!params || typeof params !== "object") return params;
+
+  const { q, term, ...rest } = params;
+  const normalizedTerm = term ?? q;
+
+  return normalizedTerm ? { ...rest, term: normalizedTerm } : rest;
+};
+
+const toDicomThumbnailPath = (studyId) => `/dicom/studies/${studyId}/thumbnail`;
+
+const toCertificatStatsPath = () => "/certificats-deces/statistiques";
 
 const toMessageSendPayload = (recipientOrPayload, payload = {}) => {
   if (typeof recipientOrPayload === "object" && recipientOrPayload !== null) {
@@ -27,7 +47,6 @@ const toSharePayload = (payload) => {
   if (Array.isArray(payload.share_with)) return payload;
   return { ...defaultSharePayload, ...payload };
 };
-
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
   register: (data) => apiClient.post("/auth/register", data),
@@ -79,8 +98,6 @@ export const consultationsApi = {
   },
   end: (id) => apiClient.post(`/consultations/${id}/end`, {}),
   recordConsent: (id, d) => apiClient.post(`/consultations/${id}/consent`, d),
-  reportInterruption: (id, d) =>
-    apiClient.post(`/consultations/${id}/interrupt`, d),
   rateVideoQuality: (id, d) =>
     apiClient.post(`/consultations/${id}/rate-video`, d),
   transmitParams: (id, d) =>
@@ -168,11 +185,6 @@ export const notificationsApi = {
 export const patientRecordApi = {
   get: (patientId) => apiClient.get(`/patients/${patientId}/record`),
   update: (pId, data) => apiClient.put(`/patients/${pId}/record`, data),
-  verifyIdentity: (pId, data) =>
-    apiClient.post(`/patients/${pId}/record/verify-identity`, data),
-  archive: (pId, data) =>
-    apiClient.post(`/patients/${pId}/record/archive`, data),
-  recordConsent: (data) => apiClient.post("/patients/consent", data),
 };
 
 // ── Dossier médical — sous-entités CRUD ───────────────────────────────────────
@@ -395,31 +407,36 @@ export const certificatsDecesApi = {
   create: (data) => apiClient.post("/certificats-deces", data),
   get: (id) => apiClient.get(`/certificats-deces/${id}`),
   update: (id, data) => apiClient.put(`/certificats-deces/${id}`, data),
-  delete: (id) => apiClient.delete(`/certificats-deces/${id}`),
   certifier: (id) => apiClient.post(`/certificats-deces/${id}/certifier`, {}),
   valider: (id) => apiClient.post(`/certificats-deces/${id}/valider`, {}),
   rejeter: (id, data) =>
     apiClient.post(`/certificats-deces/${id}/rejeter`, data),
   annuler: (id, data) =>
     apiClient.post(`/certificats-deces/${id}/annuler`, data),
-  statistics: (params) =>
-    apiClient.get("/certificats-deces/statistics/mortality", { params }),
+  statistics: (params) => apiClient.get(toCertificatStatsPath(), { params }),
 };
 
 // ── Terminologies (SNOMED CT + ATC) ───────────────────────────────────────────
 export const terminologyApi = {
   // SNOMED CT
   snomedSearch: (params) =>
-    apiClient.get("/terminology/snomed/search", { params }),
+    apiClient.get("/terminology/snomed/search", {
+      params: toTerminologySearchParams(params),
+    }),
   snomedLookup: (id) => apiClient.get(`/terminology/snomed/lookup/${id}`),
   snomedValidate: (id) => apiClient.get(`/terminology/snomed/validate/${id}`),
   snomedChildren: (id) => apiClient.get(`/terminology/snomed/children/${id}`),
   snomedDomainSearch: (domain, params) =>
-    apiClient.get(`/terminology/snomed/domain/${domain}`, { params }),
+    apiClient.get(`/terminology/snomed/${domain}`, {
+      params: toTerminologySearchParams(params),
+    }),
   snomedHealth: () => apiClient.get("/terminology/snomed/health"),
   // ATC
   atcTree: () => apiClient.get("/terminology/atc/tree"),
-  atcSearch: (params) => apiClient.get("/terminology/atc/search", { params }),
+  atcSearch: (params) =>
+    apiClient.get("/terminology/atc/search", {
+      params: toTerminologySearchParams(params),
+    }),
   atcLookup: (code) => apiClient.get(`/terminology/atc/lookup/${code}`),
   atcChildren: (code) => apiClient.get(`/terminology/atc/children/${code}`),
   atcValidate: (code) => apiClient.get(`/terminology/atc/validate/${code}`),
@@ -441,7 +458,6 @@ export const dicomApi = {
   getStudy: (id) => apiClient.get(`/dicom/studies/${id}`),
   createStudy: (data) => apiClient.post("/dicom/studies", data),
   updateStudy: (id, data) => apiClient.put(`/dicom/studies/${id}`, data),
-  deleteStudy: (id) => apiClient.delete(`/dicom/studies/${id}`),
   upload: (formData) =>
     apiClient.post("/dicom/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -451,8 +467,8 @@ export const dicomApi = {
   series: (uid) => apiClient.get(`/dicom/studies/${uid}/series`),
   instances: (studyUid, seriesUid) =>
     apiClient.get(`/dicom/studies/${studyUid}/series/${seriesUid}/instances`),
-  thumbnail: (studyUid, seriesUid) =>
-    apiClient.get(`/dicom/studies/${studyUid}/series/${seriesUid}/thumbnail`, {
+  thumbnail: (studyId) =>
+    apiClient.get(toDicomThumbnailPath(studyId), {
       responseType: "blob",
     }),
 };

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Models\Consultation;
 use App\Models\Patient;
 use App\Services\Cda\CdaR2Builder;
@@ -17,6 +18,8 @@ use Illuminate\Http\Response;
  */
 class CdaController extends Controller
 {
+    use AuthorizesStructureAccess;
+
     private CdaR2Builder $builder;
 
     public function __construct(CdaR2Builder $builder)
@@ -34,6 +37,7 @@ class CdaController extends Controller
     public function patientCcd(Request $request, int $id): Response
     {
         $patient = Patient::with('dossier')->findOrFail($id);
+        $this->authorizePatientAccess($patient);
 
         $xml = $this->builder->buildCcd($patient);
 
@@ -49,7 +53,12 @@ class CdaController extends Controller
      */
     public function consultationNote(Request $request, int $id): Response
     {
-        $consultation = Consultation::findOrFail($id);
+        $consultation = Consultation::with('dossierPatient.patient')->findOrFail($id);
+
+        // IDOR : vérifier l'accès au patient de la consultation
+        if ($consultation->dossierPatient?->patient) {
+            $this->authorizePatientAccess($consultation->dossierPatient->patient);
+        }
 
         $xml = $this->builder->buildConsultationNote($consultation);
 
@@ -87,11 +96,11 @@ class CdaController extends Controller
         $errors = [];
         $warnings = [];
 
-        // Validation XML well-formed
+        // Validation XML well-formed (XXE protection : LIBXML_NONET désactive le chargement d'entités externes)
         libxml_use_internal_errors(true);
         $dom = new \DOMDocument();
 
-        if (!$dom->loadXML($xmlContent)) {
+        if (!$dom->loadXML($xmlContent, LIBXML_NONET)) {
             foreach (libxml_get_errors() as $error) {
                 $errors[] = [
                     'line' => $error->line,

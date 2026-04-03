@@ -46,7 +46,7 @@ use Illuminate\Support\Facades\Route;
 // ── Auth (public) ─────────────────────────────────────────────────────────────
 
 // ── FHIR R4 (interopérabilité) ────────────────────────────────────────────────
-Route::prefix('fhir')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('fhir')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     // Metadata (CapabilityStatement)
     Route::get('/metadata', [FhirController::class, 'metadata'])->withoutMiddleware(['auth:api', 'active']);
 
@@ -100,7 +100,7 @@ Route::prefix('fhir')->middleware(['auth:api', 'active'])->group(function () {
 });
 
 // ── CDA R2 (documents cliniques XML) ──────────────────────────────────────────
-Route::prefix('cda')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('cda')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     // Metadata (capacités CDA R2 — public, sans auth)
     Route::get('/metadata', [CdaController::class, 'metadata'])->withoutMiddleware(['auth:api', 'active']);
 
@@ -118,7 +118,7 @@ Route::prefix('cda')->middleware(['auth:api', 'active'])->group(function () {
 });
 
 // ── Terminologies (SNOMED CT + ATC) ───────────────────────────────────────────
-Route::prefix('terminology')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('terminology')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     // Metadata (public, sans auth)
     Route::get('/metadata', [TerminologyController::class, 'metadata'])->withoutMiddleware(['auth:api', 'active']);
 
@@ -139,7 +139,7 @@ Route::prefix('terminology')->middleware(['auth:api', 'active'])->group(function
 });
 
 // ── ICD-11 OMS (classification internationale) ────────────────────────────────
-Route::prefix('icd11')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('icd11')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     Route::get('/search', [Icd11Controller::class, 'search']);
     Route::get('/lookup/{code}', [Icd11Controller::class, 'lookup'])->where('code', '[A-Za-z0-9./-]+');
     Route::get('/validate/{code}', [Icd11Controller::class, 'validate'])->where('code', '[A-Za-z0-9./-]+');
@@ -148,7 +148,7 @@ Route::prefix('icd11')->middleware(['auth:api', 'active'])->group(function () {
 });
 
 // ── DHIS2 & ENDOS (système national d'information sanitaire) ──────────────────
-Route::prefix('dhis2')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('dhis2')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     // Metadata combiné (dashboard interop)
     Route::get('/metadata', [Dhis2Controller::class, 'metadata'])
         ->withoutMiddleware(['auth:api', 'active']);
@@ -301,7 +301,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Patients
-    Route::prefix('patients')->where(['patient' => '[0-9]+'])->group(function () {
+    Route::prefix('patients')->where(['patient' => '[0-9]+'])->middleware('throttle:sensitive')->group(function () {
         Route::get('/', [PatientController::class, 'index'])->middleware('permission:patients.view');
         Route::post('/', [PatientController::class, 'store'])->middleware('permission:patients.create');
         Route::get('/{patient}', [PatientController::class, 'show'])->middleware('permission:patients.view');
@@ -353,7 +353,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Admin
-    Route::prefix('admin')->middleware('role:admin')->group(function () {
+    Route::prefix('admin')->middleware(['role:admin', 'throttle:admin'])->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->middleware('permission:admin.dashboard');
         Route::get('/users', [AdminController::class, 'listUsers'])->middleware('permission:admin.users');
         Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus'])->middleware('permission:admin.users');
@@ -459,7 +459,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Imagerie médicale (DICOM / dcm4chee-arc)
-    Route::prefix('dicom')->group(function () {
+    Route::prefix('dicom')->middleware('throttle:sensitive')->group(function () {
         Route::get('/health', [DicomController::class, 'healthCheck']);
         Route::get('/studies', [DicomController::class, 'index'])->middleware('permission:consultations.view');
         Route::post('/studies', [DicomController::class, 'store'])->middleware('permission:consultations.update');
@@ -476,7 +476,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Certification des causes de décès (modèle OMS + CIM-11)
-    Route::prefix('certificats-deces')->group(function () {
+    Route::prefix('certificats-deces')->middleware('throttle:sensitive')->group(function () {
         Route::get('/', [CertificatDecesController::class, 'index'])->middleware('permission:dossiers.view');
         Route::post('/', [CertificatDecesController::class, 'store'])->middleware('permission:dossiers.update');
         Route::get('/statistiques', [CertificatDecesController::class, 'statistiques'])->middleware('permission:dossiers.view');

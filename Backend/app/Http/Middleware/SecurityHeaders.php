@@ -41,6 +41,26 @@ class SecurityHeaders
         }
         $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
 
+        // Content-Security-Policy — protection XSS, injection, exfiltration (OWASP A03:2021)
+        $response->headers->set('Content-Security-Policy', implode('; ', [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self'",
+            "connect-src 'self'",
+            "media-src 'self' blob:",
+            "frame-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'",
+            "upgrade-insecure-requests",
+        ]));
+
+        // Politique de permissions inter-domaines
+        $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
+
         // Cache — pas de cache pour les réponses API authentifiées
         if ($request->user()) {
             $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, private');

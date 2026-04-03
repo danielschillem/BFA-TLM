@@ -8,7 +8,7 @@ class StoreCertificatDecesRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->hasPermissionTo('dossiers.update') ?? false;
     }
 
     public function rules(): array
@@ -17,6 +17,15 @@ class StoreCertificatDecesRequest extends FormRequest
             'patient_id' => ['nullable', 'exists:patients,id'],
             'dossier_patient_id' => ['nullable', 'exists:dossier_patients,id'],
             'consultation_id' => ['nullable', 'exists:consultations,id'],
+
+            // Identité du défunt
+            'nom_defunt' => ['required_without_all:patient_id,dossier_patient_id', 'nullable', 'string', 'max:255'],
+            'prenoms_defunt' => ['required_without_all:patient_id,dossier_patient_id', 'nullable', 'string', 'max:255'],
+            'date_naissance_defunt' => ['nullable', 'date', 'before_or_equal:today'],
+            'lieu_naissance_defunt' => ['nullable', 'string', 'max:255'],
+            'nationalite_defunt' => ['nullable', 'string', 'max:255'],
+            'profession_defunt' => ['nullable', 'string', 'max:255'],
+            'adresse_defunt' => ['nullable', 'string', 'max:500'],
 
             // Circonstances
             'date_deces' => ['required', 'date', 'before_or_equal:now'],
@@ -75,7 +84,8 @@ class StoreCertificatDecesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'patient_id.required' => 'Le patient décédé est obligatoire.',
+            'nom_defunt.required_without_all' => 'Le nom du défunt est obligatoire si aucun patient n\'est lié.',
+            'prenoms_defunt.required_without_all' => 'Le prénom du défunt est obligatoire si aucun patient n\'est lié.',
             'date_deces.required' => 'La date du décès est obligatoire.',
             'date_deces.before_or_equal' => 'La date du décès ne peut pas être dans le futur.',
             'cause_directe.required' => 'La cause directe du décès (ligne a) est obligatoire.',

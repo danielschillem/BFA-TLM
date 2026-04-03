@@ -35,6 +35,17 @@ class DicomService
         $this->timeout = $config['timeout'];
     }
 
+    /**
+     * Valide un UID DICOM pour prévenir les attaques SSRF / path traversal.
+     * Un UID DICOM valide ne contient que des chiffres et des points.
+     */
+    private function validateDicomUid(string $uid): void
+    {
+        if (!preg_match('/^[0-9.]+$/', $uid)) {
+            throw new \InvalidArgumentException("UID DICOM invalide : format non conforme.");
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     //  QIDO-RS — Recherche d'études / séries / instances
     // ═══════════════════════════════════════════════════════════════════════════
@@ -61,6 +72,7 @@ class DicomService
      */
     public function searchSeries(string $studyUid, array $params = []): array
     {
+        $this->validateDicomUid($studyUid);
         $url = "{$this->baseUrl}{$this->qidoRs}/studies/{$studyUid}/series";
 
         $response = $this->client()
@@ -75,6 +87,8 @@ class DicomService
      */
     public function searchInstances(string $studyUid, string $seriesUid, array $params = []): array
     {
+        $this->validateDicomUid($studyUid);
+        $this->validateDicomUid($seriesUid);
         $url = "{$this->baseUrl}{$this->qidoRs}/studies/{$studyUid}/series/{$seriesUid}/instances";
 
         $response = $this->client()
@@ -93,6 +107,7 @@ class DicomService
      */
     public function retrieveStudyMetadata(string $studyUid): array
     {
+        $this->validateDicomUid($studyUid);
         $url = "{$this->baseUrl}{$this->wadoRs}/studies/{$studyUid}/metadata";
 
         $response = $this->client()
@@ -107,6 +122,8 @@ class DicomService
      */
     public function retrieveSeriesMetadata(string $studyUid, string $seriesUid): array
     {
+        $this->validateDicomUid($studyUid);
+        $this->validateDicomUid($seriesUid);
         $url = "{$this->baseUrl}{$this->wadoRs}/studies/{$studyUid}/series/{$seriesUid}/metadata";
 
         $response = $this->client()
@@ -122,6 +139,9 @@ class DicomService
      */
     public function retrieveInstance(string $studyUid, string $seriesUid, string $instanceUid): ?string
     {
+        $this->validateDicomUid($studyUid);
+        $this->validateDicomUid($seriesUid);
+        $this->validateDicomUid($instanceUid);
         $url = "{$this->baseUrl}{$this->wadoRs}/studies/{$studyUid}/series/{$seriesUid}/instances/{$instanceUid}";
 
         $response = $this->client()
@@ -150,6 +170,9 @@ class DicomService
         int $frame = 1,
         string $mediaType = 'image/jpeg'
     ): ?string {
+        $this->validateDicomUid($studyUid);
+        $this->validateDicomUid($seriesUid);
+        $this->validateDicomUid($instanceUid);
         $url = "{$this->baseUrl}{$this->wadoRs}/studies/{$studyUid}/series/{$seriesUid}/instances/{$instanceUid}/frames/{$frame}/rendered";
 
         $response = $this->client()
@@ -173,6 +196,7 @@ class DicomService
      */
     public function retrieveStudyThumbnail(string $studyUid): ?string
     {
+        $this->validateDicomUid($studyUid);
         $url = "{$this->baseUrl}{$this->wadoRs}/studies/{$studyUid}/thumbnail";
 
         $response = $this->client()
@@ -197,6 +221,7 @@ class DicomService
     {
         $url = "{$this->baseUrl}{$this->stowRs}/studies";
         if ($studyUid) {
+            $this->validateDicomUid($studyUid);
             $url .= "/{$studyUid}";
         }
 

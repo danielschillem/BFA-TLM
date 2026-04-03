@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Models\License;
 use App\Models\LicenseModule;
 use App\Models\Structure;
@@ -12,6 +13,8 @@ use Illuminate\Http\Request;
 
 class LicenseController extends Controller
 {
+    use AuthorizesStructureAccess;
+
     public function __construct(private LicenseService $licenseService) {}
 
     /**
@@ -61,6 +64,8 @@ class LicenseController extends Controller
         $data = $request->validate([
             'structure_id' => 'required|exists:structures,id',
         ]);
+
+        $this->authorizeStructureAccess((int) $data['structure_id']);
 
         $structure = Structure::findOrFail($data['structure_id']);
 
@@ -131,6 +136,8 @@ class LicenseController extends Controller
         $license = License::with(['modules', 'structure.typeStructure', 'createdBy'])
             ->findOrFail($id);
 
+        $this->authorizeStructureAccess((int) $license->structure_id);
+
         return response()->json([
             'success' => true,
             'data'    => array_merge($license->toArray(), [
@@ -146,6 +153,8 @@ class LicenseController extends Controller
      */
     public function parStructure(int $structureId): JsonResponse
     {
+        $this->authorizeStructureAccess($structureId);
+
         $licenses = License::with('modules')
             ->where('structure_id', $structureId)
             ->orderByDesc('date_fin')
@@ -166,6 +175,8 @@ class LicenseController extends Controller
      */
     public function verifier(int $structureId): JsonResponse
     {
+        $this->authorizeStructureAccess($structureId);
+
         $result = $this->licenseService->verifierLicence($structureId);
 
         return response()->json([

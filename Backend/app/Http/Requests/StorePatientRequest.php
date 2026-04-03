@@ -8,7 +8,10 @@ class StorePatientRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() && (
+            $this->user()->hasPermissionTo('patients.create') ||
+            $this->user()->hasPermissionTo('patients.update')
+        );
     }
 
     public function rules(): array

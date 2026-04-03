@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Requests\StoreDiagnosticRequest;
 use App\Http\Resources\DiagnosticResource;
 use App\Models\Diagnostic;
@@ -10,6 +11,8 @@ use Illuminate\Http\JsonResponse;
 
 class DiagnosticController extends Controller
 {
+    use AuthorizesStructureAccess;
+
     public function store(StoreDiagnosticRequest $request): JsonResponse
     {
         $validated = $request->validated();
@@ -20,6 +23,10 @@ class DiagnosticController extends Controller
             if ($consultation) {
                 $validated['dossier_patient_id'] = $consultation->dossier_patient_id;
             }
+        }
+
+        if (!empty($validated['dossier_patient_id'])) {
+            $this->authorizeDossierAccess($validated['dossier_patient_id']);
         }
 
         $diagnostic = Diagnostic::create($validated);
@@ -34,6 +41,7 @@ class DiagnosticController extends Controller
     public function update(StoreDiagnosticRequest $request, int $id): JsonResponse
     {
         $diagnostic = Diagnostic::findOrFail($id);
+        $this->authorizeDossierResource($diagnostic);
         $diagnostic->update($request->validated());
 
         return response()->json([
@@ -45,7 +53,9 @@ class DiagnosticController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Diagnostic::findOrFail($id)->delete();
+        $diagnostic = Diagnostic::findOrFail($id);
+        $this->authorizeDossierResource($diagnostic);
+        $diagnostic->delete();
 
         return response()->json([
             'success' => true,

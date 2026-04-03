@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Resources\PaiementResource;
 use App\Models\Paiement;
 use App\Models\RendezVous;
@@ -13,6 +14,7 @@ use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
+    use AuthorizesStructureAccess;
     private const METHOD_MAP = [
         'orange_money' => 'orange_money',
         'moov_money'   => 'moov_money',
@@ -102,7 +104,13 @@ class PaymentController extends Controller
      */
     public function doctorValidate(int $id): JsonResponse
     {
-        $paiement = Paiement::findOrFail($id);
+        $paiement = Paiement::with('rendezVous')->findOrFail($id);
+
+        // IDOR : seul le médecin du RDV ou un admin peut valider
+        $user = request()->user();
+        if (!$user->hasRole('admin') && $paiement->rendezVous?->user_id !== $user->id) {
+            abort(403, 'Vous n\'\u00eates pas autoris\u00e9 \u00e0 valider ce paiement.');
+        }
 
         if ($paiement->statut === 'confirme') {
             return response()->json([
@@ -128,6 +136,14 @@ class PaymentController extends Controller
     public function downloadInvoice(int $id): \Symfony\Component\HttpFoundation\Response
     {
         $paiement = Paiement::with(['rendezVous.patient', 'rendezVous.user', 'typeFacturation'])->findOrFail($id);
+
+        // IDOR : vérifier que l'utilisateur est impliqué
+        $user = request()->user();
+        if (!$user->hasRole('admin')
+            && $paiement->rendezVous?->user_id !== $user->id
+            && $paiement->rendezVous?->patient?->user_id !== $user->id) {
+            abort(403, 'Acc\u00e8s non autoris\u00e9 \u00e0 cette facture.');
+        }
 
         $pdf = Pdf::loadView('pdf.invoice', compact('paiement'));
 

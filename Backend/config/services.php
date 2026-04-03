@@ -50,7 +50,7 @@ return [
         'qido_rs' => env('DCM4CHEE_QIDO_RS', '/aets/DCM4CHEE/rs'),
         'timeout' => (int) env('DCM4CHEE_TIMEOUT', 30),
         'auth' => [
-            'enabled' => env('DCM4CHEE_AUTH_ENABLED', false),
+            'enabled' => env('DCM4CHEE_AUTH_ENABLED', true),
             'username' => env('DCM4CHEE_USERNAME'),
             'password' => env('DCM4CHEE_PASSWORD'),
         ],

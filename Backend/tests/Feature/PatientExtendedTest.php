@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\DossierPatient;
 use App\Models\Patient;
 use App\Models\RendezVous;
+use App\Models\Structure;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,13 +17,18 @@ class PatientExtendedTest extends TestCase
 
     protected User $doctor;
     protected User $admin;
+    protected Structure $structure;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(RolePermissionSeeder::class);
 
-        $this->doctor = User::factory()->doctor()->create(['status' => 'actif']);
+        $this->structure = Structure::factory()->create();
+        $this->doctor = User::factory()->doctor()->create([
+            'status' => 'actif',
+            'structure_id' => $this->structure->id,
+        ]);
         $this->doctor->assignRole('doctor');
 
         $this->admin = User::factory()->create(['status' => 'actif']);
@@ -70,8 +76,8 @@ class PatientExtendedTest extends TestCase
 
     public function test_doctor_can_search_patients_by_name(): void
     {
-        Patient::factory()->create(['nom' => 'OUEDRAOGO', 'prenoms' => 'Aïcha']);
-        Patient::factory()->create(['nom' => 'KABORE', 'prenoms' => 'Sita']);
+        Patient::factory()->create(['nom' => 'OUEDRAOGO', 'prenoms' => 'Aïcha', 'structure_id' => $this->structure->id]);
+        Patient::factory()->create(['nom' => 'KABORE', 'prenoms' => 'Sita', 'structure_id' => $this->structure->id]);
 
         $response = $this->actingAs($this->doctor, 'api')
             ->getJson('/api/v1/patients?search=OUEDRAOGO');
@@ -82,7 +88,7 @@ class PatientExtendedTest extends TestCase
 
     public function test_doctor_cannot_delete_patient_without_permission(): void
     {
-        $patient = Patient::factory()->create();
+        $patient = Patient::factory()->create(['structure_id' => $this->structure->id]);
 
         $response = $this->actingAs($this->doctor, 'api')
             ->deleteJson("/api/v1/patients/{$patient->id}");
@@ -136,7 +142,7 @@ class PatientExtendedTest extends TestCase
 
     public function test_update_patient_partial_fields(): void
     {
-        $patient = Patient::factory()->create(['nom' => 'AVANT']);
+        $patient = Patient::factory()->create(['nom' => 'AVANT', 'structure_id' => $this->structure->id]);
 
         $response = $this->actingAs($this->doctor, 'api')
             ->putJson("/api/v1/patients/{$patient->id}", [
