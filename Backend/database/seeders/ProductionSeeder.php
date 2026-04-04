@@ -50,7 +50,8 @@ class ProductionSeeder extends Seeder
         }
 
         // 3. Passport Personal Access Client (idempotent)
-        if (Client::where('provider', 'users')->whereJsonContains('grant_types', 'personal_access')->doesntExist()) {
+        // Évite whereJsonContains qui peut échouer sur PostgreSQL
+        if (Client::where('name', 'TLM Personal Access Client')->doesntExist()) {
             $client = Client::create([
                 'name'          => 'TLM Personal Access Client',
                 'secret'        => null,
@@ -59,7 +60,7 @@ class ProductionSeeder extends Seeder
                 'revoked'       => false,
                 'provider'      => 'users',
             ]);
-            $this->command->info("Passport Personal Access Client créé (ID: {$client->id})");
+            $this->command?->info("Passport Personal Access Client créé (ID: {$client->id})");
         }
     }
 }

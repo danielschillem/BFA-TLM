@@ -16,7 +16,8 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Créer le Personal Access Client Passport s'il n'existe pas
-        if (Client::where('provider', 'users')->whereJsonContains('grant_types', 'personal_access')->doesntExist()) {
+        // Évite whereJsonContains qui peut échouer sur PostgreSQL
+        if (Client::where('name', 'TLM Personal Access Client')->doesntExist()) {
             $client = Client::create([
                 'name' => 'TLM Personal Access Client',
                 'secret' => null,
@@ -25,7 +26,7 @@ class DatabaseSeeder extends Seeder
                 'revoked' => false,
                 'provider' => 'users',
             ]);
-            $this->command->info("Passport Personal Access Client créé (ID: {$client->id})");
+            $this->command?->info("Passport Personal Access Client créé (ID: {$client->id})");
         }
     }
 }

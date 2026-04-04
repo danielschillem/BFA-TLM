@@ -21,68 +21,82 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request): JsonResponse
     {
-        $user = User::create([
-            'nom' => $request->nom,
-            'prenoms' => $request->prenoms,
-            'email' => $request->email,
-            'password' => $request->password,
-            'telephone_1' => $request->telephone_1,
-            'sexe' => $request->sexe,
-        ]);
-
-        $role = $request->input('role', 'patient');
-        $user->assignRole($role);
-
-        // Créer automatiquement le dossier patient pour les inscriptions autonomes
-        if ($role === 'patient') {
-            $patient = \App\Models\Patient::create([
-                'nom' => $user->nom,
-                'prenoms' => $user->prenoms,
-                'email' => $user->email,
-                'telephone_1' => $user->telephone_1,
-                'sexe' => $user->sexe,
-                'date_naissance' => $request->input('date_naissance'),
-                'lieu_naissance' => $request->input('lieu_naissance'),
-                'user_id' => $user->id,
-                'created_by_id' => $user->id,
+        try {
+            $user = User::create([
+                'nom' => $request->nom,
+                'prenoms' => $request->prenoms,
+                'email' => $request->email,
+                'password' => $request->password,
+                'telephone_1' => $request->telephone_1,
+                'sexe' => $request->sexe,
             ]);
 
-            \App\Models\DossierPatient::create([
-                'identifiant' => 'DOS-' . str_pad($patient->id, 6, '0', STR_PAD_LEFT),
-                'statut' => 'ouvert',
-                'date_ouverture' => now(),
-                'patient_id' => $patient->id,
+            $role = $request->input('role', 'patient');
+            $user->assignRole($role);
+
+            // Créer automatiquement le dossier patient pour les inscriptions autonomes
+            if ($role === 'patient') {
+                $patient = \App\Models\Patient::create([
+                    'nom' => $user->nom,
+                    'prenoms' => $user->prenoms,
+                    'email' => $user->email,
+                    'telephone_1' => $user->telephone_1,
+                    'sexe' => $user->sexe,
+                    'date_naissance' => $request->input('date_naissance'),
+                    'lieu_naissance' => $request->input('lieu_naissance'),
+                    'user_id' => $user->id,
+                    'created_by_id' => $user->id,
+                ]);
+
+                \App\Models\DossierPatient::create([
+                    'identifiant' => 'DOS-' . str_pad($patient->id, 6, '0', STR_PAD_LEFT),
+                    'statut' => 'ouvert',
+                    'date_ouverture' => now(),
+                    'patient_id' => $patient->id,
+                ]);
+            }
+
+            $token = $user->createToken('auth-token')->accessToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Inscription réussie',
+                'data' => [
+                    'user' => new UserResource($user->load('roles')),
+                    'token' => $token,
+                    'requires_two_factor' => false,
+                ],
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('Register exception', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug') ? $e->getMessage() : 'Erreur serveur',
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ], 500);
         }
-
-        $token = $user->createToken('auth-token')->accessToken;
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Inscription réussie',
-            'data' => [
-                'user' => new UserResource($user->load('roles')),
-                'token' => $token,
-                'requires_two_factor' => false,
-            ],
-        ], 201);
     }
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $user = User::where('email', $request->email)->first();
+        try {
+            $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            Log::warning('Login failed', [
-                'email' => $request->email,
-                'user_found' => (bool) $user,
-                'input_keys' => array_keys($request->all()),
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Identifiants invalides',
-            ], 401);
-        }
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                Log::warning('Login failed', [
+                    'email' => $request->email,
+                    'user_found' => (bool) $user,
+                    'input_keys' => array_keys($request->all()),
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Identifiants invalides',
+                ], 401);
+            }
 
         if ($user->status !== 'actif') {
             return response()->json([
@@ -119,6 +133,18 @@ class AuthController extends Controller
                 'requires_two_factor' => false,
             ],
         ]);
+        } catch (\Throwable $e) {
+            Log::error('Login exception', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug') ? $e->getMessage() : 'Erreur serveur',
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ], 500);
+        }
     }
 
     public function resendTwoFactor(Request $request): JsonResponse
