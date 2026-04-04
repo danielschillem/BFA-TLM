@@ -23,6 +23,8 @@ services:
         value: https://tlm-temp-front.netlify.app
       - key: APP_RUNTIME_MODE
         value: web
+      - key: SEED_DEMO_DATA
+        value: "true"
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_URL
