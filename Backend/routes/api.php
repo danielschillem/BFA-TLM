@@ -454,12 +454,12 @@ Route::middleware(['auth:api', 'active'])->group(function () {
 
     // Consentements patient (OMS / RGPD)
     Route::prefix('consents')->group(function () {
-        Route::get('/', [PatientConsentController::class, 'index'])->middleware('permission:dossiers.view');
-        Route::post('/', [PatientConsentController::class, 'store'])->middleware('permission:dossiers.update');
-        Route::get('/check', [PatientConsentController::class, 'check'])->middleware('permission:dossiers.view');
-        Route::get('/{id}', [PatientConsentController::class, 'show'])->middleware('permission:dossiers.view');
-        Route::post('/{id}/withdraw', [PatientConsentController::class, 'withdraw'])->middleware('permission:dossiers.update');
-        Route::get('/patient/{patientId}/history', [PatientConsentController::class, 'patientHistory'])->middleware('permission:dossiers.view');
+        Route::get('/', [PatientConsentController::class, 'index'])->middleware('permission:consents.view');
+        Route::post('/', [PatientConsentController::class, 'store'])->middleware('permission:consents.manage');
+        Route::get('/check', [PatientConsentController::class, 'check'])->middleware('permission:consents.view');
+        Route::get('/{id}', [PatientConsentController::class, 'show'])->middleware('permission:consents.view');
+        Route::post('/{id}/withdraw', [PatientConsentController::class, 'withdraw'])->middleware('permission:consents.manage');
+        Route::get('/patient/{patientId}/history', [PatientConsentController::class, 'patientHistory'])->middleware('permission:consents.view');
     });
 
     // Paiements

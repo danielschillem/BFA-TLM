@@ -45,6 +45,8 @@ class RolePermissionSeeder extends Seeder
             'users.create', 'users.update', 'users.view',
             // Paiements
             'payments.initiate', 'payments.confirm', 'payments.validate', 'payments.view',
+            // Consentements patient
+            'consents.view', 'consents.manage',
         ];
 
         foreach ($permissions as $perm) {
@@ -92,6 +94,7 @@ class RolePermissionSeeder extends Seeder
             'messages.view', 'messages.send',
             'prescriptions.view',
             'payments.initiate', 'payments.confirm', 'payments.view',
+            'consents.view', 'consents.manage',
         ]);
 
         $manager = Role::firstOrCreate(['name' => 'structure_manager', 'guard_name' => 'api']);
