@@ -8,10 +8,16 @@ php artisan optimize:clear || true
 
 case "${APP_RUNTIME_MODE:-web}" in
   web)
+    if [ -z "${APP_KEY:-}" ]; then
+      echo "APP_KEY manquant: impossible de demarrer l'API en environnement deploiement." >&2
+      exit 1
+    fi
+
     php artisan migrate --force
-    php artisan db:seed --class=RolePermissionSeeder --force || true
     if [ "${SEED_DEMO_DATA:-false}" = "true" ]; then
-      php artisan db:seed --class=TestDataSeeder --force || true
+      php artisan db:seed --class="${SEED_DATABASE_CLASS:-Database\\Seeders\\DatabaseSeeder}" --force || true
+    else
+      php artisan db:seed --class="${SEED_DATABASE_CLASS:-Database\\Seeders\\ProductionSeeder}" --force || true
     fi
     php artisan passport:keys --force || true
     php artisan passport:client --personal --name="Render Personal Access Client" --no-interaction || true
