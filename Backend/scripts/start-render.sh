@@ -9,6 +9,7 @@ php artisan optimize:clear || true
 case "${APP_RUNTIME_MODE:-web}" in
   web)
     php artisan migrate --force
+    php artisan db:seed --class=RolePermissionSeeder --force || true
     php artisan passport:keys --force || true
     php artisan passport:client --personal --name="Render Personal Access Client" --no-interaction || true
     exec php artisan serve --host=0.0.0.0 --port="${PORT:-10000}"
