@@ -6,6 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRendezVousRequest;
 use App\Http\Resources\AppointmentResource;
 use App\Events\AppointmentConfirmed;
+use App\Events\AppointmentCreated;
+use App\Events\AppointmentRejected;
+use App\Events\AppointmentRescheduled;
+use App\Notifications\AppointmentCreatedNotification;
+use App\Notifications\AppointmentRejectedNotification;
+use App\Notifications\AppointmentRescheduledNotification;
 use App\Models\PatientConsent;
 use App\Models\RendezVous;
 use Illuminate\Http\JsonResponse;
@@ -84,9 +90,27 @@ class AppointmentController extends Controller
         // Si le patient prend lui-même rendez-vous, lier automatiquement à sa fiche patient
         if ($user->hasRole('patient')) {
             $patient = $user->patient;
-            if ($patient) {
-                $data['patient_id'] = $patient->id;
+            
+            // Auto-créer la fiche Patient si elle n'existe pas
+            if (!$patient) {
+                $patient = \App\Models\Patient::create([
+                    'user_id' => $user->id,
+                    'nom' => $user->nom ?? 'Inconnu',
+                    'prenoms' => $user->prenoms ?? 'Patient',
+                    'date_naissance' => $user->date_naissance ?? now()->subYears(30)->toDateString(),
+                    'sexe' => $user->sexe ?? 'M',
+                    'telephone_1' => $user->telephone_1 ?? null,
+                    'email' => $user->email,
+                ]);
+                // Créer aussi le DossierPatient
+                \App\Models\DossierPatient::create([
+                    'patient_id' => $patient->id,
+                    'date_ouverture' => now(),
+                    'statut' => 'actif',
+                ]);
             }
+            
+            $data['patient_id'] = $patient->id;
             // user_id = le médecin choisi (envoyé par le frontend), sinon null
             $data['created_by_doctor_id'] = null;
         } else {
@@ -114,6 +138,15 @@ class AppointmentController extends Controller
 
         // Compute total cost of selected actes
         $totalCost = \App\Models\Acte::whereIn('id', $acteIds)->sum('cout');
+
+        // Si prise de RDV par un patient autonome, notifier le médecin
+        if ($user->hasRole('patient') && $rdv->user_id) {
+            $doctor = $rdv->user;
+            if ($doctor) {
+                $doctor->notify(new AppointmentCreatedNotification($rdv));
+            }
+            AppointmentCreated::dispatch($rdv);
+        }
 
         return response()->json([
             'success' => true,
@@ -156,17 +189,92 @@ class AppointmentController extends Controller
     {
         $request->validate(['reason' => 'nullable|string']);
 
-        $rdv = RendezVous::findOrFail($id);
+        $rdv = RendezVous::with('patient.user')->findOrFail($id);
         $this->authorizeAccess($rdv, $request->user());
+        
+        $reason = $request->input('reason');
         $rdv->update([
             'statut' => 'annule',
-            'motif_annulation' => $request->input('reason'),
+            'motif_annulation' => $reason,
         ]);
+
+        // Si annulation par le médecin, notifier le patient
+        $currentUser = $request->user();
+        if (!$currentUser->hasRole('patient') && $rdv->patient?->user) {
+            $rdv->patient->user->notify(new AppointmentRejectedNotification($rdv, $reason));
+            AppointmentRejected::dispatch($rdv, $reason);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Rendez-vous annulé',
             'data' => new AppointmentResource($rdv->fresh()),
+        ]);
+    }
+
+    /**
+     * Refuser un rendez-vous (par le médecin) avec notification au patient.
+     */
+    public function reject(int $id, Request $request): JsonResponse
+    {
+        $request->validate(['reason' => 'nullable|string|max:500']);
+
+        $rdv = RendezVous::with('patient.user', 'user')->findOrFail($id);
+        $this->authorizeAccess($rdv, $request->user());
+
+        $reason = $request->input('reason');
+        $rdv->update([
+            'statut' => 'annule',
+            'motif_annulation' => $reason,
+        ]);
+
+        // Notifier le patient
+        if ($rdv->patient?->user) {
+            $rdv->patient->user->notify(new AppointmentRejectedNotification($rdv, $reason));
+        }
+        AppointmentRejected::dispatch($rdv, $reason);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Rendez-vous refusé',
+            'data' => new AppointmentResource($rdv->fresh()->load(['patient', 'user'])),
+        ]);
+    }
+
+    /**
+     * Reprogrammer un rendez-vous (par le médecin) avec notification au patient.
+     */
+    public function reschedule(int $id, Request $request): JsonResponse
+    {
+        $request->validate([
+            'date' => 'required|date|after_or_equal:today',
+            'heure' => 'required|date_format:H:i',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $rdv = RendezVous::with('patient.user', 'user')->findOrFail($id);
+        $this->authorizeAccess($rdv, $request->user());
+
+        $oldDate = $rdv->date?->format('d/m/Y');
+        $oldTime = $rdv->heure;
+        $reason = $request->input('reason');
+
+        $rdv->update([
+            'date' => $request->input('date'),
+            'heure' => $request->input('heure'),
+            'statut' => 'planifie', // Repasse en planifié pour reconfirmation
+        ]);
+
+        // Notifier le patient
+        if ($rdv->patient?->user) {
+            $rdv->patient->user->notify(new AppointmentRescheduledNotification($rdv, $oldDate, $oldTime, $reason));
+        }
+        AppointmentRescheduled::dispatch($rdv, $oldDate, $oldTime, $reason);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Rendez-vous reprogrammé',
+            'data' => new AppointmentResource($rdv->fresh()->load(['patient', 'user'])),
         ]);
     }
 

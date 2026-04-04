@@ -83,6 +83,9 @@ export const appointmentsApi = {
   get: (id) => apiClient.get(`/appointments/${id}`),
   confirm: (id) => apiClient.post(`/appointments/${id}/confirm`, {}),
   cancel: (id, data) => apiClient.post(`/appointments/${id}/cancel`, data),
+  reject: (id, data) => apiClient.post(`/appointments/${id}/reject`, data),
+  reschedule: (id, data) =>
+    apiClient.post(`/appointments/${id}/reschedule`, data),
   delegate: (id, data) => apiClient.post(`/appointments/${id}/delegate`, data),
   recordConsent: (id, data) =>
     apiClient.post(`/appointments/${id}/consent`, data),
@@ -349,6 +352,12 @@ export const adminApi = {
   getUserRoles: (userId) => apiClient.get(`/admin/users/${userId}/roles`),
   assignUserRoles: (userId, data) =>
     apiClient.post(`/admin/users/${userId}/roles`, data),
+
+  // Paramètres de la plateforme
+  getSettings: () => apiClient.get("/admin/settings"),
+  updateSetting: (key, value) =>
+    apiClient.put(`/admin/settings/${key}`, { value }),
+  updateSettings: (settings) => apiClient.put("/admin/settings", { settings }),
 };
 
 // ── Audit Logs ────────────────────────────────────────────────────────────────

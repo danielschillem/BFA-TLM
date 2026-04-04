@@ -243,6 +243,8 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::get('/{id}', [AppointmentController::class, 'show'])->middleware('permission:appointments.view');
         Route::post('/{id}/confirm', [AppointmentController::class, 'confirm'])->middleware('permission:appointments.update');
         Route::post('/{id}/cancel', [AppointmentController::class, 'cancel'])->middleware('permission:appointments.cancel');
+        Route::post('/{id}/reject', [AppointmentController::class, 'reject'])->middleware('permission:appointments.update');
+        Route::post('/{id}/reschedule', [AppointmentController::class, 'reschedule'])->middleware('permission:appointments.update');
         Route::post('/{id}/delegate', [AppointmentController::class, 'delegate'])->middleware('permission:appointments.update');
         Route::post('/{id}/consent', [AppointmentController::class, 'consent'])->middleware('permission:appointments.update');
         Route::get('/{id}/pdf', [AppointmentController::class, 'downloadPdf'])->middleware(['permission:appointments.view', 'throttle:export']);

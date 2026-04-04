@@ -173,7 +173,7 @@ export default function PatientBookAppointment() {
       let payment = null;
       if (tarif > 0 && paymentMethod) {
         const payRes = await paymentsApi.initiateForAppointment(rdv.id, {
-          amount: tarif,
+          consultation_amount: tarif,
           method: paymentMethod,
           phone: paymentMethod !== "especes" ? paymentPhone : null,
         });
