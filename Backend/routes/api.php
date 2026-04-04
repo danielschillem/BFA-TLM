@@ -294,8 +294,12 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     Route::prefix('messages')->middleware('permission:messages.view')->group(function () {
         Route::get('/inbox', [MessageController::class, 'inbox']);
         Route::get('/unread', [MessageController::class, 'unreadCount']);
+        Route::get('/search', [MessageController::class, 'search']);
         Route::get('/conversation/{userId}', [MessageController::class, 'conversation']);
         Route::post('/', [MessageController::class, 'send'])->middleware('permission:messages.send');
+        Route::post('/read', [MessageController::class, 'markAsRead']);
+        Route::get('/{id}/attachment', [MessageController::class, 'downloadAttachment'])->name('messages.attachment');
+        Route::delete('/{id}', [MessageController::class, 'destroy'])->middleware('permission:messages.send');
     });
 
     // Notifications

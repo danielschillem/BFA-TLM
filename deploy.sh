@@ -88,6 +88,15 @@ cd "$FRONTEND_DIR"
 npm ci --production=false
 echo -e "${YELLOW}       Mode frontend : ${FRONTEND_BUILD_MODE}${NC}"
 node scripts/generate-runtime-config.mjs "$FRONTEND_BUILD_MODE"
+
+if [ "$FRONTEND_BUILD_MODE" = "production" ]; then
+    if ! grep -q '"VITE_API_URL": "/api/v1"' public/app-config.runtime.js; then
+        echo -e "${RED}✗ Build refuse: le mode production standard doit utiliser VITE_API_URL=/api/v1 pour rester en same-origin.${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ Frontend configure en same-origin via /api/v1${NC}"
+fi
+
 npx vite build --mode "$FRONTEND_BUILD_MODE"
 
 # Copier le build dans Laravel public/spa/
@@ -188,7 +197,8 @@ echo -e "${GREEN}=========================================${NC}"
 echo ""
 echo "Checklist post-déploiement :"
 echo "  1. Vérifier .env (APP_URL, DB_*, MAIL_*, CORS_ALLOWED_ORIGINS)"
-echo "  1b. Vérifier FRONTEND_BUILD_MODE si vous utilisez Hostinger ou un frontend sur un autre host"
+echo "  1b. En mode production standard, conserver VITE_API_URL=/api/v1 pour le same-origin via proxy Nginx"
+echo "  1c. Vérifier FRONTEND_BUILD_MODE seulement si vous utilisez Hostinger ou un frontend sur un autre host"
 echo "  2. Configurer le DocumentRoot Apache/Nginx → Backend/public/"
 echo "  3. Activer SSL (Let's Encrypt / Certbot)"
 echo "  4. Tester : https://VOTRE_DOMAINE"

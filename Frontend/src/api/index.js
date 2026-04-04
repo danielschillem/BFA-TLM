@@ -184,6 +184,28 @@ export const messagesApi = {
     apiClient.get(`/messages/conversation/${userId}`, { params: p }),
   send: (userIdOrPayload, data) =>
     apiClient.post("/messages", toMessageSendPayload(userIdOrPayload, data)),
+  // Envoi avec pièce jointe (multipart/form-data)
+  sendWithAttachment: (recipientId, body, file) => {
+    const formData = new FormData();
+    formData.append("recipient_id", recipientId);
+    if (body) formData.append("body", body);
+    if (file) formData.append("attachment", file);
+    return apiClient.post("/messages", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  // Marquer comme lu
+  markAsRead: (messageIds) =>
+    apiClient.post("/messages/read", { message_ids: messageIds }),
+  // Recherche
+  search: (query, withUser) =>
+    apiClient.get("/messages/search", {
+      params: { q: query, with_user: withUser },
+    }),
+  // Supprimer un message
+  delete: (id) => apiClient.delete(`/messages/${id}`),
+  // Télécharger la pièce jointe
+  attachmentUrl: (messageId) => `/messages/${messageId}/attachment`,
 };
 
 // ── Notifications ─────────────────────────────────────────────────────────────

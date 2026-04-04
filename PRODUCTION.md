@@ -17,7 +17,7 @@
 
 ### Extensions PHP requises
 
-```
+```text
 php-mbstring php-xml php-curl php-zip php-gd php-mysql php-bcmath php-intl php-tokenizer php-json
 ```
 
@@ -71,9 +71,17 @@ nano .env   # ← Remplir TOUTES les valeurs __À_DÉFINIR__
 **Recommandation anti-CORS :**
 
 - Si vous utilisez `deploy.sh` + `nginx.conf` de ce dépôt, gardez le frontend et l'API sur le même host et utilisez `Frontend/.env.production` avec `VITE_API_URL=/api/v1`.
+- Le script `deploy.sh` protège désormais ce mode: un build `FRONTEND_BUILD_MODE=production` échoue si `VITE_API_URL` n'est plus `/api/v1`.
 - Si l'API est sur un sous-domaine séparé comme `api.votre-domaine.tld`, renseignez `FRONTEND_URL=https://votre-domaine.tld` et `CORS_ALLOWED_ORIGINS=https://votre-domaine.tld,https://www.votre-domaine.tld`.
 - Si vous déployez des previews Hostinger dont le sous-domaine change, vous pouvez autoriser le pattern `https://*.hostingersite.com` directement dans `CORS_ALLOWED_ORIGINS`.
 - `Frontend/public/app-config.runtime.js` est désormais généré automatiquement pendant le build. Ne l'éditez pas manuellement.
+
+**Configuration cible pour privilégier le same-origin :**
+
+- Frontend `.env.production` : `VITE_API_URL=/api/v1`
+- Backend `.env` : `CORS_ALLOWED_ORIGINS=https://liptako.bfa-tlm.online`
+- Nginx frontend : proxy `/api/v1/` et `/broadcasting/auth` vers `https://liptakocare.bfa-tlm.online`
+- Après modification des variables backend : `php artisan optimize:clear`
 
 **Mode Gateway CDN (Hostinger hcdn) :**
 Le CDN Hostinger (hcdn) intercepte les requêtes vers les URL propres (`/api/v1/...`) et renvoie 404/405 avant qu'Apache ne puisse les router. Seul `/index.php` est transmis à PHP. Le fichier `Backend/public/index.php` intègre un gateway qui lit le chemin API réel depuis le header `X-Api-Path`. Côté frontend, quand `VITE_API_URL` se termine par `/index.php`, le client Axios active automatiquement le mode gateway.

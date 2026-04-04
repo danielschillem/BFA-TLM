@@ -1,0 +1,141 @@
+databases:
+  - name: tlm-temp-db
+    databaseName: tlm_temp
+    user: tlm_temp_user
+
+services:
+  - type: web
+    name: tlm-temp-api
+    runtime: docker
+    rootDir: Backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /up
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        value: https://tlm-temp-api.onrender.com
+      - key: FRONTEND_URL
+        value: https://tlm-temp-front.netlify.app
+      - key: APP_RUNTIME_MODE
+        value: web
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: tlm-temp-db
+          property: connectionString
+      - key: CACHE_STORE
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: BROADCAST_CONNECTION
+        value: reverb
+      - key: LOG_CHANNEL
+        value: stack
+      - key: LOG_LEVEL
+        value: warning
+      - key: MAIL_MAILER
+        value: log
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://tlm-temp-front.netlify.app
+      - key: REVERB_APP_ID
+        value: tlm-temp
+      - key: REVERB_APP_KEY
+        generateValue: true
+      - key: REVERB_APP_SECRET
+        generateValue: true
+      - key: REVERB_HOST
+        value: 0.0.0.0
+      - key: REVERB_PORT
+        value: "10000"
+      - key: REVERB_SCHEME
+        value: https
+
+  - type: worker
+    name: tlm-temp-queue
+    runtime: docker
+    rootDir: Backend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        value: https://tlm-temp-api.onrender.com
+      - key: FRONTEND_URL
+        value: https://tlm-temp-front.netlify.app
+      - key: APP_RUNTIME_MODE
+        value: worker
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: tlm-temp-db
+          property: connectionString
+      - key: CACHE_STORE
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: BROADCAST_CONNECTION
+        value: reverb
+      - key: MAIL_MAILER
+        value: log
+      - key: REVERB_APP_ID
+        value: tlm-temp
+      - key: REVERB_APP_KEY
+        sync: false
+      - key: REVERB_APP_SECRET
+        sync: false
+
+  - type: web
+    name: tlm-temp-reverb
+    runtime: docker
+    rootDir: Backend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        value: https://tlm-temp-api.onrender.com
+      - key: FRONTEND_URL
+        value: https://tlm-temp-front.netlify.app
+      - key: APP_RUNTIME_MODE
+        value: reverb
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: tlm-temp-db
+          property: connectionString
+      - key: CACHE_STORE
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: BROADCAST_CONNECTION
+        value: reverb
+      - key: MAIL_MAILER
+        value: log
+      - key: REVERB_APP_ID
+        value: tlm-temp
+      - key: REVERB_APP_KEY
+        sync: false
+      - key: REVERB_APP_SECRET
+        sync: false
