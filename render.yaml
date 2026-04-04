@@ -46,7 +46,21 @@ services:
       - key: LOG_LEVEL
         value: warning
       - key: MAIL_MAILER
-        value: log
+        value: smtp
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_FROM_ADDRESS
+        value: noreply@bfa-tlm.online
+      - key: MAIL_FROM_NAME
+        value: TLM Burkina Faso
       - key: CORS_ALLOWED_ORIGINS
         value: https://tlm-temp-front.netlify.app
       - key: REVERB_APP_ID
