@@ -260,7 +260,11 @@ class AuthController extends Controller
                 'created_at' => now(),
             ]);
 
-            $user->notify(new ResetPasswordNotification($token));
+            try {
+                $user->notify(new ResetPasswordNotification($token));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send password reset email', ['user' => $user->id, 'error' => $e->getMessage()]);
+            }
         }
 
         // Toujours retourner le même message pour ne pas révéler l'existence du compte
@@ -397,7 +401,11 @@ class AuthController extends Controller
             'two_factor_expires_at' => now()->addMinutes(10),
         ]);
 
-        $user->notify(new TwoFactorCodeNotification($code));
+        try {
+            $user->notify(new TwoFactorCodeNotification($code));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send 2FA code email', ['user' => $user->id, 'error' => $e->getMessage()]);
+        }
 
         return [
             'message' => 'Code de vérification envoyé par email',
