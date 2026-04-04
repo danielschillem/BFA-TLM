@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# Force redeploy: v2
 set -eu
 
 cd /var/www/html
