@@ -41,7 +41,7 @@ class GestionnaireController extends Controller
         }
 
         $professionals = $query->orderBy('created_at', 'desc')
-            ->paginate($request->input('per_page', 15));
+            ->paginate(min((int) $request->input('per_page', 15), 100));
 
         return response()->json([
             'success' => true,

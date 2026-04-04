@@ -43,7 +43,7 @@ class AuditController extends Controller
     {
         $logs = Activity::where('causer_id', $request->user()->id)
             ->orderBy('created_at', 'desc')
-            ->paginate($request->input('per_page', 20));
+            ->paginate(min((int) $request->input('per_page', 20), 100));
 
         return response()->json([
             'success' => true,
@@ -87,7 +87,7 @@ class AuditController extends Controller
             $query->whereDate('created_at', '<=', $dateTo);
         }
 
-        $logs = $query->paginate($request->input('per_page', 20));
+        $logs = $query->paginate(min((int) $request->input('per_page', 20), 100));
 
         return response()->json([
             'success' => true,

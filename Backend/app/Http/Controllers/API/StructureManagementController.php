@@ -28,7 +28,7 @@ class StructureManagementController extends Controller
             $query->where('libelle', 'like', "%{$search}%");
         }
 
-        $types = $query->orderBy('libelle')->paginate($request->input('per_page', 15));
+        $types = $query->orderBy('libelle')->paginate(min((int) $request->input('per_page', 15), 100));
 
         return response()->json([
             'success' => true,
@@ -125,7 +125,7 @@ class StructureManagementController extends Controller
         }
 
         $structures = $query->orderBy('libelle')
-            ->paginate($request->input('per_page', 15));
+            ->paginate(min((int) $request->input('per_page', 15), 100));
 
         return response()->json([
             'success' => true,
@@ -360,7 +360,7 @@ class StructureManagementController extends Controller
         }
 
         $gestionnaires = $query->orderBy('created_at', 'desc')
-            ->paginate($request->input('per_page', 15));
+            ->paginate(min((int) $request->input('per_page', 15), 100));
 
         return response()->json([
             'success' => true,

@@ -13,7 +13,7 @@ class NotificationController extends Controller
         $notifications = $request->user()
             ->notifications()
             ->orderByDesc('created_at')
-            ->paginate($request->input('per_page', 20));
+            ->paginate(min((int) $request->input('per_page', 20), 100));
 
         return response()->json([
             'success' => true,

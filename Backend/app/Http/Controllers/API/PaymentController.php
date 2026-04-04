@@ -75,7 +75,15 @@ class PaymentController extends Controller
             'otp_code'  => 'nullable|string',
         ]);
 
-        $paiement = Paiement::where('reference', $request->input('reference'))->firstOrFail();
+        $paiement = Paiement::with('rendezVous.patient')->where('reference', $request->input('reference'))->firstOrFail();
+
+        // IDOR : vérifier que l'utilisateur est lié à ce paiement
+        $user = $request->user();
+        if (!$user->hasRole('admin')
+            && $paiement->rendezVous?->user_id !== $user->id
+            && $paiement->rendezVous?->patient?->user_id !== $user->id) {
+            abort(403, 'Accès non autorisé à ce paiement.');
+        }
 
         if ($paiement->statut !== 'en_attente') {
             return response()->json([
@@ -162,7 +170,7 @@ class PaymentController extends Controller
         }
 
         $payments = $query->orderBy('created_at', 'desc')
-            ->paginate($request->input('per_page', 15));
+            ->paginate(min((int) $request->input('per_page', 15), 100));
 
         // Statistiques
         $totalPaid = Paiement::whereHas('rendezVous', function ($q) use ($user) {

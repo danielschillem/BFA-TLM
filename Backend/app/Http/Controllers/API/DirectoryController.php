@@ -10,6 +10,60 @@ use Illuminate\Http\Request;
 
 class DirectoryController extends Controller
 {
+    /**
+     * Lister les structures de santé actives et disponibles.
+     */
+    public function structures(Request $request): JsonResponse
+    {
+        $query = Structure::with(['typeStructure', 'localite', 'services'])
+            ->where('actif', true);
+
+        if ($search = $request->input('search')) {
+            $query->where('libelle', 'like', "%{$search}%");
+        }
+
+        if ($typeId = $request->input('type_structure_id')) {
+            $query->where('type_structure_id', $typeId);
+        }
+
+        if ($localiteId = $request->input('localite_id')) {
+            $query->where('localite_id', $localiteId);
+        }
+
+        $structures = $query->orderBy('libelle')
+            ->paginate(min((int) $request->input('per_page', 20), 100));
+
+        return response()->json([
+            'success' => true,
+            'data' => $structures->map(fn ($s) => [
+                'id' => $s->id,
+                'code_structure' => $s->code_structure,
+                'libelle' => $s->libelle,
+                'telephone' => $s->telephone,
+                'email' => $s->email,
+                'type_structure' => $s->typeStructure?->libelle,
+                'localite' => $s->localite ? [
+                    'commune' => $s->localite->commune,
+                    'province' => $s->localite->province,
+                    'region' => $s->localite->region,
+                ] : null,
+                'services' => $s->services->map(fn ($svc) => [
+                    'id' => $svc->id,
+                    'libelle' => $svc->libelle,
+                ]),
+                'doctors_count' => $s->users()->role(['doctor', 'specialist'])->where('status', 'actif')->count(),
+            ]),
+            'meta' => [
+                'pagination' => [
+                    'current_page' => $structures->currentPage(),
+                    'last_page' => $structures->lastPage(),
+                    'per_page' => $structures->perPage(),
+                    'total' => $structures->total(),
+                ],
+            ],
+        ]);
+    }
+
     public function searchDoctors(Request $request): JsonResponse
     {
         $query = User::role(['doctor', 'specialist', 'health_professional'])
@@ -28,7 +82,7 @@ class DirectoryController extends Controller
         }
 
         $doctors = $query->where('status', 'actif')
-            ->paginate($request->input('per_page', 15));
+            ->paginate(min((int) $request->input('per_page', 15), 100));
 
         return response()->json([
             'success' => true,

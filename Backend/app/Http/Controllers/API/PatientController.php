@@ -15,8 +15,8 @@ class PatientController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $patients = Patient::with('dossier')
-            ->paginate($request->input('per_page', 15));
+        $patients = $this->scopeByStructure(Patient::with('dossier'))
+            ->paginate(min((int) $request->input('per_page', 15), 100));
 
         return response()->json([
             'success' => true,

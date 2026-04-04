@@ -43,6 +43,55 @@ use Illuminate\Support\Facades\Route;
 | Middleware : api (rate limiting, etc.)
 */
 
+// ── Diagnostic endpoint (admin seulement — ne jamais exposer en public) ───────
+Route::get('/diag', function () {
+    try {
+        $checks = [];
+
+        // 1. Database connection
+        try {
+            $checks['database'] = ['ok' => true, 'tables' => \Illuminate\Support\Facades\DB::select("SELECT count(*) as c FROM sqlite_master WHERE type='table'")[0]->c ?? 0];
+        } catch (\Throwable $e) {
+            $checks['database'] = ['ok' => false, 'error' => 'Connection failed'];
+        }
+
+        // 2. Passport client
+        try {
+            $client = \Laravel\Passport\Client::where('name', 'TLM Personal Access Client')->first();
+            $checks['passport_client'] = ['ok' => (bool) $client];
+        } catch (\Throwable $e) {
+            $checks['passport_client'] = ['ok' => false];
+        }
+
+        // 3. Roles
+        try {
+            $checks['roles'] = ['ok' => \Spatie\Permission\Models\Role::count() > 0];
+        } catch (\Throwable $e) {
+            $checks['roles'] = ['ok' => false];
+        }
+
+        // 4. Passport keys
+        $checks['passport_keys'] = [
+            'ok' => file_exists(storage_path('oauth-private.key')) && file_exists(storage_path('oauth-public.key')),
+        ];
+
+        // 5. APP_KEY
+        $checks['app_key'] = ['ok' => !empty(config('app.key'))];
+
+        $allOk = collect($checks)->every(fn($c) => $c['ok'] ?? false);
+
+        return response()->json([
+            'status' => $allOk ? 'healthy' : 'degraded',
+            'checks' => $checks,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Internal check failed',
+        ], 500);
+    }
+})->middleware(['auth:api', 'role:admin']);
+
 // ── Auth (public) ─────────────────────────────────────────────────────────────
 
 // ── FHIR R4 (interopérabilité) ────────────────────────────────────────────────

@@ -20,7 +20,7 @@ class DocumentController extends Controller
         }
 
         $documents = $query->orderBy('created_at', 'desc')
-            ->paginate($request->input('per_page', 15));
+            ->paginate(min((int) $request->input('per_page', 15), 100));
 
         return response()->json([
             'success' => true,
@@ -37,9 +37,9 @@ class DocumentController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => 'required|file|max:10240',
+            'file' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,gif,doc,docx,xls,xlsx,csv,txt,rtf,odt,ods,dicom,dcm,zip',
             'titre' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:1000',
             'niveau_confidentialite' => 'nullable|in:normal,confidentiel,tres_confidentiel',
         ]);
 

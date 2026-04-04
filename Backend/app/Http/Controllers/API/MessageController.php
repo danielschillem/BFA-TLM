@@ -74,7 +74,7 @@ class MessageController extends Controller
                 $q->where('sender_id', $userId)->where('recipient_id', $authId);
             })
             ->orderBy('created_at', 'asc')
-            ->paginate($request->input('per_page', 50));
+            ->paginate(min((int) $request->input('per_page', 50), 100));
 
         // Marquer comme lus
         Message::where('sender_id', $userId)
