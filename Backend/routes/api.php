@@ -44,6 +44,76 @@ use Illuminate\Support\Facades\Route;
 | Middleware : api (rate limiting, etc.)
 */
 
+// ── Diagnostic endpoint (temporaire) ──────────────────────────────────────────
+Route::get('/diag', function () {
+    try {
+        $checks = [];
+
+        // 1. Database connection
+        try {
+            $userCount = \App\Models\User::count();
+            $checks['database'] = ['ok' => true, 'user_count' => $userCount];
+        } catch (\Throwable $e) {
+            $checks['database'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        // 2. Passport client
+        try {
+            $client = \Laravel\Passport\Client::where('name', 'TLM Personal Access Client')->first();
+            $checks['passport_client'] = $client ? ['ok' => true, 'id' => $client->id] : ['ok' => false, 'error' => 'Client not found'];
+        } catch (\Throwable $e) {
+            $checks['passport_client'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        // 3. Roles
+        try {
+            $roles = \Spatie\Permission\Models\Role::pluck('name')->toArray();
+            $checks['roles'] = ['ok' => count($roles) > 0, 'roles' => $roles];
+        } catch (\Throwable $e) {
+            $checks['roles'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        // 4. Passport keys
+        try {
+            $privateKeyExists = file_exists(storage_path('oauth-private.key'));
+            $publicKeyExists = file_exists(storage_path('oauth-public.key'));
+            $checks['passport_keys'] = [
+                'ok' => $privateKeyExists && $publicKeyExists,
+                'private' => $privateKeyExists,
+                'public' => $publicKeyExists,
+            ];
+        } catch (\Throwable $e) {
+            $checks['passport_keys'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        // 5. APP_KEY
+        $checks['app_key'] = ['ok' => !empty(config('app.key')), 'set' => !empty(config('app.key'))];
+
+        // 6. Test user admin exists
+        try {
+            $admin = \App\Models\User::where('email', 'admin@tlm-bfa.bf')->first();
+            $checks['admin_user'] = $admin ? ['ok' => true, 'id' => $admin->id, 'status' => $admin->status] : ['ok' => false, 'error' => 'Admin user not found'];
+        } catch (\Throwable $e) {
+            $checks['admin_user'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        $allOk = collect($checks)->every(fn($c) => $c['ok'] ?? false);
+
+        return response()->json([
+            'status' => $allOk ? 'healthy' : 'degraded',
+            'checks' => $checks,
+            'env' => config('app.env'),
+            'debug' => config('app.debug'),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+        ], 500);
+    }
+});
+
 // ── Auth (public) ─────────────────────────────────────────────────────────────
 
 // ── FHIR R4 (interopérabilité) ────────────────────────────────────────────────
