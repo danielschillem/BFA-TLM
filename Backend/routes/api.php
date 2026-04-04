@@ -27,6 +27,7 @@ use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\PatientConsentController;
 use App\Http\Controllers\API\PatientController;
 use App\Http\Controllers\API\PaymentController;
+use App\Http\Controllers\API\PlatformSettingsController;
 use App\Http\Controllers\API\RolePermissionController;
 use App\Http\Controllers\API\PrescriptionController;
 use App\Http\Controllers\API\StructureManagementController;
@@ -95,7 +96,7 @@ Route::get('/diag', function () {
 // ── Auth (public) ─────────────────────────────────────────────────────────────
 
 // ── FHIR R4 (interopérabilité) ────────────────────────────────────────────────
-Route::prefix('fhir')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('fhir')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     // Metadata (CapabilityStatement)
     Route::get('/metadata', [FhirController::class, 'metadata'])->withoutMiddleware(['auth:api', 'active']);
 
@@ -149,7 +150,7 @@ Route::prefix('fhir')->middleware(['auth:api', 'active'])->group(function () {
 });
 
 // ── CDA R2 (documents cliniques XML) ──────────────────────────────────────────
-Route::prefix('cda')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('cda')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     // Metadata (capacités CDA R2 — public, sans auth)
     Route::get('/metadata', [CdaController::class, 'metadata'])->withoutMiddleware(['auth:api', 'active']);
 
@@ -167,7 +168,7 @@ Route::prefix('cda')->middleware(['auth:api', 'active'])->group(function () {
 });
 
 // ── Terminologies (SNOMED CT + ATC) ───────────────────────────────────────────
-Route::prefix('terminology')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('terminology')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     // Metadata (public, sans auth)
     Route::get('/metadata', [TerminologyController::class, 'metadata'])->withoutMiddleware(['auth:api', 'active']);
 
@@ -188,7 +189,7 @@ Route::prefix('terminology')->middleware(['auth:api', 'active'])->group(function
 });
 
 // ── ICD-11 OMS (classification internationale) ────────────────────────────────
-Route::prefix('icd11')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('icd11')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     Route::get('/search', [Icd11Controller::class, 'search']);
     Route::get('/lookup/{code}', [Icd11Controller::class, 'lookup'])->where('code', '[A-Za-z0-9./-]+');
     Route::get('/validate/{code}', [Icd11Controller::class, 'validate'])->where('code', '[A-Za-z0-9./-]+');
@@ -197,7 +198,7 @@ Route::prefix('icd11')->middleware(['auth:api', 'active'])->group(function () {
 });
 
 // ── DHIS2 & ENDOS (système national d'information sanitaire) ──────────────────
-Route::prefix('dhis2')->middleware(['auth:api', 'active'])->group(function () {
+Route::prefix('dhis2')->middleware(['auth:api', 'active', 'throttle:interop'])->group(function () {
     // Metadata combiné (dashboard interop)
     Route::get('/metadata', [Dhis2Controller::class, 'metadata'])
         ->withoutMiddleware(['auth:api', 'active']);
@@ -241,7 +242,8 @@ Route::prefix('auth')->middleware('throttle:auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])->middleware('throttle:password-reset');
     Route::post('/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
-    Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor']);
+    Route::post('/two-factor/verify', [AuthController::class, 'verifyTwoFactor'])->middleware(['auth:api', 'active']);
+    Route::post('/two-factor/resend', [AuthController::class, 'resendTwoFactor'])->middleware(['auth:api', 'active']);
 
     // Authentifié
     Route::middleware(['auth:api', 'active'])->group(function () {
@@ -271,11 +273,13 @@ Route::middleware(['auth:api', 'active'])->group(function () {
 
     // Annuaire médecins (lecture accessible à tout utilisateur authentifié)
     Route::prefix('directory')->group(function () {
+        Route::get('/structures', [DirectoryController::class, 'structures']);
         Route::get('/doctors', [DirectoryController::class, 'searchDoctors']);
         Route::get('/doctors/{id}', [DirectoryController::class, 'getDoctor']);
         Route::get('/specialties', [DirectoryController::class, 'getSpecialties']);
         Route::get('/appointments/slots', [DirectoryController::class, 'getSlots']);
-        // Gestion des plannings (médecins/spécialistes uniquement)
+        Route::get('/appointments/availability', [DirectoryController::class, 'getAvailability']);
+        // Gestion des disponibilités (médecins/spécialistes uniquement)
         Route::post('/schedule', [DirectoryController::class, 'createSchedule'])->middleware('permission:appointments.update');
         Route::delete('/schedule/{id}', [DirectoryController::class, 'deleteSchedule'])->middleware('permission:appointments.update');
         Route::get('/schedule', [DirectoryController::class, 'mySchedule'])->middleware('permission:appointments.view');
@@ -288,6 +292,8 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::get('/{id}', [AppointmentController::class, 'show'])->middleware('permission:appointments.view');
         Route::post('/{id}/confirm', [AppointmentController::class, 'confirm'])->middleware('permission:appointments.update');
         Route::post('/{id}/cancel', [AppointmentController::class, 'cancel'])->middleware('permission:appointments.cancel');
+        Route::post('/{id}/reject', [AppointmentController::class, 'reject'])->middleware('permission:appointments.update');
+        Route::post('/{id}/reschedule', [AppointmentController::class, 'reschedule'])->middleware('permission:appointments.update');
         Route::post('/{id}/delegate', [AppointmentController::class, 'delegate'])->middleware('permission:appointments.update');
         Route::post('/{id}/consent', [AppointmentController::class, 'consent'])->middleware('permission:appointments.update');
         Route::get('/{id}/pdf', [AppointmentController::class, 'downloadPdf'])->middleware(['permission:appointments.view', 'throttle:export']);
@@ -337,8 +343,12 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     Route::prefix('messages')->middleware('permission:messages.view')->group(function () {
         Route::get('/inbox', [MessageController::class, 'inbox']);
         Route::get('/unread', [MessageController::class, 'unreadCount']);
+        Route::get('/search', [MessageController::class, 'search']);
         Route::get('/conversation/{userId}', [MessageController::class, 'conversation']);
         Route::post('/', [MessageController::class, 'send'])->middleware('permission:messages.send');
+        Route::post('/read', [MessageController::class, 'markAsRead']);
+        Route::get('/{id}/attachment', [MessageController::class, 'downloadAttachment'])->name('messages.attachment');
+        Route::delete('/{id}', [MessageController::class, 'destroy'])->middleware('permission:messages.send');
     });
 
     // Notifications
@@ -350,7 +360,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Patients
-    Route::prefix('patients')->where(['patient' => '[0-9]+'])->group(function () {
+    Route::prefix('patients')->where(['patient' => '[0-9]+'])->middleware('throttle:sensitive')->group(function () {
         Route::get('/', [PatientController::class, 'index'])->middleware('permission:patients.view');
         Route::post('/', [PatientController::class, 'store'])->middleware('permission:patients.create');
         Route::get('/{patient}', [PatientController::class, 'show'])->middleware('permission:patients.view');
@@ -402,7 +412,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Admin
-    Route::prefix('admin')->middleware('role:admin')->group(function () {
+    Route::prefix('admin')->middleware(['role:admin', 'throttle:admin'])->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->middleware('permission:admin.dashboard');
         Route::get('/users', [AdminController::class, 'listUsers'])->middleware('permission:admin.users');
         Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus'])->middleware('permission:admin.users');
@@ -457,6 +467,13 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::get('/announcements/{id}', [AnnouncementController::class, 'show']);
         Route::put('/announcements/{id}', [AnnouncementController::class, 'update']);
         Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy']);
+
+        // ── Paramètres de la plateforme (Admin) ──
+        Route::prefix('settings')->middleware('permission:admin.settings')->group(function () {
+            Route::get('/', [PlatformSettingsController::class, 'index']);
+            Route::put('/{key}', [PlatformSettingsController::class, 'update']);
+            Route::put('/', [PlatformSettingsController::class, 'batchUpdate']);
+        });
     });
 
     // Annonces publiées (tous utilisateurs authentifiés)
@@ -490,25 +507,30 @@ Route::middleware(['auth:api', 'active'])->group(function () {
 
     // Consentements patient (OMS / RGPD)
     Route::prefix('consents')->group(function () {
-        Route::get('/', [PatientConsentController::class, 'index'])->middleware('permission:dossiers.view');
-        Route::post('/', [PatientConsentController::class, 'store'])->middleware('permission:dossiers.update');
-        Route::get('/check', [PatientConsentController::class, 'check'])->middleware('permission:dossiers.view');
-        Route::get('/{id}', [PatientConsentController::class, 'show'])->middleware('permission:dossiers.view');
-        Route::post('/{id}/withdraw', [PatientConsentController::class, 'withdraw'])->middleware('permission:dossiers.update');
-        Route::get('/patient/{patientId}/history', [PatientConsentController::class, 'patientHistory'])->middleware('permission:dossiers.view');
+        Route::get('/', [PatientConsentController::class, 'index'])->middleware('permission:consents.view');
+        Route::post('/', [PatientConsentController::class, 'store'])->middleware('permission:consents.manage');
+        Route::get('/check', [PatientConsentController::class, 'check'])->middleware('permission:consents.view');
+        Route::get('/{id}', [PatientConsentController::class, 'show'])->middleware('permission:consents.view');
+        Route::post('/{id}/withdraw', [PatientConsentController::class, 'withdraw'])->middleware('permission:consents.manage');
+        Route::get('/patient/{patientId}/history', [PatientConsentController::class, 'patientHistory'])->middleware('permission:consents.view');
     });
 
     // Paiements
     Route::prefix('payments')->group(function () {
         Route::post('/consultations/{consultationId}/initiate', [PaymentController::class, 'initiate'])->middleware('permission:payments.initiate');
+        Route::post('/appointments/{appointmentId}/initiate', [PaymentController::class, 'initiateForAppointment'])->middleware('permission:payments.initiate');
         Route::post('/confirm', [PaymentController::class, 'confirm'])->middleware('permission:payments.confirm');
         Route::post('/{id}/doctor-validate', [PaymentController::class, 'doctorValidate'])->middleware('permission:payments.validate');
         Route::get('/{id}/invoice', [PaymentController::class, 'downloadInvoice'])->middleware('permission:payments.view');
         Route::get('/statement', [PaymentController::class, 'statement'])->middleware('permission:payments.view');
+        // Paramètres de frais publics (pour afficher au patient)
+        Route::get('/settings', [PlatformSettingsController::class, 'publicSettings']);
+        // Calculer les frais avant paiement
+        Route::post('/calculate-fees', [PaymentController::class, 'calculateFees']);
     });
 
     // Imagerie médicale (DICOM / dcm4chee-arc)
-    Route::prefix('dicom')->group(function () {
+    Route::prefix('dicom')->middleware('throttle:sensitive')->group(function () {
         Route::get('/health', [DicomController::class, 'healthCheck']);
         Route::get('/studies', [DicomController::class, 'index'])->middleware('permission:consultations.view');
         Route::post('/studies', [DicomController::class, 'store'])->middleware('permission:consultations.update');
@@ -525,7 +547,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Certification des causes de décès (modèle OMS + CIM-11)
-    Route::prefix('certificats-deces')->group(function () {
+    Route::prefix('certificats-deces')->middleware('throttle:sensitive')->group(function () {
         Route::get('/', [CertificatDecesController::class, 'index'])->middleware('permission:dossiers.view');
         Route::post('/', [CertificatDecesController::class, 'store'])->middleware('permission:dossiers.update');
         Route::get('/statistiques', [CertificatDecesController::class, 'statistiques'])->middleware('permission:dossiers.view');

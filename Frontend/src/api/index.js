@@ -4,15 +4,35 @@ const defaultSharePayload = { share_with: ["patient"] };
 
 const toConsultationStartRequest = (input, payload = {}) => {
   if (typeof input === "object" && input !== null) {
-    const { appointment_id, appointmentId, ...rest } = input;
-    const id = appointment_id ?? appointmentId;
-    if (id) {
-      return { url: `/consultations/appointments/${id}/start`, data: rest };
+    const { appointment_id, appointmentId, id, ...rest } = input;
+    const appointment = appointment_id ?? appointmentId ?? id;
+    if (appointment) {
+      return {
+        url: `/consultations/appointments/${appointment}/start`,
+        data: rest,
+      };
     }
-    return { url: "/consultations/start", data: input };
+  } else if (input !== undefined && input !== null && input !== "") {
+    return { url: `/consultations/appointments/${input}/start`, data: payload };
   }
-  return { url: `/consultations/appointments/${input}/start`, data: payload };
+
+  throw new Error(
+    "appointment_id est requis pour demarrer une consultation depuis un rendez-vous.",
+  );
 };
+
+const toTerminologySearchParams = (params = {}) => {
+  if (!params || typeof params !== "object") return params;
+
+  const { q, term, ...rest } = params;
+  const normalizedTerm = term ?? q;
+
+  return normalizedTerm ? { ...rest, term: normalizedTerm } : rest;
+};
+
+const toDicomThumbnailPath = (studyId) => `/dicom/studies/${studyId}/thumbnail`;
+
+const toCertificatStatsPath = () => "/certificats-deces/statistiques";
 
 const toMessageSendPayload = (recipientOrPayload, payload = {}) => {
   if (typeof recipientOrPayload === "object" && recipientOrPayload !== null) {
@@ -27,12 +47,12 @@ const toSharePayload = (payload) => {
   if (Array.isArray(payload.share_with)) return payload;
   return { ...defaultSharePayload, ...payload };
 };
-
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
   register: (data) => apiClient.post("/auth/register", data),
   login: (data) => apiClient.post("/auth/login", data),
   verifyTwoFactor: (data) => apiClient.post("/auth/two-factor/verify", data),
+  resendTwoFactor: () => apiClient.post("/auth/two-factor/resend", {}),
   logout: () => apiClient.post("/auth/logout", {}),
   me: () => apiClient.get("/auth/me"),
   updateProfile: (data) => apiClient.put("/auth/profile", data),
@@ -46,8 +66,11 @@ export const directoryApi = {
   search: (params) => apiClient.get("/directory/doctors", { params }),
   getDoctor: (id) => apiClient.get(`/directory/doctors/${id}`),
   getSpecialties: () => apiClient.get("/directory/specialties"),
+  getStructures: (params) => apiClient.get("/directory/structures", { params }),
   getSlots: (params) =>
     apiClient.get("/directory/appointments/slots", { params }),
+  getAvailability: (params) =>
+    apiClient.get("/directory/appointments/availability", { params }),
   createSchedule: (data) => apiClient.post("/directory/schedule", data),
   deleteSchedule: (id) => apiClient.delete(`/directory/schedule/${id}`),
   mySchedule: () => apiClient.get("/directory/schedule"),
@@ -60,6 +83,9 @@ export const appointmentsApi = {
   get: (id) => apiClient.get(`/appointments/${id}`),
   confirm: (id) => apiClient.post(`/appointments/${id}/confirm`, {}),
   cancel: (id, data) => apiClient.post(`/appointments/${id}/cancel`, data),
+  reject: (id, data) => apiClient.post(`/appointments/${id}/reject`, data),
+  reschedule: (id, data) =>
+    apiClient.post(`/appointments/${id}/reschedule`, data),
   delegate: (id, data) => apiClient.post(`/appointments/${id}/delegate`, data),
   recordConsent: (id, data) =>
     apiClient.post(`/appointments/${id}/consent`, data),
@@ -79,8 +105,6 @@ export const consultationsApi = {
   },
   end: (id) => apiClient.post(`/consultations/${id}/end`, {}),
   recordConsent: (id, d) => apiClient.post(`/consultations/${id}/consent`, d),
-  reportInterruption: (id, d) =>
-    apiClient.post(`/consultations/${id}/interrupt`, d),
   rateVideoQuality: (id, d) =>
     apiClient.post(`/consultations/${id}/rate-video`, d),
   transmitParams: (id, d) =>
@@ -139,11 +163,17 @@ export const prescriptionsApi = {
 export const paymentsApi = {
   initiate: (cId, d) =>
     apiClient.post(`/payments/consultations/${cId}/initiate`, d),
+  initiateForAppointment: (rdvId, d) =>
+    apiClient.post(`/payments/appointments/${rdvId}/initiate`, d),
   confirm: (data) => apiClient.post("/payments/confirm", data),
   doctorValidate: (id) => apiClient.post(`/payments/${id}/doctor-validate`, {}),
   downloadInvoice: (id) =>
     apiClient.get(`/payments/${id}/invoice`, { responseType: "blob" }),
   statement: (params) => apiClient.get("/payments/statement", { params }),
+  // Paramètres de frais publics
+  getSettings: () => apiClient.get("/payments/settings"),
+  // Calculer les frais avant paiement
+  calculateFees: (d) => apiClient.post("/payments/calculate-fees", d),
 };
 
 // ── Messagerie ────────────────────────────────────────────────────────────────
@@ -154,6 +184,28 @@ export const messagesApi = {
     apiClient.get(`/messages/conversation/${userId}`, { params: p }),
   send: (userIdOrPayload, data) =>
     apiClient.post("/messages", toMessageSendPayload(userIdOrPayload, data)),
+  // Envoi avec pièce jointe (multipart/form-data)
+  sendWithAttachment: (recipientId, body, file) => {
+    const formData = new FormData();
+    formData.append("recipient_id", recipientId);
+    if (body) formData.append("body", body);
+    if (file) formData.append("attachment", file);
+    return apiClient.post("/messages", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  // Marquer comme lu
+  markAsRead: (messageIds) =>
+    apiClient.post("/messages/read", { message_ids: messageIds }),
+  // Recherche
+  search: (query, withUser) =>
+    apiClient.get("/messages/search", {
+      params: { q: query, with_user: withUser },
+    }),
+  // Supprimer un message
+  delete: (id) => apiClient.delete(`/messages/${id}`),
+  // Télécharger la pièce jointe
+  attachmentUrl: (messageId) => `/messages/${messageId}/attachment`,
 };
 
 // ── Notifications ─────────────────────────────────────────────────────────────
@@ -168,11 +220,6 @@ export const notificationsApi = {
 export const patientRecordApi = {
   get: (patientId) => apiClient.get(`/patients/${patientId}/record`),
   update: (pId, data) => apiClient.put(`/patients/${pId}/record`, data),
-  verifyIdentity: (pId, data) =>
-    apiClient.post(`/patients/${pId}/record/verify-identity`, data),
-  archive: (pId, data) =>
-    apiClient.post(`/patients/${pId}/record/archive`, data),
-  recordConsent: (data) => apiClient.post("/patients/consent", data),
 };
 
 // ── Dossier médical — sous-entités CRUD ───────────────────────────────────────
@@ -327,6 +374,12 @@ export const adminApi = {
   getUserRoles: (userId) => apiClient.get(`/admin/users/${userId}/roles`),
   assignUserRoles: (userId, data) =>
     apiClient.post(`/admin/users/${userId}/roles`, data),
+
+  // Paramètres de la plateforme
+  getSettings: () => apiClient.get("/admin/settings"),
+  updateSetting: (key, value) =>
+    apiClient.put(`/admin/settings/${key}`, { value }),
+  updateSettings: (settings) => apiClient.put("/admin/settings", { settings }),
 };
 
 // ── Audit Logs ────────────────────────────────────────────────────────────────
@@ -395,31 +448,36 @@ export const certificatsDecesApi = {
   create: (data) => apiClient.post("/certificats-deces", data),
   get: (id) => apiClient.get(`/certificats-deces/${id}`),
   update: (id, data) => apiClient.put(`/certificats-deces/${id}`, data),
-  delete: (id) => apiClient.delete(`/certificats-deces/${id}`),
   certifier: (id) => apiClient.post(`/certificats-deces/${id}/certifier`, {}),
   valider: (id) => apiClient.post(`/certificats-deces/${id}/valider`, {}),
   rejeter: (id, data) =>
     apiClient.post(`/certificats-deces/${id}/rejeter`, data),
   annuler: (id, data) =>
     apiClient.post(`/certificats-deces/${id}/annuler`, data),
-  statistics: (params) =>
-    apiClient.get("/certificats-deces/statistics/mortality", { params }),
+  statistics: (params) => apiClient.get(toCertificatStatsPath(), { params }),
 };
 
 // ── Terminologies (SNOMED CT + ATC) ───────────────────────────────────────────
 export const terminologyApi = {
   // SNOMED CT
   snomedSearch: (params) =>
-    apiClient.get("/terminology/snomed/search", { params }),
+    apiClient.get("/terminology/snomed/search", {
+      params: toTerminologySearchParams(params),
+    }),
   snomedLookup: (id) => apiClient.get(`/terminology/snomed/lookup/${id}`),
   snomedValidate: (id) => apiClient.get(`/terminology/snomed/validate/${id}`),
   snomedChildren: (id) => apiClient.get(`/terminology/snomed/children/${id}`),
   snomedDomainSearch: (domain, params) =>
-    apiClient.get(`/terminology/snomed/domain/${domain}`, { params }),
+    apiClient.get(`/terminology/snomed/${domain}`, {
+      params: toTerminologySearchParams(params),
+    }),
   snomedHealth: () => apiClient.get("/terminology/snomed/health"),
   // ATC
   atcTree: () => apiClient.get("/terminology/atc/tree"),
-  atcSearch: (params) => apiClient.get("/terminology/atc/search", { params }),
+  atcSearch: (params) =>
+    apiClient.get("/terminology/atc/search", {
+      params: toTerminologySearchParams(params),
+    }),
   atcLookup: (code) => apiClient.get(`/terminology/atc/lookup/${code}`),
   atcChildren: (code) => apiClient.get(`/terminology/atc/children/${code}`),
   atcValidate: (code) => apiClient.get(`/terminology/atc/validate/${code}`),
@@ -441,7 +499,6 @@ export const dicomApi = {
   getStudy: (id) => apiClient.get(`/dicom/studies/${id}`),
   createStudy: (data) => apiClient.post("/dicom/studies", data),
   updateStudy: (id, data) => apiClient.put(`/dicom/studies/${id}`, data),
-  deleteStudy: (id) => apiClient.delete(`/dicom/studies/${id}`),
   upload: (formData) =>
     apiClient.post("/dicom/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -451,8 +508,8 @@ export const dicomApi = {
   series: (uid) => apiClient.get(`/dicom/studies/${uid}/series`),
   instances: (studyUid, seriesUid) =>
     apiClient.get(`/dicom/studies/${studyUid}/series/${seriesUid}/instances`),
-  thumbnail: (studyUid, seriesUid) =>
-    apiClient.get(`/dicom/studies/${studyUid}/series/${seriesUid}/thumbnail`, {
+  thumbnail: (studyId) =>
+    apiClient.get(toDicomThumbnailPath(studyId), {
       responseType: "blob",
     }),
 };

@@ -8,7 +8,7 @@ class StorePaymentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->hasPermissionTo('payments.initiate') ?? false;
     }
 
     public function rules(): array

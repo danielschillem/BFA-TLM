@@ -17,6 +17,8 @@ class CertificatDeces extends Model
 
     protected $fillable = [
         'numero_certificat', 'patient_id', 'dossier_patient_id',
+        'nom_defunt', 'prenoms_defunt', 'date_naissance_defunt', 'lieu_naissance_defunt',
+        'nationalite_defunt', 'profession_defunt', 'adresse_defunt',
         // Circonstances
         'date_deces', 'heure_deces', 'lieu_deces', 'type_lieu_deces',
         'sexe_defunt', 'age_defunt', 'unite_age',
@@ -41,6 +43,7 @@ class CertificatDeces extends Model
     protected function casts(): array
     {
         return [
+            'date_naissance_defunt' => 'date',
             'date_deces' => 'datetime',
             'date_certification' => 'datetime',
             'date_validation' => 'datetime',

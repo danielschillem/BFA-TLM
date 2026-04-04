@@ -18,7 +18,9 @@ class Patient extends Model
         'telephone_1', 'telephone_2', 'email', 'photo',
         'nom_personne_prevenir', 'prenom_personne_prevenir',
         'filiation_personne_prevenir', 'telephone_personne_prevenir',
-        'localite_id', 'user_id', 'created_by_id', 'structure_id',
+        'localite_id', 'user_id', 'created_by_id',
+        // 'structure_id' retiré de $fillable pour prévenir le mass assignment
+        // Assigné explicitement dans PatientController::store() uniquement
     ];
 
     protected $encryptedFields = ['nom', 'prenoms', 'email'];

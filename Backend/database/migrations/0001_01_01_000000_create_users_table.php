@@ -29,12 +29,12 @@ return new class extends Migration
             $table->timestamp('last_login_at')->nullable();
             $table->string('two_factor_code')->nullable();
             $table->timestamp('two_factor_expires_at')->nullable();
-            $table->foreignId('pays_id')->nullable()->constrained('pays')->nullOnDelete();
-            $table->foreignId('localite_id')->nullable()->constrained('localites')->nullOnDelete();
-            $table->foreignId('grade_id')->nullable()->constrained('grades')->nullOnDelete();
-            $table->foreignId('type_professionnel_sante_id')->nullable()->constrained('type_professionnel_santes')->nullOnDelete();
-            $table->foreignId('structure_id')->nullable()->constrained('structures')->nullOnDelete();
-            $table->foreignId('service_id')->nullable()->constrained('services')->nullOnDelete();
+            $table->foreignId('pays_id')->nullable();
+            $table->foreignId('localite_id')->nullable();
+            $table->foreignId('grade_id')->nullable();
+            $table->foreignId('type_professionnel_sante_id')->nullable();
+            $table->foreignId('structure_id')->nullable();
+            $table->foreignId('service_id')->nullable();
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();

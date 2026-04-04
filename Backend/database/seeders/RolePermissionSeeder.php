@@ -36,7 +36,7 @@ class RolePermissionSeeder extends Seeder
             // Téléexpertise
             'teleexpertise.view', 'teleexpertise.create', 'teleexpertise.respond',
             // Admin
-            'admin.dashboard', 'admin.users', 'admin.audit',
+            'admin.dashboard', 'admin.users', 'admin.audit', 'admin.settings',
             // Structures
             'structures.view', 'structures.manage',
             // Types de structure
@@ -45,6 +45,8 @@ class RolePermissionSeeder extends Seeder
             'users.create', 'users.update', 'users.view',
             // Paiements
             'payments.initiate', 'payments.confirm', 'payments.validate', 'payments.view',
+            // Consentements patient
+            'consents.view', 'consents.manage',
         ];
 
         foreach ($permissions as $perm) {
@@ -86,11 +88,13 @@ class RolePermissionSeeder extends Seeder
         $patient = Role::firstOrCreate(['name' => 'patient', 'guard_name' => 'api']);
         $patient->syncPermissions([
             'appointments.view', 'appointments.create', 'appointments.cancel',
+            'consultations.view',
             'dossiers.view',
             'documents.view',
             'messages.view', 'messages.send',
             'prescriptions.view',
             'payments.initiate', 'payments.confirm', 'payments.view',
+            'consents.view', 'consents.manage',
         ]);
 
         $manager = Role::firstOrCreate(['name' => 'structure_manager', 'guard_name' => 'api']);

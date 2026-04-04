@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Requests\StoreTraitementRequest;
 use App\Http\Resources\TraitementResource;
 use App\Models\Traitement;
@@ -10,9 +11,15 @@ use Illuminate\Http\JsonResponse;
 
 class TraitementController extends Controller
 {
+    use AuthorizesStructureAccess;
     public function store(StoreTraitementRequest $request): JsonResponse
     {
-        $traitement = Traitement::create($request->validated());
+        $validated = $request->validated();
+        if (!empty($validated['dossier_patient_id'])) {
+            $this->authorizeDossierAccess($validated['dossier_patient_id']);
+        }
+
+        $traitement = Traitement::create($validated);
 
         return response()->json([
             'success' => true,
@@ -24,6 +31,7 @@ class TraitementController extends Controller
     public function update(StoreTraitementRequest $request, int $id): JsonResponse
     {
         $traitement = Traitement::findOrFail($id);
+        $this->authorizeDossierResource($traitement);
         $traitement->update($request->validated());
 
         return response()->json([
@@ -35,7 +43,9 @@ class TraitementController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Traitement::findOrFail($id)->delete();
+        $traitement = Traitement::findOrFail($id);
+        $this->authorizeDossierResource($traitement);
+        $traitement->delete();
 
         return response()->json([
             'success' => true,

@@ -94,6 +94,15 @@ function tlm_origin_matches(string $origin, array $allowedOrigins, array $allowe
 // la vraie requête (POST/GET/PUT...).
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+    $allowedOrigins = tlm_parse_csv_env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5173');
+    $allowedOriginPatterns = tlm_parse_csv_env('CORS_ALLOWED_ORIGINS_PATTERNS', '');
+
+    if ($origin !== '' && !tlm_origin_matches($origin, $allowedOrigins, $allowedOriginPatterns)) {
+        http_response_code(403);
+        exit;
+    }
+
     if ($origin !== '') {
         header('Access-Control-Allow-Origin: ' . $origin);
         header('Access-Control-Allow-Credentials: true');

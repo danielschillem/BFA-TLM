@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Requests\StoreExamenRequest;
 use App\Http\Resources\ExamenResource;
 use App\Models\Examen;
@@ -11,8 +12,14 @@ use Illuminate\Http\Request;
 
 class ExamenController extends Controller
 {
+    use AuthorizesStructureAccess;
+
     public function store(StoreExamenRequest $request): JsonResponse
     {
+        if ($request->dossier_patient_id) {
+            $this->authorizeDossierAccess($request->dossier_patient_id);
+        }
+
         $examen = Examen::create($request->validated() + [
             'dossier_patient_id' => $request->dossier_patient_id,
             'statut' => 'prescrit',
@@ -28,6 +35,7 @@ class ExamenController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $examen = Examen::findOrFail($id);
+        $this->authorizeDossierResource($examen);
 
         $request->validate([
             'resultats'              => 'nullable|string|max:5000',
@@ -51,7 +59,9 @@ class ExamenController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Examen::findOrFail($id)->delete();
+        $examen = Examen::findOrFail($id);
+        $this->authorizeDossierResource($examen);
+        $examen->delete();
 
         return response()->json([
             'success' => true,

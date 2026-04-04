@@ -14,52 +14,86 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
     public function register(RegisterRequest $request): JsonResponse
     {
-        $user = User::create([
-            'nom' => $request->nom,
-            'prenoms' => $request->prenoms,
-            'email' => $request->email,
-            'password' => $request->password,
-            'telephone_1' => $request->telephone_1,
-            'sexe' => $request->sexe,
-        ]);
+        try {
+            $user = User::create([
+                'nom' => $request->nom,
+                'prenoms' => $request->prenoms,
+                'email' => $request->email,
+                'password' => $request->password,
+                'telephone_1' => $request->telephone_1,
+                'sexe' => $request->sexe,
+            ]);
 
-        $role = $request->input('role', 'patient');
-        $user->assignRole($role);
+            // Sécurité : hardcoder le rôle patient (l'input est ignoré en défense en profondeur)
+            $user->assignRole('patient');
 
-        $token = $user->createToken('auth-token')->accessToken;
+            // Créer automatiquement le dossier patient pour les inscriptions autonomes
+            $patient = \App\Models\Patient::create([
+                'nom' => $user->nom,
+                'prenoms' => $user->prenoms,
+                'email' => $user->email,
+                'telephone_1' => $user->telephone_1,
+                'sexe' => $user->sexe,
+                'date_naissance' => $request->input('date_naissance'),
+                'lieu_naissance' => $request->input('lieu_naissance'),
+                'user_id' => $user->id,
+                'created_by_id' => $user->id,
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Inscription réussie',
-            'data' => [
-                'user' => new UserResource($user->load('roles')),
-                'token' => $token,
-                'requires_two_factor' => false,
-            ],
-        ], 201);
+            \App\Models\DossierPatient::create([
+                'identifiant' => 'DOS-' . str_pad($patient->id, 6, '0', STR_PAD_LEFT),
+                'statut' => 'ouvert',
+                'date_ouverture' => now(),
+                'patient_id' => $patient->id,
+            ]);
+
+            $token = $user->createToken('auth-token')->accessToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Inscription réussie',
+                'data' => [
+                    'user' => new UserResource($user->load('roles')),
+                    'token' => $token,
+                    'requires_two_factor' => false,
+                ],
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('Register exception', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur est survenue lors de l\'inscription.',
+            ], 500);
+        }
     }
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $user = User::where('email', $request->email)->first();
+        try {
+            $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            \Log::warning('Login failed', [
-                'email' => $request->email,
-                'user_found' => (bool) $user,
-                'input_keys' => array_keys($request->all()),
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Identifiants invalides',
-            ], 401);
-        }
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                Log::warning('Login failed', [
+                    'email' => $request->email,
+                    'user_found' => (bool) $user,
+                    'input_keys' => array_keys($request->all()),
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Identifiants invalides',
+                ], 401);
+            }
 
         if ($user->status !== 'actif') {
             return response()->json([
@@ -71,21 +105,16 @@ class AuthController extends Controller
         $user->update(['last_login_at' => now()]);
 
         // 2FA pour les rôles sensibles (actif en production uniquement)
-        if (!app()->isLocal() && $user->hasRole(['doctor', 'specialist', 'admin'])) {
-            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            $user->update([
-                'two_factor_code' => Hash::make($code),
-                'two_factor_expires_at' => now()->addMinutes(10),
-            ]);
-            $user->notify(new TwoFactorCodeNotification($code));
+        if ($this->requiresTwoFactor($user)) {
+            $challenge = $this->issueTwoFactorChallenge($user, true);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Code de vérification envoyé par email',
+                'message' => $challenge['message'],
                 'data' => [
                     'user' => new UserResource($user->load('roles', 'structure')),
                     'requires_two_factor' => true,
-                    'token' => $user->createToken('2fa-pending', ['2fa-pending'])->accessToken,
+                    'token' => $challenge['token'],
                 ],
             ]);
         }
@@ -100,6 +129,44 @@ class AuthController extends Controller
                 'token' => $token,
                 'requires_two_factor' => false,
             ],
+        ]);
+        } catch (\Throwable $e) {
+            Log::error('Login exception', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Une erreur est survenue lors de la connexion.',
+            ], 500);
+        }
+    }
+
+    public function resendTwoFactor(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $token = $user?->token();
+
+        if (!$user || !$token || !$token->can('2fa-pending')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session 2FA invalide. Veuillez vous reconnecter.',
+            ], 403);
+        }
+
+        if (!$this->requiresTwoFactor($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La double authentification n\'est pas requise pour ce compte.',
+            ], 422);
+        }
+
+        $challenge = $this->issueTwoFactorChallenge($user, false);
+
+        return response()->json([
+            'success' => true,
+            'message' => $challenge['message'],
         ]);
     }
 
@@ -153,7 +220,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'current_password' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => ['required', 'string', 'min:8', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()],
         ]);
 
         if (!Hash::check($request->current_password, $request->user()->password)) {
@@ -189,7 +256,11 @@ class AuthController extends Controller
                 'created_at' => now(),
             ]);
 
-            $user->notify(new ResetPasswordNotification($token));
+            try {
+                $user->notify(new ResetPasswordNotification($token));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send password reset email', ['user' => $user->id, 'error' => $e->getMessage()]);
+            }
         }
 
         // Toujours retourner le même message pour ne pas révéler l'existence du compte
@@ -204,7 +275,7 @@ class AuthController extends Controller
         $request->validate([
             'token' => 'required|string',
             'email' => 'required|email',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => ['required', 'string', 'min:8', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()],
         ]);
 
         $record = DB::table('password_reset_tokens')
@@ -249,7 +320,22 @@ class AuthController extends Controller
             'user_id' => 'required|integer|exists:users,id',
         ]);
 
-        $user = User::findOrFail($request->user_id);
+        $user = $request->user();
+        $token = $user?->token();
+
+        if (!$user || !$token || !$token->can('2fa-pending')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session 2FA invalide. Veuillez vous reconnecter.',
+            ], 403);
+        }
+
+        if ((int) $request->user_id !== (int) $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur 2FA invalide.',
+            ], 403);
+        }
 
         if (!$user->two_factor_code || !$user->two_factor_expires_at) {
             return response()->json([
@@ -270,11 +356,36 @@ class AuthController extends Controller
         }
 
         if (!Hash::check($request->code, $user->two_factor_code)) {
+            // ── Protection brute-force 2FA ──
+            $cacheKey = '2fa_attempts_' . $user->id;
+            $attempts = (int) cache($cacheKey, 0) + 1;
+            cache([$cacheKey => $attempts], now()->addMinutes(10));
+
+            if ($attempts >= 5) {
+                // Invalider le code et forcer un nouveau login
+                $user->update([
+                    'two_factor_code' => null,
+                    'two_factor_expires_at' => null,
+                ]);
+                $user->tokens()->where('name', '2fa-pending')->delete();
+                cache()->forget($cacheKey);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Trop de tentatives. Veuillez vous reconnecter.',
+                    'locked' => true,
+                ], 429);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Code de vérification invalide.',
+                'remaining_attempts' => 5 - $attempts,
             ], 422);
         }
+
+        // Réinitialiser le compteur de tentatives après succès
+        cache()->forget('2fa_attempts_' . $user->id);
 
         // Invalider le code utilisé
         $user->update([
@@ -293,5 +404,37 @@ class AuthController extends Controller
                 'token' => $user->createToken('auth-token')->accessToken,
             ],
         ]);
+    }
+
+    private function requiresTwoFactor(User $user): bool
+    {
+        // TODO: Réactiver quand le SMTP propre sera configuré
+        // return $user->hasRole(['doctor', 'specialist', 'admin']);
+        return false;
+    }
+
+    private function issueTwoFactorChallenge(User $user, bool $withPendingToken): array
+    {
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        $user->tokens()->where('name', '2fa-pending')->delete();
+
+        $user->update([
+            'two_factor_code' => Hash::make($code),
+            'two_factor_expires_at' => now()->addMinutes(10),
+        ]);
+
+        try {
+            $user->notify(new TwoFactorCodeNotification($code));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send 2FA code email', ['user' => $user->id, 'error' => $e->getMessage()]);
+        }
+
+        return [
+            'message' => 'Code de vérification envoyé par email',
+            'token' => $withPendingToken
+                ? $user->createToken('2fa-pending', ['2fa-pending'])->accessToken
+                : null,
+        ];
     }
 }

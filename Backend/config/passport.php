@@ -13,9 +13,23 @@ return [
     |
     */
 
-    'guard' => 'web',
+    'guard' => 'api',
 
     'middleware' => [],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Token Lifetimes
+    |--------------------------------------------------------------------------
+    |
+    | Délais d'expiration des tokens OAuth2 pour limiter la fenêtre d'attaque
+    | en cas de compromission. Access tokens courts, refresh tokens modérés.
+    |
+    */
+
+    'tokens_expire_in' => (int) env('PASSPORT_TOKEN_EXPIRE_MINUTES', 60),               // 1 heure
+    'refresh_tokens_expire_in' => (int) env('PASSPORT_REFRESH_TOKEN_EXPIRE_DAYS', 14),   // 14 jours
+    'personal_access_tokens_expire_in' => (int) env('PASSPORT_PAT_EXPIRE_HOURS', 6),     // 6 heures
 
     /*
     |--------------------------------------------------------------------------

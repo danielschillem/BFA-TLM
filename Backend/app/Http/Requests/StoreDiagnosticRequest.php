@@ -8,7 +8,7 @@ class StoreDiagnosticRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->hasPermissionTo('consultations.update') ?? false;
     }
 
     public function rules(): array

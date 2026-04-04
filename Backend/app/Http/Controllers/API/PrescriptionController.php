@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Events\PrescriptionSigned;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Resources\PrescriptionResource;
 use App\Models\Prescription;
 use App\Notifications\PrescriptionSharedNotification;
@@ -12,12 +13,25 @@ use Illuminate\Http\Request;
 
 class PrescriptionController extends Controller
 {
+    use AuthorizesStructureAccess;
     public function index(Request $request): JsonResponse
     {
         $query = Prescription::with('consultation.user');
+        $user = $request->user();
 
-        if (!$request->user()->hasRole('admin')) {
-            $query->whereHas('consultation', fn ($q) => $q->where('user_id', $request->user()->id));
+        if ($user->hasRole('admin')) {
+            // Admin voit tout
+        } elseif ($user->hasRole('patient')) {
+            // Le patient ne voit que ses propres prescriptions (via son dossier)
+            $patient = $user->patient;
+            if ($patient && $patient->dossier) {
+                $query->whereHas('consultation', fn ($q) => $q->where('dossier_patient_id', $patient->dossier->id));
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            // PS voit les prescriptions de ses consultations
+            $query->whereHas('consultation', fn ($q) => $q->where('user_id', $user->id));
         }
 
         $prescriptions = $query->orderBy('created_at', 'desc')
@@ -40,6 +54,12 @@ class PrescriptionController extends Controller
         ]);
 
         $consultation = \App\Models\Consultation::findOrFail($consultationId);
+
+        // Vérifier que le médecin est le propriétaire de la consultation
+        $user = $request->user();
+        if (!$user->hasRole('admin') && $consultation->user_id !== $user->id) {
+            abort(403, 'Vous n\'\u00eates pas autoris\u00e9 \u00e0 prescrire pour cette consultation.');
+        }
 
         $prescription = Prescription::create([
             ...$request->only(['denomination', 'posologie', 'instructions', 'duree_jours', 'urgent']),

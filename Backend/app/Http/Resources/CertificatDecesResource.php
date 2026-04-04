@@ -9,6 +9,8 @@ class CertificatDecesResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $patient = $this->relationLoaded('patient') ? $this->patient : null;
+
         return [
             'id' => $this->id,
             'numero_certificat' => $this->numero_certificat,
@@ -16,7 +18,16 @@ class CertificatDecesResource extends JsonResource
 
             // Patient
             'patient' => new PatientResource($this->whenLoaded('patient')),
+            'patient_id' => $this->patient_id,
             'dossier_patient_id' => $this->dossier_patient_id,
+            'consultation_id' => $this->consultation_id,
+            'nom_defunt' => $this->nom_defunt ?? $patient?->nom,
+            'prenoms_defunt' => $this->prenoms_defunt ?? $patient?->prenoms,
+            'date_naissance_defunt' => $this->date_naissance_defunt?->toDateString() ?? $patient?->date_naissance?->toDateString(),
+            'lieu_naissance_defunt' => $this->lieu_naissance_defunt ?? $patient?->lieu_naissance,
+            'nationalite_defunt' => $this->nationalite_defunt,
+            'profession_defunt' => $this->profession_defunt,
+            'adresse_defunt' => $this->adresse_defunt,
 
             // Circonstances
             'date_deces' => $this->date_deces?->toISOString(),
@@ -26,6 +37,7 @@ class CertificatDecesResource extends JsonResource
             'sexe_defunt' => $this->sexe_defunt,
             'age_defunt' => $this->age_defunt,
             'unite_age' => $this->unite_age,
+            'circonstances_deces' => $this->maniere_deces,
 
             // Partie I — Chaîne causale (modèle OMS)
             'chaine_causale' => [
@@ -54,10 +66,23 @@ class CertificatDecesResource extends JsonResource
                     'delai' => $this->cause_initiale_delai,
                 ],
             ],
+            'cause_directe' => $this->cause_directe,
+            'code_icd11_cause_directe' => $this->cause_directe_code_icd11,
+            'intervalle_cause_directe' => $this->cause_directe_delai,
+            'cause_antecedente_1' => $this->cause_antecedente_1,
+            'code_icd11_cause_antecedente_1' => $this->cause_antecedente_1_code_icd11,
+            'intervalle_cause_antecedente_1' => $this->cause_antecedente_1_delai,
+            'cause_antecedente_2' => $this->cause_antecedente_2,
+            'code_icd11_cause_antecedente_2' => $this->cause_antecedente_2_code_icd11,
+            'intervalle_cause_antecedente_2' => $this->cause_antecedente_2_delai,
+            'cause_initiale' => $this->cause_initiale,
+            'code_icd11_cause_initiale' => $this->cause_initiale_code_icd11,
+            'intervalle_cause_initiale' => $this->cause_initiale_delai,
 
             // Partie II
             'autres_etats_morbides' => $this->autres_etats_morbides,
             'autres_etats_morbides_codes_icd11' => $this->autres_etats_morbides_codes_icd11,
+            'autres_conditions' => $this->autres_etats_morbides,
 
             // Circonstances particulières
             'maniere_deces' => $this->maniere_deces,
@@ -76,14 +101,17 @@ class CertificatDecesResource extends JsonResource
 
             // Certification
             'medecin_certificateur' => new UserResource($this->whenLoaded('medecinCertificateur')),
+            'medecin' => new UserResource($this->whenLoaded('medecinCertificateur')),
             'date_certification' => $this->date_certification?->toISOString(),
             'validateur' => new UserResource($this->whenLoaded('validateur')),
             'date_validation' => $this->date_validation?->toISOString(),
             'motif_rejet' => $this->motif_rejet,
             'observations' => $this->observations,
+            'notes' => $this->observations,
 
             // Structure
             'structure' => new StructureResource($this->whenLoaded('structure')),
+            'structure_id' => $this->structure_id,
 
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

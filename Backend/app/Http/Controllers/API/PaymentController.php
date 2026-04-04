@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Resources\PaiementResource;
 use App\Models\Paiement;
+use App\Models\PlatformSetting;
 use App\Models\RendezVous;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +15,7 @@ use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
+    use AuthorizesStructureAccess;
     private const METHOD_MAP = [
         'orange_money' => 'orange_money',
         'moov_money'   => 'moov_money',
@@ -65,6 +68,87 @@ class PaymentController extends Controller
     }
 
     /**
+     * Initier un paiement directement sur un rendez-vous (booking patient).
+     * POST /payments/appointments/{appointmentId}/initiate
+     */
+    public function initiateForAppointment(int $appointmentId, Request $request): JsonResponse
+    {
+        $request->validate([
+            'consultation_amount' => 'required|numeric|min:0',
+            'method'              => 'required|string',
+            'phone'               => 'nullable|string|max:20',
+        ]);
+
+        $rdv = RendezVous::findOrFail($appointmentId);
+
+        // Vérifier que l'utilisateur est impliqué dans ce RDV
+        $user = $request->user();
+        if (!$user->hasRole('admin')
+            && $rdv->user_id !== $user->id
+            && (!$rdv->patient || $rdv->patient->user_id !== $user->id)) {
+            abort(403, 'Accès non autorisé à ce rendez-vous.');
+        }
+
+        // Calculer les frais avec le modèle économique
+        $consultationAmount = (float) $request->input('consultation_amount');
+        $fees = PlatformSetting::calculateTotalWithFees($consultationAmount);
+
+        // Pour les paiements en espèces, pas de frais mobile money
+        $method = self::METHOD_MAP[$request->input('method')] ?? $request->input('method');
+        if ($method === 'especes') {
+            $fees['mobile_money_fee'] = 0;
+            $fees['total'] = $fees['consultation_amount'] + $fees['platform_fee'];
+        }
+
+        $paiement = Paiement::create([
+            'telephone'           => $request->input('phone', $user->telephone_1),
+            'montant'             => $fees['total'],
+            'montant_consultation' => $fees['consultation_amount'],
+            'frais_plateforme'    => $fees['platform_fee'],
+            'frais_mobile_money'  => $fees['mobile_money_fee'],
+            'methode'             => $method,
+            'statut'              => 'en_attente',
+            'reference'           => 'PAY-' . strtoupper(Str::random(10)),
+            'rendez_vous_id'      => $rdv->id,
+            'type_facturation_id' => $request->input('billing_type_id'),
+        ]);
+
+        return response()->json([
+            'success'   => true,
+            'message'   => 'Paiement initié',
+            'data'      => new PaiementResource($paiement),
+            'fees'      => $fees,
+        ], 201);
+    }
+
+    /**
+     * Calculer les frais pour un montant donné (preview avant paiement).
+     * GET /payments/calculate-fees
+     */
+    public function calculateFees(Request $request): JsonResponse
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'method' => 'nullable|string',
+        ]);
+
+        $amount = (float) $request->input('amount');
+        $fees = PlatformSetting::calculateTotalWithFees($amount);
+
+        // Pour les paiements en espèces, pas de frais mobile money
+        $method = $request->input('method');
+        if ($method && (self::METHOD_MAP[$method] ?? $method) === 'especes') {
+            $fees['mobile_money_fee'] = 0;
+            $fees['total'] = $fees['consultation_amount'] + $fees['platform_fee'];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => $fees,
+        ]);
+    }
+
+    /**
      * Confirmer un paiement (callback mobile money ou validation manuelle).
      * POST /payments/confirm
      */
@@ -110,7 +194,13 @@ class PaymentController extends Controller
      */
     public function doctorValidate(int $id): JsonResponse
     {
-        $paiement = Paiement::findOrFail($id);
+        $paiement = Paiement::with('rendezVous')->findOrFail($id);
+
+        // IDOR : seul le médecin du RDV ou un admin peut valider
+        $user = request()->user();
+        if (!$user->hasRole('admin') && $paiement->rendezVous?->user_id !== $user->id) {
+            abort(403, 'Vous n\'\u00eates pas autoris\u00e9 \u00e0 valider ce paiement.');
+        }
 
         if ($paiement->statut === 'confirme') {
             return response()->json([
@@ -136,6 +226,14 @@ class PaymentController extends Controller
     public function downloadInvoice(int $id): \Symfony\Component\HttpFoundation\Response
     {
         $paiement = Paiement::with(['rendezVous.patient', 'rendezVous.user', 'typeFacturation'])->findOrFail($id);
+
+        // IDOR : vérifier que l'utilisateur est impliqué
+        $user = request()->user();
+        if (!$user->hasRole('admin')
+            && $paiement->rendezVous?->user_id !== $user->id
+            && $paiement->rendezVous?->patient?->user_id !== $user->id) {
+            abort(403, 'Acc\u00e8s non autoris\u00e9 \u00e0 cette facture.');
+        }
 
         $pdf = Pdf::loadView('pdf.invoice', compact('paiement'));
 

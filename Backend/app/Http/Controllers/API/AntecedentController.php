@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Requests\StoreAntecedentRequest;
 use App\Http\Resources\AntecedentResource;
 use App\Models\Antecedent;
@@ -10,8 +11,12 @@ use Illuminate\Http\JsonResponse;
 
 class AntecedentController extends Controller
 {
+    use AuthorizesStructureAccess;
+
     public function store(StoreAntecedentRequest $request): JsonResponse
     {
+        $this->authorizeDossierAccess($request->validated()['dossier_patient_id']);
+
         $antecedent = Antecedent::create(
             $request->validated() + ['user_id' => auth()->id()]
         );
@@ -26,6 +31,7 @@ class AntecedentController extends Controller
     public function update(StoreAntecedentRequest $request, int $id): JsonResponse
     {
         $antecedent = Antecedent::findOrFail($id);
+        $this->authorizeDossierResource($antecedent);
         $antecedent->update($request->validated());
 
         return response()->json([
@@ -37,7 +43,9 @@ class AntecedentController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Antecedent::findOrFail($id)->delete();
+        $antecedent = Antecedent::findOrFail($id);
+        $this->authorizeDossierResource($antecedent);
+        $antecedent->delete();
 
         return response()->json([
             'success' => true,

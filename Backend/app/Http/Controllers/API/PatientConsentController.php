@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Requests\StorePatientConsentRequest;
 use App\Http\Resources\PatientConsentResource;
 use App\Models\PatientConsent;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 
 class PatientConsentController extends Controller
 {
+    use AuthorizesStructureAccess;
     /**
      * Liste des consentements (filtrable par patient, type, statut).
      */
@@ -50,6 +52,10 @@ class PatientConsentController extends Controller
     {
         $validated = $request->validated();
 
+        // IDOR check : vérifier l'accès au patient
+        $patient = \App\Models\Patient::findOrFail($validated['patient_id']);
+        $this->authorizePatientAccess($patient);
+
         // Versioning : incrémenter si un consentement du même type existe déjà pour ce patient
         $latestVersion = PatientConsent::forPatient($validated['patient_id'])
             ->ofType($validated['type'])
@@ -81,6 +87,8 @@ class PatientConsentController extends Controller
         $consent = PatientConsent::with(['patient', 'user', 'revokedByUser'])
             ->findOrFail($id);
 
+        $this->authorizePatientAccess($consent->patient);
+
         return response()->json([
             'success' => true,
             'data' => new PatientConsentResource($consent),
@@ -96,7 +104,9 @@ class PatientConsentController extends Controller
             'motif_revocation' => ['required', 'string', 'max:500'],
         ]);
 
-        $consent = PatientConsent::findOrFail($id);
+        $consent = PatientConsent::with('patient')->findOrFail($id);
+
+        $this->authorizePatientAccess($consent->patient);
 
         if (!$consent->is_active) {
             return response()->json([
@@ -125,6 +135,9 @@ class PatientConsentController extends Controller
      */
     public function patientHistory(int $patientId): JsonResponse
     {
+        $patient = \App\Models\Patient::findOrFail($patientId);
+        $this->authorizePatientAccess($patient);
+
         $consents = PatientConsent::with(['user', 'revokedByUser'])
             ->forPatient($patientId)
             ->orderByDesc('created_at')

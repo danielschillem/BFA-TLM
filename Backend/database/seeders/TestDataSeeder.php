@@ -126,6 +126,18 @@ class TestDataSeeder extends Seeder
         );
         if (!$admin->hasRole('admin')) { $admin->assignRole('admin'); }
 
+        // Admin principal Daniel
+        $adminDaniel = User::firstOrCreate(
+            ['email' => 'daniel@bfa-tlm.online'],
+            [
+                'nom' => 'ADMINISTRATEUR', 'prenoms' => 'Daniel',
+                'password' => 'password', 'telephone_1' => '+22670000000',
+                'sexe' => 'M', 'status' => 'actif',
+                'pays_id' => $bf->id, 'localite_id' => $ouaga->id,
+            ]
+        );
+        if (!$adminDaniel->hasRole('admin')) { $adminDaniel->assignRole('admin'); }
+
         // ══════════════════════════════════════════════════════════════
         //  ÉTAPE 2 : Structures + Services + Salles
         // ══════════════════════════════════════════════════════════════

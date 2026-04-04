@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Settings,
   Globe,
@@ -14,14 +14,17 @@ import {
   Server,
   Palette,
   Lock,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import { adminApi } from "@/api";
 
 const SECTIONS = [
   { key: "general", label: "Général", icon: Globe },
+  { key: "fees", label: "Frais & Paiements", icon: CreditCard },
   { key: "security", label: "Sécurité", icon: Shield },
   { key: "notifications", label: "Notifications", icon: Bell },
   { key: "email", label: "Email", icon: Mail },
@@ -36,6 +39,12 @@ const DEFAULT_SETTINGS = {
     timezone: "Africa/Ouagadougou",
     pagination_size: 15,
     max_upload_size_mb: 10,
+  },
+  fees: {
+    platform_fee: 500,
+    mobile_money_rate: 1.5,
+    platform_fee_enabled: true,
+    free_cancellation_hours: 24,
   },
   security: {
     two_factor_enabled: true,
@@ -71,9 +80,53 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function AdminSettings() {
+  const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState("general");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [dirty, setDirty] = useState(false);
+
+  // Charger les paramètres de frais depuis l'API
+  const { data: feeSettings, isLoading: feesLoading } = useQuery({
+    queryKey: ["admin-platform-settings"],
+    queryFn: () => adminApi.getSettings().then((r) => r.data.data),
+    staleTime: 60_000,
+  });
+
+  // Synchroniser les paramètres de frais avec le state local
+  useEffect(() => {
+    if (feeSettings?.fees) {
+      setSettings((prev) => ({
+        ...prev,
+        fees: {
+          platform_fee: Number(feeSettings.fees.platform_fee?.value ?? 500),
+          mobile_money_rate: Number(
+            feeSettings.fees.mobile_money_rate?.value ?? 1.5,
+          ),
+          platform_fee_enabled:
+            feeSettings.fees.platform_fee_enabled?.value === "true" ||
+            feeSettings.fees.platform_fee_enabled?.value === true,
+          free_cancellation_hours: Number(
+            feeSettings.fees.free_cancellation_hours?.value ?? 24,
+          ),
+        },
+      }));
+    }
+  }, [feeSettings]);
+
+  // Mutation pour sauvegarder les paramètres de frais
+  const saveFeesMutation = useMutation({
+    mutationFn: (feesData) => adminApi.updateSettings(feesData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-platform-settings"] });
+      toast.success("Paramètres de frais sauvegardés");
+      setDirty(false);
+    },
+    onError: (err) => {
+      toast.error(
+        err.response?.data?.message ?? "Erreur lors de la sauvegarde",
+      );
+    },
+  });
 
   const updateField = (section, key, value) => {
     setSettings((prev) => ({
@@ -84,9 +137,18 @@ export default function AdminSettings() {
   };
 
   const handleSave = () => {
-    // Placeholder — sera connecté au backend quand l'API settings existera
-    toast.success("Paramètres sauvegardés (mode local)");
-    setDirty(false);
+    if (activeSection === "fees") {
+      // Sauvegarder les frais via l'API
+      const feesData = Object.entries(settings.fees).map(([key, value]) => ({
+        key,
+        value: String(value),
+      }));
+      saveFeesMutation.mutate(feesData);
+    } else {
+      // Placeholder pour les autres sections
+      toast.success("Paramètres sauvegardés (mode local)");
+      setDirty(false);
+    }
   };
 
   const handleReset = () => {
@@ -161,6 +223,7 @@ export default function AdminSettings() {
                       icon={Save}
                       onClick={handleSave}
                       disabled={!dirty}
+                      loading={saveFeesMutation.isPending}
                     >
                       Sauvegarder
                     </Button>
@@ -215,6 +278,11 @@ const FIELD_LABELS = {
   primary_color: "Couleur principale",
   logo_text: "Texte du logo",
   footer_text: "Texte du pied de page",
+  // Frais & Paiements
+  platform_fee: "Frais de service plateforme (FCFA)",
+  mobile_money_rate: "Taux Mobile Money (%)",
+  platform_fee_enabled: "Frais de plateforme activés",
+  free_cancellation_hours: "Annulation gratuite (heures)",
 };
 
 function SettingField({ fieldKey, value, onChange }) {

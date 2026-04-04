@@ -28,7 +28,7 @@ class StoreTeleexpertiseRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->hasPermissionTo('teleexpertise.create') ?? false;
     }
 
     protected function prepareForValidation(): void

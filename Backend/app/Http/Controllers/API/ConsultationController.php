@@ -20,9 +20,21 @@ class ConsultationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Consultation::with(['user', 'dossierPatient.patient', 'rendezVous']);
+        $user = $request->user();
 
-        if (!$request->user()->hasRole('admin')) {
-            $query->where('user_id', $request->user()->id);
+        if ($user->hasRole('admin')) {
+            // Admin voit tout
+        } elseif ($user->hasRole('patient')) {
+            // Le patient ne voit que ses propres consultations (via son dossier)
+            $patient = $user->patient;
+            if ($patient && $patient->dossier) {
+                $query->where('dossier_patient_id', $patient->dossier->id);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            // PS voit les consultations qu'il a menées
+            $query->where('user_id', $user->id);
         }
 
         if ($status = $request->input('status')) {
@@ -132,6 +144,12 @@ class ConsultationController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $user = $request->user();
+
+        // Dashboard patient : statistiques centrées sur le patient
+        if ($user->hasRole('patient')) {
+            return $this->patientDashboard($user);
+        }
+
         $today = now()->toDateString();
         $monthStart = now()->startOfMonth();
 
@@ -220,6 +238,61 @@ class ConsultationController extends Controller
                 'health_indicators' => $healthIndicators,
                 'ehealth_indicators' => $eHealthIndicators,
                 'upcoming_appointments' => $upcoming,
+            ],
+        ]);
+    }
+
+    /**
+     * Dashboard patient : statistiques centrées sur le parcours santé du patient.
+     */
+    private function patientDashboard($user): JsonResponse
+    {
+        $patient = $user->patient;
+        $dossierId = $patient?->dossier?->id;
+        $patientId = $patient?->id;
+        $today = now()->toDateString();
+
+        $totalAppointments = $patientId ? RendezVous::where('patient_id', $patientId)->count() : 0;
+        $totalConsultations = $dossierId ? Consultation::where('dossier_patient_id', $dossierId)->count() : 0;
+        $completedConsultations = $dossierId ? Consultation::where('dossier_patient_id', $dossierId)->where('statut', 'terminee')->count() : 0;
+        $prescriptionsCount = $dossierId ? \App\Models\Prescription::whereHas('consultation', fn ($q) => $q->where('dossier_patient_id', $dossierId))->count() : 0;
+        $documentsCount = $patientId ? \App\Models\Document::where('documentable_type', 'App\\Models\\Patient')->where('documentable_id', $patientId)->count() : 0;
+        $unreadMessages = $user->messagesReceived()->where('lu', false)->count();
+
+        $stats = [
+            'total_appointments' => $totalAppointments,
+            'pending_appointments' => $patientId ? RendezVous::where('patient_id', $patientId)->where('statut', 'confirme')->count() : 0,
+            'today_appointments' => $patientId ? RendezVous::where('patient_id', $patientId)->whereDate('date', $today)->count() : 0,
+            'total_consultations' => $totalConsultations,
+            'completed_consultations' => $completedConsultations,
+            'prescriptions_count' => $prescriptionsCount,
+            'documents_count' => $documentsCount,
+            'unread_messages' => $unreadMessages,
+        ];
+
+        $upcoming = $patientId
+            ? RendezVous::with('user')
+                ->where('patient_id', $patientId)
+                ->whereIn('statut', ['planifie', 'confirme'])
+                ->where('date', '>=', $today)
+                ->orderBy('date')->orderBy('heure')
+                ->limit(5)->get()
+            : collect();
+
+        $recentConsultations = $dossierId
+            ? Consultation::with('user')
+                ->where('dossier_patient_id', $dossierId)
+                ->where('statut', 'terminee')
+                ->orderBy('date', 'desc')
+                ->limit(5)->get()
+            : collect();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'stats' => $stats,
+                'upcoming_appointments' => $upcoming,
+                'recent_consultations' => $recentConsultations,
             ],
         ]);
     }
@@ -403,7 +476,10 @@ class ConsultationController extends Controller
     private function authorizeAccess(Consultation $consultation, $user): void
     {
         if ($user->hasRole('admin')) return;
+        // Le médecin qui a mené la consultation
         if ($consultation->user_id === $user->id) return;
+        // Le patient propriétaire du dossier
+        if ($user->hasRole('patient') && $consultation->dossierPatient?->patient?->user_id === $user->id) return;
         abort(403, 'Accès non autorisé à cette consultation.');
     }
 

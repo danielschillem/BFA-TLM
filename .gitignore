@@ -30,3 +30,6 @@ Backend/bootstrap/cache/*.php
 *.jpg
 *.png
 !Frontend/src/assets/**
+
+# Local Netlify folder
+.netlify

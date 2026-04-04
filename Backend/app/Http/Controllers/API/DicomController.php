@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Models\DicomStudy;
 use App\Services\DicomService;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +12,8 @@ use Illuminate\Http\Response;
 
 class DicomController extends Controller
 {
+    use AuthorizesStructureAccess;
+
     public function __construct(private DicomService $dicom)
     {
     }
@@ -59,6 +62,10 @@ class DicomController extends Controller
     {
         $study = DicomStudy::with(['patient', 'examen', 'consultation', 'uploadedBy'])
             ->findOrFail($id);
+
+        if ($study->patient) {
+            $this->authorizePatientAccess($study->patient);
+        }
 
         return response()->json([
             'success' => true,
@@ -123,6 +130,10 @@ class DicomController extends Controller
             'accession_number' => ['nullable', 'string', 'max:64'],
         ]);
 
+        // IDOR : vérifier l'accès au patient
+        $patient = \App\Models\Patient::findOrFail($validated['patient_id']);
+        $this->authorizePatientAccess($patient);
+
         $study = DicomStudy::create([
             ...$validated,
             'uploaded_by' => $request->user()->id,
@@ -143,11 +154,15 @@ class DicomController extends Controller
     public function upload(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'max:524288'], // 512 MB
+            'file' => ['required', 'file', 'max:524288', 'mimes:dcm,dicom,application/dicom'],
             'patient_id' => ['required', 'exists:patients,id'],
             'examen_id' => ['nullable', 'exists:examens,id'],
             'consultation_id' => ['nullable', 'exists:consultations,id'],
         ]);
+
+        // IDOR : vérifier l'accès au patient
+        $patient = \App\Models\Patient::findOrFail($request->integer('patient_id'));
+        $this->authorizePatientAccess($patient);
 
         $file = $request->file('file');
         $content = file_get_contents($file->getRealPath());
@@ -202,7 +217,11 @@ class DicomController extends Controller
      */
     public function update(int $id, Request $request): JsonResponse
     {
-        $study = DicomStudy::findOrFail($id);
+        $study = DicomStudy::with('patient')->findOrFail($id);
+
+        if ($study->patient) {
+            $this->authorizePatientAccess($study->patient);
+        }
 
         $validated = $request->validate([
             'statut' => ['nullable', 'in:recu,en_lecture,lu,valide'],
@@ -231,7 +250,10 @@ class DicomController extends Controller
      */
     public function series(int $id): JsonResponse
     {
-        $study = DicomStudy::findOrFail($id);
+        $study = DicomStudy::with('patient')->findOrFail($id);
+        if ($study->patient) {
+            $this->authorizePatientAccess($study->patient);
+        }
         $series = $this->dicom->searchSeries($study->study_instance_uid);
 
         return response()->json([
@@ -246,7 +268,10 @@ class DicomController extends Controller
      */
     public function instances(int $id, string $seriesUid): JsonResponse
     {
-        $study = DicomStudy::findOrFail($id);
+        $study = DicomStudy::with('patient')->findOrFail($id);
+        if ($study->patient) {
+            $this->authorizePatientAccess($study->patient);
+        }
         $instances = $this->dicom->searchInstances($study->study_instance_uid, $seriesUid);
 
         return response()->json([
@@ -260,7 +285,10 @@ class DicomController extends Controller
      */
     public function renderFrame(int $id, string $seriesUid, string $instanceUid, int $frame = 1): Response
     {
-        $study = DicomStudy::findOrFail($id);
+        $study = DicomStudy::with('patient')->findOrFail($id);
+        if ($study->patient) {
+            $this->authorizePatientAccess($study->patient);
+        }
 
         $imageData = $this->dicom->retrieveRenderedInstance(
             $study->study_instance_uid,
@@ -283,7 +311,10 @@ class DicomController extends Controller
      */
     public function thumbnail(int $id): Response
     {
-        $study = DicomStudy::findOrFail($id);
+        $study = DicomStudy::with('patient')->findOrFail($id);
+        if ($study->patient) {
+            $this->authorizePatientAccess($study->patient);
+        }
         $image = $this->dicom->retrieveStudyThumbnail($study->study_instance_uid);
 
         if (!$image) {

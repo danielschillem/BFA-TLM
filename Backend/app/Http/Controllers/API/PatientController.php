@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\AuthorizesStructureAccess;
 use App\Http\Requests\StorePatientRequest;
 use App\Http\Resources\DossierPatientResource;
 use App\Http\Resources\PatientResource;
@@ -13,6 +14,8 @@ use Illuminate\Http\Request;
 
 class PatientController extends Controller
 {
+    use AuthorizesStructureAccess;
+
     public function index(Request $request): JsonResponse
     {
         $patients = $this->scopeByStructure(Patient::with('dossier'))
@@ -38,12 +41,10 @@ class PatientController extends Controller
 
         // Traçabilité : enregistrer le PS créateur et sa structure
         $creator = $request->user();
-        $data['created_by_id'] = $creator->id;
-        if ($creator->structure_id) {
-            $data['structure_id'] = $data['structure_id'] ?? $creator->structure_id;
-        }
-
-        $patient = Patient::create($data);
+        $patient = new Patient($data);
+        $patient->created_by_id = $creator->id;
+        $patient->structure_id = $creator->structure_id;
+        $patient->save();
 
         DossierPatient::create([
             'identifiant' => 'DOS-' . str_pad($patient->id, 6, '0', STR_PAD_LEFT),
@@ -62,6 +63,7 @@ class PatientController extends Controller
     public function show(int $id): JsonResponse
     {
         $patient = Patient::with('dossier')->findOrFail($id);
+        $this->authorizePatientAccess($patient);
 
         return response()->json([
             'success' => true,
@@ -72,6 +74,7 @@ class PatientController extends Controller
     public function update(StorePatientRequest $request, int $id): JsonResponse
     {
         $patient = Patient::findOrFail($id);
+        $this->authorizePatientAccess($patient);
         $patient->update($request->validated());
 
         return response()->json([
@@ -83,7 +86,9 @@ class PatientController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Patient::findOrFail($id)->delete();
+        $patient = Patient::findOrFail($id);
+        $this->authorizePatientAccess($patient);
+        $patient->delete();
 
         return response()->json([
             'success' => true,
@@ -93,6 +98,9 @@ class PatientController extends Controller
 
     public function getRecord(int $patientId): JsonResponse
     {
+        $patient = Patient::findOrFail($patientId);
+        $this->authorizePatientAccess($patient);
+
         $dossier = DossierPatient::with([
             'patient',
             'antecedents',
@@ -122,6 +130,9 @@ class PatientController extends Controller
 
     public function updateRecord(int $patientId, Request $request): JsonResponse
     {
+        $patient = Patient::findOrFail($patientId);
+        $this->authorizePatientAccess($patient);
+
         $request->validate([
             'groupe_sanguin'     => 'nullable|string|max:10',
             'notes_importantes'  => 'nullable|string|max:5000',
