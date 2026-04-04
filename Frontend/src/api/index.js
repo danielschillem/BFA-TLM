@@ -319,6 +319,10 @@ export const gestionnaireApi = {
 export const adminApi = {
   dashboard: () => apiClient.get("/admin/dashboard"),
   listUsers: (params) => apiClient.get("/admin/users", { params }),
+  showUser: (id) => apiClient.get(`/admin/users/${id}`),
+  createUser: (data) => apiClient.post("/admin/users", data),
+  updateUser: (id, data) => apiClient.put(`/admin/users/${id}`, data),
+  deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
   updateUserStatus: (id, data) =>
     apiClient.patch(`/admin/users/${id}/status`, data),
   verifyDoctor: (id) => apiClient.post(`/admin/users/${id}/verify`),

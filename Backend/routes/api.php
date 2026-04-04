@@ -415,6 +415,10 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     Route::prefix('admin')->middleware(['role:admin', 'throttle:admin'])->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->middleware('permission:admin.dashboard');
         Route::get('/users', [AdminController::class, 'listUsers'])->middleware('permission:admin.users');
+        Route::post('/users', [AdminController::class, 'storeUser'])->middleware('permission:admin.users');
+        Route::get('/users/{id}', [AdminController::class, 'showUser'])->middleware('permission:admin.users');
+        Route::put('/users/{id}', [AdminController::class, 'updateUser'])->middleware('permission:admin.users');
+        Route::delete('/users/{id}', [AdminController::class, 'destroyUser'])->middleware('permission:admin.users');
         Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus'])->middleware('permission:admin.users');
         Route::post('/users/{id}/verify', [AdminController::class, 'verifyDoctor'])->middleware('permission:admin.users');
 

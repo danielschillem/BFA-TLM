@@ -166,4 +166,129 @@ class AdminController extends Controller
             'message' => 'Médecin vérifié',
         ]);
     }
+
+    /**
+     * Afficher le détail d'un utilisateur.
+     * GET /admin/users/{id}
+     */
+    public function showUser(int $id): JsonResponse
+    {
+        $user = User::with(['roles', 'structure', 'service', 'patient.dossier'])->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'data' => new UserResource($user),
+        ]);
+    }
+
+    /**
+     * Créer un utilisateur (admin uniquement).
+     * POST /admin/users
+     */
+    public function storeUser(Request $request): JsonResponse
+    {
+        $request->validate([
+            'nom'          => 'required|string|max:255',
+            'prenoms'      => 'required|string|max:255',
+            'email'        => 'required|email|unique:users,email',
+            'password'     => ['required', 'string', 'min:8', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()],
+            'telephone_1'  => 'nullable|string|max:20',
+            'sexe'         => 'nullable|in:M,F',
+            'role'         => 'required|string|exists:roles,name',
+            'specialite'   => 'nullable|string|max:255',
+            'structure_id' => 'nullable|integer|exists:structures,id',
+            'service_id'   => 'nullable|integer|exists:services,id',
+        ]);
+
+        $user = User::create([
+            'nom'          => $request->nom,
+            'prenoms'      => $request->prenoms,
+            'email'        => $request->email,
+            'password'     => $request->password,
+            'telephone_1'  => $request->telephone_1,
+            'sexe'         => $request->sexe,
+            'specialite'   => $request->specialite,
+            'structure_id' => $request->structure_id,
+            'service_id'   => $request->service_id,
+            'status'       => 'actif',
+            'created_by_id' => $request->user()->id,
+        ]);
+
+        $user->assignRole($request->role);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Utilisateur créé',
+            'data' => new UserResource($user->load('roles')),
+        ], 201);
+    }
+
+    /**
+     * Mettre à jour un utilisateur.
+     * PUT /admin/users/{id}
+     */
+    public function updateUser(int $id, Request $request): JsonResponse
+    {
+        $user = User::findOrFail($id);
+
+        $request->validate([
+            'nom'          => 'sometimes|string|max:255',
+            'prenoms'      => 'sometimes|string|max:255',
+            'email'        => 'sometimes|email|unique:users,email,' . $user->id,
+            'telephone_1'  => 'nullable|string|max:20',
+            'sexe'         => 'nullable|in:M,F',
+            'specialite'   => 'nullable|string|max:255',
+            'structure_id' => 'nullable|integer|exists:structures,id',
+            'service_id'   => 'nullable|integer|exists:services,id',
+            'role'         => 'sometimes|string|exists:roles,name',
+        ]);
+
+        $updateData = array_filter([
+            'nom'          => $request->input('nom'),
+            'prenoms'      => $request->input('prenoms'),
+            'email'        => $request->input('email'),
+            'telephone_1'  => $request->input('telephone_1'),
+            'sexe'         => $request->input('sexe'),
+            'specialite'   => $request->input('specialite'),
+            'structure_id' => $request->input('structure_id'),
+            'service_id'   => $request->input('service_id'),
+        ], fn ($v) => $v !== null);
+
+        $user->update($updateData);
+
+        if ($request->filled('role')) {
+            $user->syncRoles([$request->role]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Utilisateur mis à jour',
+            'data' => new UserResource($user->fresh()->load('roles')),
+        ]);
+    }
+
+    /**
+     * Supprimer un utilisateur (soft delete).
+     * DELETE /admin/users/{id}
+     */
+    public function destroyUser(int $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+
+        // Empêcher la suppression de son propre compte
+        if ($user->id === auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous ne pouvez pas supprimer votre propre compte.',
+            ], 422);
+        }
+
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Utilisateur supprimé',
+        ]);
+    }
 }
