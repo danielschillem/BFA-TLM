@@ -295,7 +295,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::post('/{id}/reject', [AppointmentController::class, 'reject'])->middleware('permission:appointments.update');
         Route::post('/{id}/reschedule', [AppointmentController::class, 'reschedule'])->middleware('permission:appointments.update');
         Route::post('/{id}/delegate', [AppointmentController::class, 'delegate'])->middleware('permission:appointments.update');
-        Route::post('/{id}/consent', [AppointmentController::class, 'consent'])->middleware('permission:appointments.update');
+        Route::post('/{id}/consent', [AppointmentController::class, 'consent'])->middleware('permission:consents.manage');
         Route::get('/{id}/pdf', [AppointmentController::class, 'downloadPdf'])->middleware(['permission:appointments.view', 'throttle:export']);
     });
 
@@ -311,7 +311,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::post('/{id}/report/share', [ConsultationController::class, 'shareReport'])->middleware('permission:consultations.update');
         Route::get('/{id}/report/pdf', [ConsultationController::class, 'downloadReport'])->middleware(['permission:consultations.view', 'throttle:export']);
         Route::get('/{id}/prescription/pdf', [ConsultationController::class, 'downloadPrescription'])->middleware(['permission:consultations.view', 'throttle:export']);
-        Route::post('/{id}/consent', [ConsultationController::class, 'consent'])->middleware('permission:consultations.update');
+        Route::post('/{id}/consent', [ConsultationController::class, 'consent'])->middleware('permission:consents.manage');
         Route::post('/{id}/medical-parameters', [ConsultationController::class, 'medicalParameters'])->middleware('permission:consultations.update');
         Route::post('/{id}/rate-video', [ConsultationController::class, 'rateVideoQuality'])->middleware('permission:consultations.update');
         Route::post('/{id}/jitsi-token', [ConsultationController::class, 'refreshJitsiToken'])->middleware('permission:consultations.view');

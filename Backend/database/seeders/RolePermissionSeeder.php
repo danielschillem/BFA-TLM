@@ -70,6 +70,7 @@ class RolePermissionSeeder extends Seeder
             'messages.view', 'messages.send',
             'teleexpertise.view', 'teleexpertise.create', 'teleexpertise.respond',
             'payments.initiate', 'payments.validate', 'payments.view',
+            'consents.view', 'consents.manage',
         ]);
 
         $specialist = Role::firstOrCreate(['name' => 'specialist', 'guard_name' => 'api']);
