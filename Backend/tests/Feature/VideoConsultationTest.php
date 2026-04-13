@@ -356,7 +356,7 @@ class VideoConsultationTest extends TestCase
 
     // ── Authorization ──────────────────────────────────────────────────────────
 
-    public function test_patient_cannot_rate_video(): void
+    public function test_patient_can_rate_video(): void
     {
         $consultation = Consultation::factory()->create([
             'user_id' => $this->doctor->id,
@@ -368,7 +368,14 @@ class VideoConsultationTest extends TestCase
                 'rating' => 5,
             ]);
 
-        $response->assertStatus(403);
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('consultations', [
+            'id' => $consultation->id,
+            'video_rating' => 5,
+            'video_rated_by' => $this->patientUser->id,
+        ]);
     }
 
     public function test_unauthenticated_user_cannot_rate_video(): void

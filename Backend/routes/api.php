@@ -305,7 +305,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::get('/dashboard', [ConsultationController::class, 'dashboard'])->middleware('permission:consultations.view');
         Route::get('/{id}', [ConsultationController::class, 'show'])->middleware('permission:consultations.view');
         Route::post('/appointments/{appointmentId}/start', [ConsultationController::class, 'startFromAppointment'])->middleware('permission:consultations.create');
-        Route::post('/{id}/end', [ConsultationController::class, 'end'])->middleware('permission:consultations.update');
+        Route::post('/{id}/end', [ConsultationController::class, 'end'])->middleware('permission:consultations.view');
         Route::post('/{id}/report', [ConsultationController::class, 'createReport'])->middleware('permission:consultations.update');
         Route::post('/{id}/report/sign', [ConsultationController::class, 'signReport'])->middleware('permission:consultations.update');
         Route::post('/{id}/report/share', [ConsultationController::class, 'shareReport'])->middleware('permission:consultations.update');
@@ -313,7 +313,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::get('/{id}/prescription/pdf', [ConsultationController::class, 'downloadPrescription'])->middleware(['permission:consultations.view', 'throttle:export']);
         Route::post('/{id}/consent', [ConsultationController::class, 'consent'])->middleware('permission:consents.manage');
         Route::post('/{id}/medical-parameters', [ConsultationController::class, 'medicalParameters'])->middleware('permission:consultations.update');
-        Route::post('/{id}/rate-video', [ConsultationController::class, 'rateVideoQuality'])->middleware('permission:consultations.update');
+        Route::post('/{id}/rate-video', [ConsultationController::class, 'rateVideoQuality'])->middleware('permission:consultations.view');
         Route::post('/{id}/jitsi-token', [ConsultationController::class, 'refreshJitsiToken'])->middleware('permission:consultations.view');
     });
 
