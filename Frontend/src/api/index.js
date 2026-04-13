@@ -107,6 +107,8 @@ export const consultationsApi = {
   recordConsent: (id, d) => apiClient.post(`/consultations/${id}/consent`, d),
   rateVideoQuality: (id, d) =>
     apiClient.post(`/consultations/${id}/rate-video`, d),
+  refreshJitsiToken: (id) =>
+    apiClient.post(`/consultations/${id}/jitsi-token`, {}),
   transmitParams: (id, d) =>
     apiClient.post(`/consultations/${id}/medical-parameters`, d),
   createReport: (id, d) => apiClient.post(`/consultations/${id}/report`, d),

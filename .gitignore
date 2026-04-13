@@ -21,6 +21,10 @@ build/
 Thumbs.db
 desktop.ini
 
+# Private keys (JaaS / RSA)
+*.pk
+*.pub
+
 # Laravel
 Backend/storage/logs/*.log
 Backend/bootstrap/cache/*.php

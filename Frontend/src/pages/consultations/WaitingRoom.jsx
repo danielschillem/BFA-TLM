@@ -21,6 +21,7 @@ import { useAuthStore } from "@/stores/authStore";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/Card";
 import { LoadingPage } from "@/components/common/LoadingSpinner";
+import EmptyState from "@/components/common/EmptyState";
 import Button from "@/components/ui/Button";
 import ConsentModal from "@/components/consultation/ConsentModal";
 import { formatDateTime, CONSULTATION_TYPES } from "@/utils/helpers";
@@ -103,12 +104,15 @@ export default function WaitingRoom() {
     onSuccess: (res) => {
       const consultationId =
         res.data?.data?.consultation?.id ?? res.data?.data?.id;
+      const jitsiToken = res.data?.jitsi_token ?? null;
       if (!consultationId) {
         toast.error("Réponse inattendue du serveur.");
         return;
       }
       if (isTeleconsultation) {
-        navigate(`/consultations/${consultationId}/room`);
+        navigate(`/consultations/${consultationId}/room`, {
+          state: { jitsiToken },
+        });
       } else {
         toast.success("Consultation physique démarrée");
         navigate(`/consultations/${consultationId}/physical`);

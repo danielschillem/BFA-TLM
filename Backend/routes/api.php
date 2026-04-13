@@ -314,6 +314,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::post('/{id}/consent', [ConsultationController::class, 'consent'])->middleware('permission:consultations.update');
         Route::post('/{id}/medical-parameters', [ConsultationController::class, 'medicalParameters'])->middleware('permission:consultations.update');
         Route::post('/{id}/rate-video', [ConsultationController::class, 'rateVideoQuality'])->middleware('permission:consultations.update');
+        Route::post('/{id}/jitsi-token', [ConsultationController::class, 'refreshJitsiToken'])->middleware('permission:consultations.view');
     });
 
     // Prescriptions

@@ -11,6 +11,7 @@ use App\Models\Consultation;
 use App\Models\DossierPatient;
 use App\Models\PatientConsent;
 use App\Models\RendezVous;
+use App\Services\JitsiService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -114,10 +115,31 @@ class ConsultationController extends Controller
 
         ConsultationStarted::dispatch($consultation);
 
+        // Générer un JWT JaaS si la clé privée est configurée
+        $jitsiToken = null;
+        $jitsi = app(JitsiService::class);
+        if ($jitsi->isEnabled() && $rdv->room_name) {
+            $user = $request->user();
+            $displayName = $user->hasRole('patient')
+                ? trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? '')) ?: 'Patient'
+                : 'Dr. ' . trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? ''));
+
+            $jitsiToken = $jitsi->generateToken(
+                roomName: $rdv->room_name,
+                userName: $displayName,
+                userId: (string) $user->id,
+                email: $user->email ?? '',
+                isModerator: !$user->hasRole('patient'),
+            );
+        }
+
+        $resource = new ConsultationResource($consultation->load(['user', 'dossierPatient.patient', 'rendezVous']));
+
         return response()->json([
             'success' => true,
             'message' => 'Consultation démarrée',
-            'data' => new ConsultationResource($consultation->load(['user', 'dossierPatient.patient', 'rendezVous'])),
+            'data' => $resource,
+            'jitsi_token' => $jitsiToken,
         ], 201);
     }
 
@@ -588,6 +610,56 @@ class ConsultationController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Évaluation enregistrée',
+        ]);
+    }
+
+    /**
+     * Renouveler le JWT Jitsi pour une consultation en cours.
+     */
+    public function refreshJitsiToken(int $id, Request $request): JsonResponse
+    {
+        $consultation = Consultation::with('rendezVous')->findOrFail($id);
+        $this->authorizeAccess($consultation, $request->user());
+
+        if ($consultation->statut !== 'en_cours') {
+            return response()->json([
+                'success' => false,
+                'message' => 'La consultation n\'est pas en cours.',
+            ], 422);
+        }
+
+        $roomName = $consultation->rendezVous?->room_name;
+        if (!$roomName) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune salle vidéo associée.',
+            ], 422);
+        }
+
+        $jitsi = app(JitsiService::class);
+        if (!$jitsi->isEnabled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'JWT Jitsi non configuré sur le serveur.',
+            ], 501);
+        }
+
+        $user = $request->user();
+        $displayName = $user->hasRole('patient')
+            ? trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? '')) ?: 'Patient'
+            : 'Dr. ' . trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? ''));
+
+        $token = $jitsi->generateToken(
+            roomName: $roomName,
+            userName: $displayName,
+            userId: (string) $user->id,
+            email: $user->email ?? '',
+            isModerator: !$user->hasRole('patient'),
+        );
+
+        return response()->json([
+            'success' => true,
+            'jitsi_token' => $token,
         ]);
     }
 }

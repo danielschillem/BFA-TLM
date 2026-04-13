@@ -475,4 +475,118 @@ class VideoConsultationTest extends TestCase
 
         $this->assertGreaterThanOrEqual(2, $response->json('data.stats.total_consultations'));
     }
+
+    // ── JWT Jitsi token ────────────────────────────────────────────────────────
+
+    public function test_start_teleconsultation_returns_jitsi_token_key(): void
+    {
+        $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
+            'patient_id' => $this->patient->id,
+            'user_id' => $this->doctor->id,
+        ]);
+
+        $response = $this->actingAs($this->doctor, 'api')
+            ->postJson("/api/v1/consultations/appointments/{$rdv->id}/start");
+
+        $response->assertStatus(201)
+            ->assertJsonStructure(['success', 'data', 'jitsi_token']);
+    }
+
+    public function test_refresh_jitsi_token_for_active_consultation(): void
+    {
+        $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
+            'patient_id' => $this->patient->id,
+            'user_id' => $this->doctor->id,
+            'room_name' => 'tlm-test-room',
+        ]);
+
+        $consultation = Consultation::factory()->create([
+            'user_id' => $this->doctor->id,
+            'dossier_patient_id' => $this->dossier->id,
+            'rendez_vous_id' => $rdv->id,
+            'statut' => 'en_cours',
+            'type' => 'teleconsultation',
+        ]);
+
+        $response = $this->actingAs($this->doctor, 'api')
+            ->postJson("/api/v1/consultations/{$consultation->id}/jitsi-token");
+
+        // Si la clé privée est configurée → 200 avec token, sinon → 501
+        if (app(\App\Services\JitsiService::class)->isEnabled()) {
+            $response->assertOk()
+                ->assertJsonPath('success', true)
+                ->assertJsonStructure(['jitsi_token']);
+        } else {
+            $response->assertStatus(501)
+                ->assertJsonPath('success', false);
+        }
+    }
+
+    public function test_refresh_jitsi_token_rejects_finished_consultation(): void
+    {
+        $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
+            'patient_id' => $this->patient->id,
+            'user_id' => $this->doctor->id,
+            'room_name' => 'tlm-finished-room',
+        ]);
+
+        $consultation = Consultation::factory()->create([
+            'user_id' => $this->doctor->id,
+            'dossier_patient_id' => $this->dossier->id,
+            'rendez_vous_id' => $rdv->id,
+            'statut' => 'terminee',
+            'type' => 'teleconsultation',
+        ]);
+
+        $response = $this->actingAs($this->doctor, 'api')
+            ->postJson("/api/v1/consultations/{$consultation->id}/jitsi-token");
+
+        $response->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_refresh_jitsi_token_rejects_without_room(): void
+    {
+        $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
+            'patient_id' => $this->patient->id,
+            'user_id' => $this->doctor->id,
+            'room_name' => null,
+        ]);
+
+        $consultation = Consultation::factory()->create([
+            'user_id' => $this->doctor->id,
+            'dossier_patient_id' => $this->dossier->id,
+            'rendez_vous_id' => $rdv->id,
+            'statut' => 'en_cours',
+            'type' => 'teleconsultation',
+        ]);
+
+        $response = $this->actingAs($this->doctor, 'api')
+            ->postJson("/api/v1/consultations/{$consultation->id}/jitsi-token");
+
+        $response->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_consultation_resource_includes_jitsi_app_id(): void
+    {
+        $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
+            'patient_id' => $this->patient->id,
+            'user_id' => $this->doctor->id,
+            'room_name' => 'tlm-app-id-test',
+        ]);
+
+        $consultation = Consultation::factory()->create([
+            'user_id' => $this->doctor->id,
+            'dossier_patient_id' => $this->dossier->id,
+            'rendez_vous_id' => $rdv->id,
+            'type' => 'teleconsultation',
+        ]);
+
+        $response = $this->actingAs($this->doctor, 'api')
+            ->getJson("/api/v1/consultations/{$consultation->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.jitsi_app_id', config('jitsi.app_id'));
+    }
 }

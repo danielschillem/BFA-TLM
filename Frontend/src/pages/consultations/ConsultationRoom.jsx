@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Phone,
@@ -42,12 +42,16 @@ import Input, { Textarea, Select } from "@/components/ui/Input";
 import logoImg from "@/assets/logo.jpeg";
 
 // ── JaaS 8x8.vc configuration ────────────────────────────────────────────────
-const JAAS_APP_ID = "vpaas-magic-cookie-ed63b1c31e924e1aa588fe9388143c2c";
-const JAAS_SCRIPT_URL = `https://8x8.vc/${JAAS_APP_ID}/external_api.js`;
+const JAAS_APP_ID =
+  import.meta.env.VITE_JAAS_APP_ID ||
+  "vpaas-magic-cookie-ed63b1c31e924e1aa588fe9388143c2c";
+const JITSI_DOMAIN = import.meta.env.VITE_JITSI_DOMAIN || "8x8.vc";
+const JAAS_SCRIPT_URL = `https://${JITSI_DOMAIN}/${JAAS_APP_ID}/external_api.js`;
 
 export default function ConsultationRoom() {
   const { id } = useParams(); // consultation id
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isDoctor } = useAuthStore();
   const jitsiContainerRef = useRef(null);
   const jitsiApiRef = useRef(null);
@@ -70,6 +74,8 @@ export default function ConsultationRoom() {
   const [rating, setRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
   const [participantCount, setParticipantCount] = useState(0);
+  const [jitsiToken, setJitsiToken] = useState(null);
+  const tokenRefreshTimer = useRef(null);
   const [vitals, setVitals] = useState({
     weight: "",
     height: "",
@@ -220,6 +226,32 @@ export default function ConsultationRoom() {
     onError: (err) => toast.error(err.response?.data?.message ?? "Erreur"),
   });
 
+  // ── Initialiser le JWT Jitsi (depuis navigation state ou via refresh) ──────
+  useEffect(() => {
+    // Token passé par la navigation (médecin qui a démarré)
+    const stateToken = location.state?.jitsiToken;
+    if (stateToken) {
+      setJitsiToken(stateToken);
+      return;
+    }
+    // Sinon (patient qui rejoint ou rechargement page), demander un token
+    if (!consultation?.id) return;
+    let cancelled = false;
+    consultationsApi
+      .refreshJitsiToken(consultation.id)
+      .then((res) => {
+        if (!cancelled && res.data?.jitsi_token) {
+          setJitsiToken(res.data.jitsi_token);
+        }
+      })
+      .catch(() => {
+        // JWT non configuré côté serveur — fonctionne sans token
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [consultation?.id, location.state?.jitsiToken]);
+
   // Pre-fill report from existing data
   useEffect(() => {
     if (!consultation) return;
@@ -269,6 +301,9 @@ export default function ConsultationRoom() {
   // ── Jitsi Meet via JaaS 8x8.vc ─────────────────────────────────────────────
   useEffect(() => {
     if (!consultation || !jitsiContainerRef.current) return;
+
+    // Retrieve JWT token: from query state (start response) or consultation data
+    const token = jitsiToken || null;
 
     // Build room name: JAAS_APP_ID/room-name (required format for 8x8.vc)
     const roomSuffix = consultation.jitsi_room_name ?? `tlm-${consultation.id}`;
@@ -347,10 +382,9 @@ export default function ConsultationRoom() {
           ];
 
       try {
-        const api = new window.JitsiMeetExternalAPI("8x8.vc", {
+        const jitsiOptions = {
           roomName,
           parentNode: jitsiContainerRef.current,
-          // jwt: consultation.jitsi_token,  // Activer quand un JWT signé est fourni par le backend
           userInfo: {
             displayName,
             email: user?.email ?? "",
@@ -427,7 +461,14 @@ export default function ConsultationRoom() {
           },
           width: "100%",
           height: "100%",
-        });
+        };
+
+        // Ajouter le JWT si disponible (sécurise l'accès à la room)
+        if (token) {
+          jitsiOptions.jwt = token;
+        }
+
+        const api = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, jitsiOptions);
 
         jitsiApiRef.current = api;
 
@@ -545,10 +586,29 @@ export default function ConsultationRoom() {
   }, [
     consultation?.id,
     consultation?.jitsi_room_name,
+    jitsiToken,
     user?.id,
     user?.first_name,
     user?.last_name,
   ]);
+
+  // ── Renouvellement automatique du JWT (toutes les 90 min si TTL = 120 min) ──
+  useEffect(() => {
+    if (!consultation?.id || !jitsiToken) return;
+    const REFRESH_INTERVAL = 90 * 60 * 1000; // 90 minutes
+    tokenRefreshTimer.current = setInterval(async () => {
+      try {
+        const res = await consultationsApi.refreshJitsiToken(consultation.id);
+        const newToken = res.data?.jitsi_token;
+        if (newToken) {
+          setJitsiToken(newToken);
+        }
+      } catch {
+        // non bloquant — le token actuel reste valide
+      }
+    }, REFRESH_INTERVAL);
+    return () => clearInterval(tokenRefreshTimer.current);
+  }, [consultation?.id, jitsiToken]);
 
   const fmt = (secs) => {
     const h = Math.floor(secs / 3600);
