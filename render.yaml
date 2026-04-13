@@ -46,7 +46,7 @@ services:
       - key: LOG_LEVEL
         value: warning
       - key: MAIL_MAILER
-        value: log
+        value: smtp
       - key: MAIL_HOST
         sync: false
       - key: MAIL_PORT
@@ -66,13 +66,13 @@ services:
       - key: REVERB_APP_ID
         value: tlm-temp
       - key: REVERB_APP_KEY
-        generateValue: true
+        sync: false
       - key: REVERB_APP_SECRET
-        generateValue: true
+        sync: false
       - key: REVERB_HOST
-        value: 0.0.0.0
+        value: tlm-temp-reverb.onrender.com
       - key: REVERB_PORT
-        value: "10000"
+        value: "443"
       - key: REVERB_SCHEME
         value: https
       - key: PASSPORT_PRIVATE_KEY
@@ -116,7 +116,33 @@ services:
       - key: BROADCAST_CONNECTION
         value: reverb
       - key: MAIL_MAILER
-        value: log
+        value: smtp
+      - key: MAIL_HOST
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: MAIL_HOST
+      - key: MAIL_PORT
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: MAIL_PORT
+      - key: MAIL_USERNAME
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: MAIL_USERNAME
+      - key: MAIL_PASSWORD
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: MAIL_PASSWORD
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_FROM_ADDRESS
+        value: noreply@bfa-tlm.online
+      - key: MAIL_FROM_NAME
+        value: TLM Burkina Faso
       - key: REVERB_APP_ID
         value: tlm-temp
       - key: REVERB_APP_KEY
@@ -129,6 +155,12 @@ services:
           name: tlm-temp-api
           type: web
           envVarKey: REVERB_APP_SECRET
+      - key: REVERB_HOST
+        value: tlm-temp-reverb.onrender.com
+      - key: REVERB_PORT
+        value: "443"
+      - key: REVERB_SCHEME
+        value: https
 
   - type: web
     name: tlm-temp-reverb
@@ -179,3 +211,9 @@ services:
           name: tlm-temp-api
           type: web
           envVarKey: REVERB_APP_SECRET
+      - key: REVERB_HOST
+        value: tlm-temp-reverb.onrender.com
+      - key: REVERB_PORT
+        value: "443"
+      - key: REVERB_SCHEME
+        value: https

@@ -408,9 +408,7 @@ class AuthController extends Controller
 
     private function requiresTwoFactor(User $user): bool
     {
-        // TODO: Réactiver quand le SMTP propre sera configuré
-        // return $user->hasRole(['doctor', 'specialist', 'admin']);
-        return false;
+        return $user->hasRole(['doctor', 'specialist', 'admin']);
     }
 
     private function issueTwoFactorChallenge(User $user, bool $withPendingToken): array
