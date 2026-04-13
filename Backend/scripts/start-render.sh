@@ -13,6 +13,18 @@ if [ -z "${APP_KEY:-}" ]; then
   echo "APP_KEY=$APP_KEY" >> /var/www/html/.env
 fi
 
+if [ -z "${REVERB_APP_KEY:-}" ]; then
+  echo "⚠ REVERB_APP_KEY manquant — generation automatique." >&2
+  export REVERB_APP_KEY="$(head -c 20 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 20)"
+  echo "REVERB_APP_KEY=$REVERB_APP_KEY" >> /var/www/html/.env
+fi
+
+if [ -z "${REVERB_APP_SECRET:-}" ]; then
+  echo "⚠ REVERB_APP_SECRET manquant — generation automatique." >&2
+  export REVERB_APP_SECRET="$(head -c 20 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 20)"
+  echo "REVERB_APP_SECRET=$REVERB_APP_SECRET" >> /var/www/html/.env
+fi
+
 php artisan optimize:clear || true
 
 case "${APP_RUNTIME_MODE:-web}" in
