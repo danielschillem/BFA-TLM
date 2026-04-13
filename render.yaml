@@ -34,9 +34,9 @@ services:
           name: tlm-temp-db
           property: connectionString
       - key: CACHE_STORE
-        value: file
+        value: database
       - key: SESSION_DRIVER
-        value: file
+        value: database
       - key: QUEUE_CONNECTION
         value: database
       - key: BROADCAST_CONNECTION
@@ -75,6 +75,10 @@ services:
         value: "10000"
       - key: REVERB_SCHEME
         value: https
+      - key: PASSPORT_PRIVATE_KEY
+        sync: false
+      - key: PASSPORT_PUBLIC_KEY
+        sync: false
 
   - type: worker
     name: tlm-temp-queue
@@ -87,7 +91,10 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: APP_KEY
-        sync: false
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: APP_KEY
       - key: APP_URL
         value: https://tlm-temp-api.onrender.com
       - key: FRONTEND_URL
@@ -101,9 +108,9 @@ services:
           name: tlm-temp-db
           property: connectionString
       - key: CACHE_STORE
-        value: file
+        value: database
       - key: SESSION_DRIVER
-        value: file
+        value: database
       - key: QUEUE_CONNECTION
         value: database
       - key: BROADCAST_CONNECTION
@@ -113,9 +120,15 @@ services:
       - key: REVERB_APP_ID
         value: tlm-temp
       - key: REVERB_APP_KEY
-        sync: false
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: REVERB_APP_KEY
       - key: REVERB_APP_SECRET
-        sync: false
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: REVERB_APP_SECRET
 
   - type: web
     name: tlm-temp-reverb
@@ -128,7 +141,10 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: APP_KEY
-        sync: false
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: APP_KEY
       - key: APP_URL
         value: https://tlm-temp-api.onrender.com
       - key: FRONTEND_URL
@@ -142,9 +158,9 @@ services:
           name: tlm-temp-db
           property: connectionString
       - key: CACHE_STORE
-        value: file
+        value: database
       - key: SESSION_DRIVER
-        value: file
+        value: database
       - key: QUEUE_CONNECTION
         value: database
       - key: BROADCAST_CONNECTION
@@ -154,6 +170,12 @@ services:
       - key: REVERB_APP_ID
         value: tlm-temp
       - key: REVERB_APP_KEY
-        sync: false
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: REVERB_APP_KEY
       - key: REVERB_APP_SECRET
-        sync: false
+        fromService:
+          name: tlm-temp-api
+          type: web
+          envVarKey: REVERB_APP_SECRET

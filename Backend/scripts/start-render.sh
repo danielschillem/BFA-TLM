@@ -5,22 +5,28 @@ set -eu
 cd /var/www/html
 
 php artisan storage:link || true
+
+if [ -z "${APP_KEY:-}" ]; then
+  echo "⚠ APP_KEY manquant — generation automatique d'une cle temporaire." >&2
+  echo "⚠ IMPORTANT: Definissez APP_KEY dans les variables d'environnement Render pour la persistance." >&2
+  export APP_KEY="base64:$(head -c 32 /dev/urandom | base64)"
+  echo "APP_KEY=$APP_KEY" >> /var/www/html/.env
+fi
+
 php artisan optimize:clear || true
 
 case "${APP_RUNTIME_MODE:-web}" in
   web)
-    if [ -z "${APP_KEY:-}" ]; then
-      echo "APP_KEY manquant: impossible de demarrer l'API en environnement deploiement." >&2
-      exit 1
-    fi
-
     php artisan migrate --force
     if [ "${SEED_DEMO_DATA:-false}" = "true" ]; then
       php artisan db:seed --class="${SEED_DATABASE_CLASS:-Database\\Seeders\\DatabaseSeeder}" --force || true
     else
       php artisan db:seed --class="${SEED_DATABASE_CLASS:-Database\\Seeders\\ProductionSeeder}" --force || true
     fi
-    php artisan passport:keys --force || true
+    # Si PASSPORT_PRIVATE_KEY est defini en env var, pas besoin de generer les fichiers
+    if [ -z "${PASSPORT_PRIVATE_KEY:-}" ]; then
+      php artisan passport:keys --force || true
+    fi
     php artisan passport:client --personal --name="Render Personal Access Client" --no-interaction || true
     exec php artisan serve --host=0.0.0.0 --port="${PORT:-10000}"
     ;;
