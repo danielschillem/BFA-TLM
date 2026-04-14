@@ -42,15 +42,16 @@ import Modal from "@/components/ui/Modal";
 import Input, { Textarea, Select } from "@/components/ui/Input";
 import logoImg from "@/assets/logo.jpeg";
 
-// ── JaaS 8x8.vc configuration ────────────────────────────────────────────────
+// ── Jitsi configuration ──────────────────────────────────────────────────────
+// Mode JaaS (8x8.vc) si VITE_JAAS_APP_ID configuré, sinon meet.jit.si (gratuit)
 const JAAS_APP_ID = import.meta.env.VITE_JAAS_APP_ID || "";
-if (!JAAS_APP_ID) {
-  console.warn(
-    "[TLM] VITE_JAAS_APP_ID non configuré — la visioconférence JaaS ne fonctionnera pas.",
-  );
-}
-const JITSI_DOMAIN = import.meta.env.VITE_JITSI_DOMAIN || "8x8.vc";
-const JAAS_SCRIPT_URL = `https://${JITSI_DOMAIN}/${JAAS_APP_ID}/external_api.js`;
+const USE_JAAS = !!JAAS_APP_ID;
+const JITSI_DOMAIN = USE_JAAS
+  ? import.meta.env.VITE_JITSI_DOMAIN || "8x8.vc"
+  : "meet.jit.si";
+const JITSI_SCRIPT_URL = USE_JAAS
+  ? `https://${JITSI_DOMAIN}/${JAAS_APP_ID}/external_api.js`
+  : `https://${JITSI_DOMAIN}/external_api.js`;
 
 export default function ConsultationRoom() {
   const { id } = useParams(); // consultation id
@@ -315,19 +316,19 @@ export default function ConsultationRoom() {
     // Attendre que le token soit résolu (ou confirmé absent) AVANT d'initialiser Jitsi
     if (!consultation || !jitsiContainerRef.current || !tokenReady) return;
 
-    // Retrieve JWT token: from query state (start response) or consultation data
-    const token = jitsiToken || null;
+    // JWT seulement en mode JaaS
+    const token = USE_JAAS ? jitsiToken || null : null;
 
-    // Build room name: JAAS_APP_ID/room-name (required format for 8x8.vc)
+    // Room name: JaaS = APP_ID/room, meet.jit.si = room directement
     const roomSuffix = consultation.jitsi_room_name ?? `tlm-${consultation.id}`;
-    const fullRoomName = `${JAAS_APP_ID}/${roomSuffix}`;
+    const fullRoomName = USE_JAAS ? `${JAAS_APP_ID}/${roomSuffix}` : roomSuffix;
 
     const loadJaaS = () => {
       if (window.JitsiMeetExternalAPI) {
         initJitsi(fullRoomName);
       } else {
         const script = document.createElement("script");
-        script.src = JAAS_SCRIPT_URL;
+        script.src = JITSI_SCRIPT_URL;
         script.async = true;
         script.onload = () => initJitsi(fullRoomName);
         script.onerror = () => {
@@ -479,8 +480,8 @@ export default function ConsultationRoom() {
           height: "100%",
         };
 
-        // Ajouter le JWT si disponible (sécurise l'accès à la room)
-        if (token) {
+        // Ajouter le JWT si disponible et en mode JaaS (sécurise l'accès à la room)
+        if (USE_JAAS && token) {
           jitsiOptions.jwt = token;
         }
 
