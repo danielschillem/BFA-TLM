@@ -335,11 +335,13 @@ export default function ConsultationRoom() {
 
       // Construct displayName based on current user role
       // Le user connecté peut être médecin ou patient - utiliser ses propres infos
-      const currentUserName =
+      const rawName =
         `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim();
+      // Éviter le double "Dr." si le prénom contient déjà le titre
+      const cleanName = rawName.replace(/^Dr\.?\s*/i, "").trim();
       const displayName = isDoctor()
-        ? `Dr. ${currentUserName || "Médecin"}`
-        : currentUserName || "Patient";
+        ? `Dr. ${cleanName || "Médecin"}`
+        : rawName || "Patient";
 
       // Build consultation subject for header
       const patientName = consultation.patient_record?.patient
@@ -393,6 +395,7 @@ export default function ConsultationRoom() {
             startWithAudioMuted: false,
             startWithVideoMuted: false,
             prejoinPageEnabled: false,
+            prejoinConfig: { enabled: false },
             disableDeepLinking: true,
             enableNoisyMicDetection: true,
             enableClosePage: false,
