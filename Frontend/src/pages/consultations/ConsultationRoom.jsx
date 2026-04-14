@@ -483,6 +483,16 @@ export default function ConsultationRoom() {
         // Ajouter le JWT si disponible et en mode JaaS (sécurise l'accès à la room)
         if (USE_JAAS && token) {
           jitsiOptions.jwt = token;
+        } else if (USE_JAAS && !token) {
+          // JaaS sans JWT → connexion échouera (lobby/403).
+          // Avertir l'utilisateur et continuer quand même.
+          console.warn(
+            "[JaaS] Aucun JWT disponible — le serveur backend n'a peut-être pas JAAS_PRIVATE_KEY configuré.",
+          );
+          toast.error(
+            "Configuration vidéo incomplète. Contactez l'administrateur si la connexion échoue.",
+            { duration: 8000 },
+          );
         }
 
         const api = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, jitsiOptions);
