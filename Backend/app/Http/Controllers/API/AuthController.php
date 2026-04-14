@@ -408,7 +408,9 @@ class AuthController extends Controller
 
     private function requiresTwoFactor(User $user): bool
     {
-        return $user->hasRole(['doctor', 'specialist', 'admin']);
+        // 2FA désactivé — à réactiver quand le service email sera opérationnel en production
+        return false;
+        // return $user->hasRole(['doctor', 'specialist', 'admin']);
     }
 
     private function issueTwoFactorChallenge(User $user, bool $withPendingToken): array
