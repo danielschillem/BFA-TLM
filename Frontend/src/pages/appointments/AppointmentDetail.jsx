@@ -142,7 +142,7 @@ export default function AppointmentDetail() {
 
   const canCancel = ["pending", "confirmed"].includes(apt.status);
   const canConfirm = isDoctor() && apt.status === "pending";
-  const canStart = isDoctor() && apt.status === "confirmed";
+  const canStart = isDoctor() && ["pending", "confirmed"].includes(apt.status);
   const canDelegate =
     isDoctor() && ["pending", "confirmed"].includes(apt.status);
 
@@ -516,9 +516,8 @@ export default function AppointmentDetail() {
               Voir le compte-rendu
             </Button>
           )}
-          {isPatient() &&
-            apt.status === "confirmed" &&
-            apt.type !== "presentiel" && (
+          {apt.type !== "presentiel" &&
+            ["pending", "confirmed"].includes(apt.status) && (
               <Button
                 onClick={() => navigate(`/appointments/${id}/waiting`)}
                 variant="outline"
@@ -526,6 +525,20 @@ export default function AppointmentDetail() {
                 className="flex-1"
               >
                 Salle d'attente
+              </Button>
+            )}
+          {isPatient() &&
+            apt.type !== "presentiel" &&
+            apt.status === "in_progress" &&
+            apt.consultation_id && (
+              <Button
+                onClick={() =>
+                  navigate(`/consultations/${apt.consultation_id}/room`)
+                }
+                icon={Video}
+                className="flex-1"
+              >
+                Rejoindre la consultation
               </Button>
             )}
           {apt.status === "completed" && apt.consultation?.id && (

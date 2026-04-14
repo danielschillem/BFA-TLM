@@ -52,7 +52,7 @@ export default function WaitingRoom() {
     refetchInterval: 10_000,
   });
 
-  const isTeleconsultation = apt?.type === "teleconsultation";
+  const isTeleconsultation = apt?.type !== "presentiel";
 
   // Auto-navigate patient to consultation room when doctor starts
   useEffect(() => {
