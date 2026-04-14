@@ -356,7 +356,10 @@ class AppointmentController extends Controller
             ], 422);
         }
 
-        $rdv->update(['statut' => 'confirme']);
+        // Ne mettre à jour le statut que s'il est encore planifié (éviter la régression)
+        if ($rdv->statut === 'planifie') {
+            $rdv->update(['statut' => 'confirme']);
+        }
 
         return response()->json([
             'success' => true,

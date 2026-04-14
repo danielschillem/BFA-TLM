@@ -47,7 +47,7 @@ class JitsiService
             'aud' => 'jitsi',
             'iss' => 'chat',
             'sub' => $this->appId,
-            'room' => $roomName,
+            'room' => '*',
             'iat' => $now,
             'nbf' => $now,
             'exp' => $now + ($this->ttl * 60),

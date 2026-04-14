@@ -13,7 +13,6 @@ import {
   FileText,
   CreditCard,
   ArrowRight,
-  ExternalLink,
   UserPlus,
   X,
   Search,
@@ -25,6 +24,7 @@ import {
   appointmentsApi,
   patientsApi,
   referentielsApi,
+  paymentsApi,
 } from "@/api";
 import { useAuthStore } from "@/stores/authStore";
 import AppLayout from "@/components/layout/AppLayout";
@@ -148,8 +148,8 @@ export default function BookAppointment() {
 
   // ── Mutations ───────────────────────────────────────────────────────────────
   const bookMutation = useMutation({
-    mutationFn: () =>
-      appointmentsApi.create({
+    mutationFn: async () => {
+      const res = await appointmentsApi.create({
         patient_id: Number(selectedPatientId),
         date: selectedDate,
         heure: selectedHeure,
@@ -158,7 +158,24 @@ export default function BookAppointment() {
         priorite: "normale",
         acte_ids: selectedActes,
         assistant_user_ids: selectedAssistants.map((a) => a.id),
-      }),
+      });
+      const rdv = res.data?.data;
+      // Initier le paiement après la création du RDV
+      if (rdv?.id && totalCost > 0) {
+        try {
+          await paymentsApi.initiateForAppointment(rdv.id, {
+            consultation_amount: totalCost,
+            method: paymentMethod,
+            phone: paymentMethod !== "especes" ? paymentPhone : undefined,
+          });
+        } catch (payErr) {
+          toast.warning(
+            "RDV créé, mais le paiement n'a pas pu être initié. Vous pourrez payer plus tard.",
+          );
+        }
+      }
+      return res;
+    },
     onSuccess: (res) => {
       const rdv = res.data?.data;
       setBookingResult(rdv);
@@ -224,8 +241,6 @@ export default function BookAppointment() {
   // ── Success screen ──────────────────────────────────────────────────────────
   if (bookingResult) {
     const isOnline = consultationType === "teleconsultation";
-    const roomName = bookingResult.room_name;
-    const jitsiUrl = roomName ? `https://meet.jit.si/${roomName}` : null;
     const doctorName = `Dr. ${user?.first_name ?? user?.prenoms ?? ""} ${user?.last_name ?? user?.nom ?? ""}`;
 
     return (
@@ -332,11 +347,11 @@ export default function BookAppointment() {
             </CardContent>
           </Card>
 
-          {/* Lien visio si en ligne */}
-          {isOnline && jitsiUrl && (
+          {/* Info visio si en ligne */}
+          {isOnline && (
             <Card>
               <CardHeader>
-                <h3 className="section-title">Lien de visioconférence</h3>
+                <h3 className="section-title">Visioconférence</h3>
               </CardHeader>
               <CardContent>
                 <div className="bg-primary-50 rounded-xl p-4 flex items-center gap-3">
@@ -345,22 +360,15 @@ export default function BookAppointment() {
                     <p className="text-sm font-medium text-primary-800">
                       LiptakoCare Live
                     </p>
-                    <p className="text-xs text-primary-600 truncate">
-                      {jitsiUrl}
+                    <p className="text-xs text-primary-600">
+                      Le lien de visioconférence sera disponible au moment du
+                      rendez-vous.
                     </p>
                   </div>
-                  <a
-                    href={jitsiUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-800"
-                  >
-                    Rejoindre <ExternalLink className="w-4 h-4" />
-                  </a>
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
-                  Ce lien sera actif au moment du rendez-vous. Vous le
-                  retrouverez dans le détail du rendez-vous.
+                  Rendez-vous dans la salle d'attente le jour prévu pour
+                  rejoindre la visioconférence.
                 </p>
               </CardContent>
             </Card>

@@ -129,11 +129,13 @@ export default function WaitingRoom() {
       setShowConsent(false);
       toast.success("Consentement enregistré");
     },
-    onError: (err) =>
+    onError: (err) => {
       toast.error(
         err.response?.data?.message ??
           "Erreur lors de l'enregistrement du consentement",
-      ),
+      );
+      // Garder le modal ouvert pour que le patient puisse réessayer
+    },
   });
 
   const allChecksOk = Object.values(checks).every((v) => v === "ok");
@@ -348,6 +350,24 @@ export default function WaitingRoom() {
             Consentement enregistré
           </div>
         )}
+        {/* Patient peut redonnner son consentement si refuse */}
+        {!isDoctor() &&
+          consentMutation.isError &&
+          !consentGiven &&
+          !showConsent && (
+            <div className="text-center">
+              <p className="text-sm text-red-600 mb-2">
+                Le consentement n'a pas pu être enregistré.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowConsent(true)}
+              >
+                Réessayer le consentement
+              </Button>
+            </div>
+          )}
 
         {/* Action — médecin démarre */}
         {isDoctor() && (

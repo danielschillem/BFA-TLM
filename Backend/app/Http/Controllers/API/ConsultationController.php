@@ -83,6 +83,24 @@ class ConsultationController extends Controller
     {
         $rdv = RendezVous::with('patient.dossier')->findOrFail($appointmentId);
 
+        // Vérifier qu'il existe un paiement confirmé ou en espèces (sauf admin)
+        $user = $request->user();
+        if (!$user->hasRole('admin')) {
+            $hasPaidOrCash = $rdv->paiements()
+                ->where(function ($q) {
+                    $q->where('statut', 'confirme')
+                      ->orWhere('methode', 'especes');
+                })->exists();
+            // Si des actes sont liés (donc payants) et aucun paiement
+            $hasActes = $rdv->actes()->exists();
+            if ($hasActes && !$hasPaidOrCash) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun paiement confirmé pour ce rendez-vous. Veuillez régler avant de démarrer.',
+                ], 402);
+            }
+        }
+
         $dossier = $rdv->patient->dossier;
         if (!$dossier) {
             $dossier = DossierPatient::create([
@@ -328,7 +346,9 @@ class ConsultationController extends Controller
             'title' => 'nullable|string|max:255',
             'content' => 'nullable|string',
             'follow_up_instructions' => 'nullable|string',
-            'structured_data' => 'nullable|array',
+            'structured_data' => 'required|array',
+            'structured_data.chief_complaint' => 'required|string|min:3',
+            'structured_data.diagnosis' => 'required|string|min:3',
         ]);
 
         // Persist report as JSON in observation field

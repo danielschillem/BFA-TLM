@@ -35,6 +35,7 @@ import {
   traitementsApi,
 } from "@/api";
 import { useAuthStore } from "@/stores/authStore";
+import { useConsultationChannel } from "@/hooks/useWebSocket";
 import { LoadingPage } from "@/components/common/LoadingSpinner";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -42,9 +43,12 @@ import Input, { Textarea, Select } from "@/components/ui/Input";
 import logoImg from "@/assets/logo.jpeg";
 
 // ── JaaS 8x8.vc configuration ────────────────────────────────────────────────
-const JAAS_APP_ID =
-  import.meta.env.VITE_JAAS_APP_ID ||
-  "vpaas-magic-cookie-ed63b1c31e924e1aa588fe9388143c2c";
+const JAAS_APP_ID = import.meta.env.VITE_JAAS_APP_ID || "";
+if (!JAAS_APP_ID) {
+  console.warn(
+    "[TLM] VITE_JAAS_APP_ID non configuré — la visioconférence JaaS ne fonctionnera pas.",
+  );
+}
 const JITSI_DOMAIN = import.meta.env.VITE_JITSI_DOMAIN || "8x8.vc";
 const JAAS_SCRIPT_URL = `https://${JITSI_DOMAIN}/${JAAS_APP_ID}/external_api.js`;
 
@@ -54,6 +58,10 @@ export default function ConsultationRoom() {
   const location = useLocation();
   const { user, isDoctor } = useAuthStore();
   const jitsiContainerRef = useRef(null);
+
+  // WebSocket: écouter les events temps réel de la consultation
+  useConsultationChannel(id ? Number(id) : null);
+
   const jitsiApiRef = useRef(null);
   const connectionStateRef = useRef("connecting");
   const observerRef = useRef(null);
@@ -75,6 +83,7 @@ export default function ConsultationRoom() {
   const [ratingComment, setRatingComment] = useState("");
   const [participantCount, setParticipantCount] = useState(0);
   const [jitsiToken, setJitsiToken] = useState(null);
+  const [tokenReady, setTokenReady] = useState(false);
   const tokenRefreshTimer = useRef(null);
   const [vitals, setVitals] = useState({
     weight: "",
@@ -232,6 +241,7 @@ export default function ConsultationRoom() {
     const stateToken = location.state?.jitsiToken;
     if (stateToken) {
       setJitsiToken(stateToken);
+      setTokenReady(true);
       return;
     }
     // Sinon (patient qui rejoint ou rechargement page), demander un token
@@ -243,9 +253,11 @@ export default function ConsultationRoom() {
         if (!cancelled && res.data?.jitsi_token) {
           setJitsiToken(res.data.jitsi_token);
         }
+        if (!cancelled) setTokenReady(true);
       })
       .catch(() => {
         // JWT non configuré côté serveur — fonctionne sans token
+        if (!cancelled) setTokenReady(true);
       });
     return () => {
       cancelled = true;
@@ -300,7 +312,8 @@ export default function ConsultationRoom() {
 
   // ── Jitsi Meet via JaaS 8x8.vc ─────────────────────────────────────────────
   useEffect(() => {
-    if (!consultation || !jitsiContainerRef.current) return;
+    // Attendre que le token soit résolu (ou confirmé absent) AVANT d'initialiser Jitsi
+    if (!consultation || !jitsiContainerRef.current || !tokenReady) return;
 
     // Retrieve JWT token: from query state (start response) or consultation data
     const token = jitsiToken || null;
@@ -589,6 +602,7 @@ export default function ConsultationRoom() {
   }, [
     consultation?.id,
     consultation?.jitsi_room_name,
+    tokenReady,
     jitsiToken,
     user?.id,
     user?.first_name,

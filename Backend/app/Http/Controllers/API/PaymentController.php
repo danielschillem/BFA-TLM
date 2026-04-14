@@ -37,17 +37,15 @@ class PaymentController extends Controller
             'phone'   => 'nullable|string|max:20',
         ]);
 
-        // Trouver le rendez-vous lié à la consultation
-        $rdv = RendezVous::where('id', function ($q) use ($consultationId) {
-            $q->select('rendez_vous_id')
-              ->from('consultations')
-              ->where('id', $consultationId)
-              ->limit(1);
-        })->first();
+        // Trouver le rendez-vous lié à la consultation via la relation
+        $consultation = \App\Models\Consultation::find($consultationId);
+        $rdv = $consultation?->rendezVous;
 
         if (!$rdv) {
-            // Fallback : utiliser consultationId comme appointment_id direct
-            $rdv = RendezVous::find($consultationId);
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun rendez-vous lié à cette consultation.',
+            ], 404);
         }
 
         $paiement = Paiement::create([
