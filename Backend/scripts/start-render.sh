@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Force redeploy: v3 – LiveKit kid header fix
+# Force redeploy: v4 – auto-generate room_name for old consultations
 set -eu
 
 cd /var/www/html
