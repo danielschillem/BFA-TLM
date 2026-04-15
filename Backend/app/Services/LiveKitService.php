@@ -57,7 +57,7 @@ class LiveKitService
             'metadata' => json_encode(['role' => $canPublish ? 'doctor' : 'patient']),
         ];
 
-        return JWT::encode($payload, $this->apiSecret, 'HS256');
+        return JWT::encode($payload, $this->apiSecret, 'HS256', $this->apiKey);
     }
 
     public function getWsUrl(): string

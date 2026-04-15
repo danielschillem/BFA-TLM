@@ -607,6 +607,15 @@ export default function ConsultationRoom() {
               connect={true}
               audio={true}
               video={true}
+              options={{
+                reconnectPolicy: {
+                  maxRetries: 3,
+                  nextRetryDelayInMs: (context) =>
+                    context.retryCount < 3
+                      ? context.retryCount * 1000 + 1000
+                      : null,
+                },
+              }}
               onConnected={() => {
                 setConnectionState("connected");
                 setOverlayDismissed(true);
