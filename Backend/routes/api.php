@@ -133,11 +133,46 @@ Route::get('/livekit-check', function () {
     $parts = explode('.', $testToken);
     $header = json_decode(base64_decode(strtr($parts[0], '-_', '+/')), true);
     $hasKid = isset($header['kid']) && $header['kid'] !== '';
+    $wsUrl = config('livekit.ws_url', '');
+    $apiKey = config('livekit.api_key', '');
+
+    // End-to-end test: verify token against LiveKit Cloud
+    $cloudOk = false;
+    $cloudError = null;
+    $cloudStatus = null;
+    if ($hasKid && $wsUrl) {
+        try {
+            $httpUrl = str_replace('wss://', 'https://', $wsUrl);
+            $ch = curl_init($httpUrl . '/settings/regions');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $testToken],
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_SSL_VERIFYPEER => true,
+            ]);
+            $response = curl_exec($ch);
+            $cloudStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $cloudOk = $cloudStatus === 200;
+            if (!$cloudOk) {
+                $cloudError = "HTTP $cloudStatus from LiveKit Cloud";
+            }
+        } catch (\Throwable $e) {
+            $cloudError = $e->getMessage();
+        }
+    }
+
     return response()->json([
-        'ok' => $hasKid,
-        'jwt_header_keys' => array_keys($header ?? []),
+        'ok' => $hasKid && $cloudOk,
+        'jwt_kid' => $header['kid'] ?? null,
+        'api_key_hint' => substr($apiKey, 0, 6) . '...' . substr($apiKey, -3),
         'kid_present' => $hasKid,
-        'ws_url_set' => config('livekit.ws_url') !== '',
+        'ws_url' => $wsUrl,
+        'cloud_test' => [
+            'ok' => $cloudOk,
+            'http_status' => $cloudStatus,
+            'error' => $cloudError,
+        ],
     ]);
 });
 
