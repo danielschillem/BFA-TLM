@@ -170,7 +170,7 @@
     {{-- Signature --}}
     @if(!empty($report['signed_at']))
         <div class="signed">
-            <p style="font-weight:bold; font-size:12px;">✓ Rapport signé électroniquement</p>
+            <p style="font-weight:bold; font-size:12px;">&check; Rapport sign&eacute; &eacute;lectroniquement</p>
             <p><span class="label">Date :</span> {{ \Carbon\Carbon::parse($report['signed_at'])->format('d/m/Y à H:i') }}</p>
             @if(!empty($report['signed_by_name']))
                 <p><span class="label">Par :</span> Dr. {{ $report['signed_by_name'] }}</p>

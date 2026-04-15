@@ -45,6 +45,7 @@ import {
   Airplay,
   Copy,
   LayoutGrid,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -281,10 +282,10 @@ function LiveKitVideoUI({
       try {
         const msg = JSON.parse(new TextDecoder().decode(payload));
         if (msg.type === "hand_raised") {
-          toast.info(
-            `✋ ${participant?.name || "Un participant"} lève la main`,
-            { duration: 5000 },
-          );
+          toast.info(`${participant?.name || "Un participant"} lève la main`, {
+            duration: 5000,
+            icon: <Hand className="w-4 h-4 text-yellow-500" />,
+          });
         }
       } catch {
         /* ignore non-JSON data */
@@ -298,7 +299,10 @@ function LiveKitVideoUI({
   const toggleMic = useCallback(async () => {
     try {
       await localParticipant?.setMicrophoneEnabled(!isMicrophoneEnabled);
-      if (isMicrophoneEnabled) toast("Micro coupé", { icon: "🔇" });
+      if (isMicrophoneEnabled)
+        toast("Micro coupé", {
+          icon: <VolumeX className="w-4 h-4 text-red-400" />,
+        });
     } catch {
       toast.error("Impossible d'accéder au microphone");
     }
@@ -335,9 +339,15 @@ function LiveKitVideoUI({
         JSON.stringify({ type: "hand_raised" }),
       );
       room.localParticipant.publishData(data, { reliable: true });
-      toast("✋ Main levée", { duration: 2000 });
+      toast("Main levée", {
+        duration: 2000,
+        icon: <Hand className="w-4 h-4 text-yellow-500" />,
+      });
     } else {
-      toast("Main baissée", { duration: 2000 });
+      toast("Main baissée", {
+        duration: 2000,
+        icon: <Hand className="w-4 h-4 text-gray-400" />,
+      });
     }
   }, [handRaised, room]);
 
@@ -1432,7 +1442,8 @@ export default function ConsultationRoom() {
                     }
                     className="w-full text-center text-xs text-cyan-400 hover:text-cyan-300 underline"
                   >
-                    Voir le dossier complet ↗
+                    Voir le dossier complet{" "}
+                    <ExternalLink className="w-3 h-3 inline ml-1" />
                   </button>
                 )}
               </div>
@@ -1680,7 +1691,8 @@ export default function ConsultationRoom() {
                 }
                 className="w-full text-center text-xs text-cyan-400 hover:text-cyan-300 underline pt-2"
               >
-                Ouvrir le rapport complet ↗
+                Ouvrir le rapport complet{" "}
+                <ExternalLink className="w-3 h-3 inline ml-1" />
               </button>
             </div>
           </div>

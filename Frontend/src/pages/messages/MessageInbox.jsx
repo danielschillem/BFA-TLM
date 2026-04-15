@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   X,
   FileText,
+  ArrowRight,
 } from "lucide-react";
 import { messagesApi } from "@/api";
 import { useAuthStore } from "@/stores/authStore";
@@ -197,7 +198,14 @@ export default function MessageInbox() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium text-gray-700">
-                            {isMe ? "Vous → " : ""}
+                            {isMe ? (
+                              <>
+                                <span>Vous</span>{" "}
+                                <ArrowRight className="w-3 h-3 inline" />{" "}
+                              </>
+                            ) : (
+                              ""
+                            )}
                             {displayName}
                           </span>
                           <span className="text-[10px] text-gray-400">

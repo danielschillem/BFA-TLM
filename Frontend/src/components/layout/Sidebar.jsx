@@ -266,7 +266,7 @@ export default function Sidebar() {
         {isOpen && (
           <div className="px-4 py-2.5 border-t border-white/15 text-center">
             <p className="text-[10px] text-white/60">
-              © {new Date().getFullYear()} LiptakoCare
+              &copy; {new Date().getFullYear()} LiptakoCare
             </p>
             <p className="text-[10px] text-white/50">
               v3.0.0 — Plateforme TLM BFA

@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronsUpDown,
 } from "lucide-react";
 import { appointmentsApi } from "@/api";
 import { useAuthStore } from "@/stores/authStore";
@@ -219,28 +220,52 @@ export default function AppointmentList() {
                       />
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                      Motif ↕
+                      <span className="inline-flex items-center gap-1">
+                        Motif{" "}
+                        <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+                      </span>
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                      Actes ↕
+                      <span className="inline-flex items-center gap-1">
+                        Actes{" "}
+                        <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+                      </span>
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                      Professionnel de santé ↕
+                      <span className="inline-flex items-center gap-1">
+                        Professionnel de santé{" "}
+                        <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+                      </span>
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                      Assistant(s) ↕
+                      <span className="inline-flex items-center gap-1">
+                        Assistant(s){" "}
+                        <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+                      </span>
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                      Identifiant du Patient ↕
+                      <span className="inline-flex items-center gap-1">
+                        Identifiant du Patient{" "}
+                        <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+                      </span>
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                      Patient ↕
+                      <span className="inline-flex items-center gap-1">
+                        Patient{" "}
+                        <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+                      </span>
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                      Date ↕
+                      <span className="inline-flex items-center gap-1">
+                        Date{" "}
+                        <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+                      </span>
                     </th>
                     <th className="text-left px-4 py-3 font-semibold text-gray-700">
-                      Heure ↕
+                      <span className="inline-flex items-center gap-1">
+                        Heure{" "}
+                        <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+                      </span>
                     </th>
                   </tr>
                 </thead>

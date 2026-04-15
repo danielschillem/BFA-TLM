@@ -237,7 +237,9 @@ export default function CdaViewer() {
                     {validationResult.errors?.length > 0 && (
                       <ul className="text-xs text-red-600 mt-1 space-y-0.5">
                         {validationResult.errors.map((e, i) => (
-                          <li key={i}>• {e}</li>
+                          <li key={i} className="flex items-center gap-1">
+                            <XCircle className="w-3 h-3 flex-shrink-0" /> {e}
+                          </li>
                         ))}
                       </ul>
                     )}

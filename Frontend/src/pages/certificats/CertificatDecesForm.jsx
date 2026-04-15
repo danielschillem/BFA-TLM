@@ -582,7 +582,7 @@ export default function CertificatDecesForm() {
                   }
                 />
                 <Input
-                  label="Intervalle (début → décès)"
+                  label="Intervalle (début — décès)"
                   className="mt-2"
                   value={form.intervalle_cause_directe}
                   onChange={set("intervalle_cause_directe")}
