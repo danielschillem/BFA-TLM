@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Force redeploy: v2
+# Force redeploy: v3 – LiveKit kid header fix
 set -eu
 
 cd /var/www/html
