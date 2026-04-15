@@ -456,15 +456,24 @@ export default function ConsultationRoom() {
       .getLivekitToken(consultation.id)
       .then((res) => {
         if (!cancelled) {
-          setLivekitToken(res.data?.livekit_token || null);
-          setLivekitWsUrl(res.data?.livekit_ws_url || null);
+          const token = res.data?.livekit_token || null;
+          const wsUrl = res.data?.livekit_ws_url || null;
+          setLivekitToken(token);
+          setLivekitWsUrl(wsUrl);
+          setTokenReady(true);
+          if (!token) {
+            setOverlayDismissed(true);
+            setConnectionState("disconnected");
+          }
         }
       })
       .catch(() => {
         console.warn("[LiveKit] Token non disponible");
-      })
-      .finally(() => {
-        if (!cancelled) setTokenReady(true);
+        if (!cancelled) {
+          setTokenReady(true);
+          setOverlayDismissed(true);
+          setConnectionState("disconnected");
+        }
       });
     return () => {
       cancelled = true;
