@@ -651,10 +651,17 @@ class ConsultationController extends Controller
 
         $roomName = $consultation->rendezVous?->room_name;
         if (!$roomName) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Aucune salle vidéo associée.',
-            ], 422);
+            // Room name missing (consultation started before LiveKit) — generate one now
+            $rdv = $consultation->rendezVous;
+            if ($rdv) {
+                $roomName = 'tlm-' . $rdv->id . '-' . bin2hex(random_bytes(4));
+                $rdv->update(['room_name' => $roomName]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun rendez-vous associé à cette consultation.',
+                ], 422);
+            }
         }
 
         $livekit = app(LiveKitService::class);
