@@ -109,6 +109,8 @@ export const consultationsApi = {
     apiClient.post(`/consultations/${id}/rate-video`, d),
   refreshJitsiToken: (id) =>
     apiClient.post(`/consultations/${id}/jitsi-token`, {}),
+  getLivekitToken: (id) =>
+    apiClient.post(`/consultations/${id}/livekit-token`, {}),
   transmitParams: (id, d) =>
     apiClient.post(`/consultations/${id}/medical-parameters`, d),
   createReport: (id, d) => apiClient.post(`/consultations/${id}/report`, d),

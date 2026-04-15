@@ -80,7 +80,8 @@ export default function AppointmentDetail() {
     onSuccess: (res) => {
       const consultationId =
         res.data?.data?.consultation?.id ?? res.data?.data?.id;
-      const jitsiToken = res.data?.jitsi_token ?? null;
+      const livekitToken = res.data?.livekit_token ?? null;
+      const livekitWsUrl = res.data?.livekit_ws_url ?? null;
       if (!consultationId) {
         toast.error("Réponse inattendue du serveur.");
         return;
@@ -91,7 +92,7 @@ export default function AppointmentDetail() {
         navigate(`/consultations/${consultationId}/physical`);
       } else {
         navigate(`/consultations/${consultationId}/room`, {
-          state: { jitsiToken },
+          state: { livekitToken, livekitWsUrl },
         });
       }
     },

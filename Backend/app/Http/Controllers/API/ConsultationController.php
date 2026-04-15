@@ -11,7 +11,7 @@ use App\Models\Consultation;
 use App\Models\DossierPatient;
 use App\Models\PatientConsent;
 use App\Models\RendezVous;
-use App\Services\JitsiService;
+use App\Services\LiveKitService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -133,22 +133,22 @@ class ConsultationController extends Controller
 
         ConsultationStarted::dispatch($consultation);
 
-        // Générer un JWT JaaS si la clé privée est configurée
-        $jitsiToken = null;
-        $jitsi = app(JitsiService::class);
-        if ($jitsi->isEnabled() && $rdv->room_name) {
+        // Générer un access token LiveKit si configuré
+        $livekitToken = null;
+        $livekitWsUrl = null;
+        $livekit = app(LiveKitService::class);
+        if ($livekit->isEnabled() && $rdv->room_name) {
             $user = $request->user();
             $displayName = $user->hasRole('patient')
                 ? trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? '')) ?: 'Patient'
                 : 'Dr. ' . trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? ''));
 
-            $jitsiToken = $jitsi->generateToken(
+            $livekitToken = $livekit->generateToken(
                 roomName: $rdv->room_name,
-                userName: $displayName,
-                userId: (string) $user->id,
-                email: $user->email ?? '',
-                isModerator: !$user->hasRole('patient'),
+                participantName: $displayName,
+                participantId: (string) $user->id,
             );
+            $livekitWsUrl = $livekit->getWsUrl();
         }
 
         $resource = new ConsultationResource($consultation->load(['user', 'dossierPatient.patient', 'rendezVous']));
@@ -157,7 +157,8 @@ class ConsultationController extends Controller
             'success' => true,
             'message' => 'Consultation démarrée',
             'data' => $resource,
-            'jitsi_token' => $jitsiToken,
+            'livekit_token' => $livekitToken,
+            'livekit_ws_url' => $livekitWsUrl,
         ], 201);
     }
 
@@ -634,9 +635,9 @@ class ConsultationController extends Controller
     }
 
     /**
-     * Renouveler le JWT Jitsi pour une consultation en cours.
+     * Générer un token LiveKit pour rejoindre la visio d'une consultation en cours.
      */
-    public function refreshJitsiToken(int $id, Request $request): JsonResponse
+    public function getLivekitToken(int $id, Request $request): JsonResponse
     {
         $consultation = Consultation::with('rendezVous')->findOrFail($id);
         $this->authorizeAccess($consultation, $request->user());
@@ -656,11 +657,11 @@ class ConsultationController extends Controller
             ], 422);
         }
 
-        $jitsi = app(JitsiService::class);
-        if (!$jitsi->isEnabled()) {
+        $livekit = app(LiveKitService::class);
+        if (!$livekit->isEnabled()) {
             return response()->json([
                 'success' => false,
-                'message' => 'JWT Jitsi non configuré sur le serveur.',
+                'message' => 'LiveKit non configuré sur le serveur.',
             ], 501);
         }
 
@@ -669,17 +670,16 @@ class ConsultationController extends Controller
             ? trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? '')) ?: 'Patient'
             : 'Dr. ' . trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? ''));
 
-        $token = $jitsi->generateToken(
+        $token = $livekit->generateToken(
             roomName: $roomName,
-            userName: $displayName,
-            userId: (string) $user->id,
-            email: $user->email ?? '',
-            isModerator: !$user->hasRole('patient'),
+            participantName: $displayName,
+            participantId: (string) $user->id,
         );
 
         return response()->json([
             'success' => true,
-            'jitsi_token' => $token,
+            'livekit_token' => $token,
+            'livekit_ws_url' => $livekit->getWsUrl(),
         ]);
     }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -24,8 +24,33 @@ import {
   Trash2,
   Check,
   Save,
+  Mic,
+  MicOff,
+  VideoOff,
+  Monitor,
+  PhoneOff,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Room,
+  RoomEvent,
+  Track,
+  ConnectionState,
+  VideoPresets,
+} from "livekit-client";
+import {
+  LiveKitRoom,
+  VideoTrack,
+  AudioTrack,
+  useLocalParticipant,
+  useRemoteParticipants,
+  useTracks,
+  useConnectionState,
+  useRoomContext,
+  TrackToggle,
+  DisconnectButton,
+} from "@livekit/components-react";
+import "@livekit/components-styles";
 import {
   consultationsApi,
   patientRecordApi,
@@ -42,9 +67,151 @@ import Modal from "@/components/ui/Modal";
 import Input, { Textarea, Select } from "@/components/ui/Input";
 import logoImg from "@/assets/logo.jpeg";
 
-// ── Jitsi configuration (meet.jit.si — serveur public, connexion directe) ───────
-const JITSI_DOMAIN = "meet.jit.si";
-const JITSI_SCRIPT_URL = "https://meet.jit.si/external_api.js";
+// ── Composant interne LiveKit : affiche la vidéo + gère les événements ──────
+function LiveKitVideoUI({
+  setConnectionState,
+  setParticipantCount,
+  setOverlayDismissed,
+}) {
+  const room = useRoomContext();
+  const lkConnectionState = useConnectionState();
+  const remoteParticipants = useRemoteParticipants();
+  const { localParticipant } = useLocalParticipant();
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.Microphone, withPlaceholder: false },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: false },
+  );
+
+  // Sync connection state
+  useEffect(() => {
+    if (lkConnectionState === ConnectionState.Connected) {
+      setConnectionState("connected");
+      setOverlayDismissed(true);
+    } else if (lkConnectionState === ConnectionState.Reconnecting) {
+      setConnectionState("poor");
+    } else if (lkConnectionState === ConnectionState.Disconnected) {
+      setConnectionState("disconnected");
+    }
+  }, [lkConnectionState, setConnectionState, setOverlayDismissed]);
+
+  // Sync participant count
+  useEffect(() => {
+    setParticipantCount(remoteParticipants.length + (localParticipant ? 1 : 0));
+  }, [remoteParticipants.length, localParticipant, setParticipantCount]);
+
+  // Notify on participant join/leave
+  useEffect(() => {
+    if (!room) return;
+    const onJoin = () => toast.info("Un participant a rejoint la salle");
+    const onLeave = () => toast.info("L'autre participant a quitté la salle");
+    room.on(RoomEvent.ParticipantConnected, onJoin);
+    room.on(RoomEvent.ParticipantDisconnected, onLeave);
+    return () => {
+      room.off(RoomEvent.ParticipantConnected, onJoin);
+      room.off(RoomEvent.ParticipantDisconnected, onLeave);
+    };
+  }, [room]);
+
+  // Separate tracks by participant
+  const videoTracks = tracks.filter(
+    (t) =>
+      t.source === Track.Source.Camera || t.source === Track.Source.ScreenShare,
+  );
+
+  const remoteVideoTracks = videoTracks.filter(
+    (t) => t.participant?.sid !== localParticipant?.sid,
+  );
+  const localVideoTrack = videoTracks.find(
+    (t) =>
+      t.participant?.sid === localParticipant?.sid &&
+      t.source === Track.Source.Camera,
+  );
+
+  return (
+    <div className="relative h-full w-full bg-gray-900 flex flex-col">
+      {/* Main video area */}
+      <div className="flex-1 relative flex items-center justify-center">
+        {remoteVideoTracks.length > 0 ? (
+          <div className="h-full w-full">
+            {remoteVideoTracks.map((track) =>
+              track.publication?.track ? (
+                <VideoTrack
+                  key={track.publication.trackSid}
+                  trackRef={track}
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <div
+                  key={track.participant?.sid || "placeholder"}
+                  className="h-full w-full flex items-center justify-center bg-gray-800"
+                >
+                  <div className="w-24 h-24 rounded-full bg-gray-600 flex items-center justify-center">
+                    <span className="text-3xl text-white font-bold">
+                      {track.participant?.name?.[0]?.toUpperCase() || "?"}
+                    </span>
+                  </div>
+                </div>
+              ),
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-4 text-gray-400">
+            <Video className="w-16 h-16" />
+            <p className="text-lg">En attente de l'autre participant…</p>
+          </div>
+        )}
+
+        {/* Local video PiP */}
+        {localVideoTrack?.publication?.track ? (
+          <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg z-10">
+            <VideoTrack
+              trackRef={localVideoTrack}
+              className="h-full w-full object-cover mirror"
+              style={{ transform: "scaleX(-1)" }}
+            />
+          </div>
+        ) : (
+          <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg z-10 bg-gray-700 flex items-center justify-center">
+            <VideoOff className="w-8 h-8 text-gray-400" />
+          </div>
+        )}
+      </div>
+
+      {/* Audio tracks (render hidden for remote audio) */}
+      {tracks
+        .filter(
+          (t) =>
+            t.source === Track.Source.Microphone &&
+            t.participant?.sid !== localParticipant?.sid,
+        )
+        .map((t) =>
+          t.publication?.track ? (
+            <AudioTrack key={t.publication.trackSid} trackRef={t} />
+          ) : null,
+        )}
+
+      {/* LiveKit controls bar */}
+      <div className="flex items-center justify-center gap-3 py-3 bg-gray-800/90 border-t border-gray-700">
+        <TrackToggle
+          source={Track.Source.Microphone}
+          className="p-2.5 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition"
+        />
+        <TrackToggle
+          source={Track.Source.Camera}
+          className="p-2.5 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition"
+        />
+        <TrackToggle
+          source={Track.Source.ScreenShare}
+          className="p-2.5 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition"
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function ConsultationRoom() {
   const { id } = useParams(); // consultation id
@@ -56,15 +223,18 @@ export default function ConsultationRoom() {
   // WebSocket: écouter les events temps réel de la consultation
   useConsultationChannel(id ? Number(id) : null);
 
-  const jitsiApiRef = useRef(null);
-  const connectionStateRef = useRef("connecting");
-  const observerRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [duration, setDuration] = useState(0);
   const [connectionState, setConnectionState] = useState("connecting");
   const [overlayDismissed, setOverlayDismissed] = useState(false);
+  const connectionStateRef = useRef("connecting");
 
-  // Keep ref in sync for use inside closures/timeouts
+  // LiveKit state
+  const [livekitToken, setLivekitToken] = useState(null);
+  const [livekitWsUrl, setLivekitWsUrl] = useState(null);
+  const [tokenReady, setTokenReady] = useState(false);
+
+  // Keep ref in sync for closures
   useEffect(() => {
     connectionStateRef.current = connectionState;
   }, [connectionState]);
@@ -215,11 +385,6 @@ export default function ConsultationRoom() {
   const endMutation = useMutation({
     mutationFn: () => consultationsApi.end(id),
     onSuccess: () => {
-      if (jitsiApiRef.current) {
-        try {
-          jitsiApiRef.current.dispose();
-        } catch {}
-      }
       setShowEndConfirm(false);
       setShowConsultForm(false);
       setShowRating(true);
@@ -273,275 +438,38 @@ export default function ConsultationRoom() {
     return () => clearInterval(t);
   }, []);
 
-  // ── Jitsi Meet (connexion directe, pas de JWT) ───────────────────────────────
+  // ── Récupérer le token LiveKit depuis le backend ───────────────────────────
   useEffect(() => {
-    if (!consultation || !jitsiContainerRef.current) return;
-
-    const fullRoomName = consultation.jitsi_room_name ?? `tlm-${consultation.id}`;
-
-    const loadJitsi = () => {
-      if (window.JitsiMeetExternalAPI) {
-        initJitsi(fullRoomName);
-      } else {
-        const script = document.createElement("script");
-        script.src = JITSI_SCRIPT_URL;
-        script.async = true;
-        script.onload = () => initJitsi(fullRoomName);
-        script.onerror = () => {
-          setConnectionState("disconnected");
-          toast.error("Impossible de charger la visioconférence");
-        };
-        document.head.appendChild(script);
-      }
-    };
-
-    const initJitsi = (roomName) => {
-      if (!jitsiContainerRef.current) return;
-      if (jitsiApiRef.current) {
-        try {
-          jitsiApiRef.current.dispose();
-        } catch {}
-      }
-
-      // Construct displayName based on current user role
-      // Le user connecté peut être médecin ou patient - utiliser ses propres infos
-      const rawName =
-        `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim();
-      // Éviter le double "Dr." si le prénom contient déjà le titre
-      const cleanName = rawName.replace(/^Dr\.?\s*/i, "").trim();
-      const displayName = isDoctor()
-        ? `Dr. ${cleanName || "Médecin"}`
-        : rawName || "Patient";
-
-      // Build consultation subject for header
-      const patientName = consultation.patient_record?.patient
-        ? `${consultation.patient_record.patient.first_name ?? ""} ${consultation.patient_record.patient.last_name ?? ""}`.trim()
-        : consultation.appointment?.patient
-          ? `${consultation.appointment.patient.first_name ?? ""} ${consultation.appointment.patient.last_name ?? ""}`.trim()
-          : "";
-      const doctorName = consultation.doctor?.last_name
-        ? `Dr. ${consultation.doctor.last_name}`
-        : consultation.appointment?.doctor?.last_name
-          ? `Dr. ${consultation.appointment.doctor.last_name}`
-          : "";
-      const subject =
-        patientName && doctorName
-          ? `LiptakoCare Live · ${doctorName} — ${patientName}`
-          : "LiptakoCare Live";
-
-      // Toolbar : même boutons pour tous
-      const toolbarButtons = [
-        "microphone",
-        "camera",
-        "desktop",
-        "chat",
-        "tileview",
-        "fullscreen",
-        "raisehand",
-        "select-background",
-      ];
-
-      try {
-        const jitsiOptions = {
-          roomName,
-          parentNode: jitsiContainerRef.current,
-          userInfo: {
-            displayName,
-            email: user?.email ?? "",
-          },
-          configOverwrite: {
-            startWithAudioMuted: false,
-            startWithVideoMuted: false,
-            prejoinPageEnabled: false,
-            prejoinConfig: { enabled: false },
-            disableDeepLinking: true,
-            enableNoisyMicDetection: true,
-            enableClosePage: false,
-            defaultLanguage: "fr",
-            // Pas de modérateur : tous les participants sont égaux
-            enableUserRolesBasedOnToken: false,
-            // Qualité & performance
-            resolution: 720,
-            constraints: {
-              video: { height: { ideal: 720, max: 720, min: 360 } },
-            },
-            enableLayerSuspension: true,
-            channelLastN: 2,
-            // Pas de lobby — le patient entre directement
-            enableLobbyChat: false,
-            hideLobbyButton: true,
-            lobby: { autoKnock: true, enableChat: false },
-            // Notifications sélectionnées
-            notifications: [
-              "connection.CONNFAIL",
-              "dialog.micNotSendingData",
-              "dialog.cameraNotSendingData",
-            ],
-            disabledNotifications: [
-              "lobby.joinRejectedMessage",
-              "lobby.notificationTitle",
-            ],
-            // Subject
-            subject,
-          },
-          interfaceConfigOverwrite: {
-            // Branding LiptakoCare / TLM-BFA
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false,
-            SHOW_BRAND_WATERMARK: true,
-            BRAND_WATERMARK_LINK: "",
-            SHOW_POWERED_BY: false,
-            TOOLBAR_ALWAYS_VISIBLE: true,
-            DEFAULT_REMOTE_DISPLAY_NAME: "Participant",
-            DEFAULT_LOCAL_DISPLAY_NAME: "Moi",
-            APP_NAME: "LiptakoCare Live",
-            NATIVE_APP_NAME: "LiptakoCare Live",
-            PROVIDER_NAME: "TLM-BFA",
-            LANG_DETECTION: false,
-            // Toolbar
-            TOOLBAR_BUTTONS: toolbarButtons,
-            TOOLBAR_TIMEOUT: 4000,
-            // Layouts
-            FILM_STRIP_MAX_HEIGHT: 120,
-            VERTICAL_FILMSTRIP: true,
-            TILE_VIEW_MAX_COLUMNS: 2,
-            // Disable unnecessary features
-            DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-            DISABLE_FOCUS_INDICATOR: false,
-            DISABLE_DOMINANT_SPEAKER_INDICATOR: false,
-            DISABLE_VIDEO_BACKGROUND: false,
-            HIDE_INVITE_MORE_HEADER: true,
-            HIDE_DEEP_LINKING_LOGO: true,
-            DISABLE_RINGING: true,
-            // Feedback
-            DISABLE_PRESENCE_STATUS: false,
-          },
-          width: "100%",
-          height: "100%",
-        };
-
-        const api = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, jitsiOptions);
-
-        jitsiApiRef.current = api;
-
-        // Auto-dismiss overlay after 6s as fallback
-        const dismissTimer = setTimeout(() => {
-          setConnectionState((prev) => {
-            if (prev === "connecting") return "connected";
-            return prev;
-          });
-          setOverlayDismissed(true);
-        }, 6000);
-
-        // Watch for the iframe to appear (Jitsi creates it asynchronously)
-        const container = jitsiContainerRef.current;
-        if (container) {
-          const onIframeReady = () => {
-            setConnectionState((prev) =>
-              prev === "connecting" ? "connected" : prev,
-            );
-            setOverlayDismissed(true);
-          };
-          // Check if already there
-          const existingIframe = container.querySelector("iframe");
-          if (existingIframe) {
-            existingIframe.addEventListener("load", onIframeReady);
-          } else {
-            // Observe mutations to catch the iframe injection
-            const observer = new MutationObserver((mutations) => {
-              const iframe = container.querySelector("iframe");
-              if (iframe) {
-                observer.disconnect();
-                observerRef.current = null;
-                iframe.addEventListener("load", onIframeReady);
-                // Also fire after a short delay in case load already fired
-                setTimeout(onIframeReady, 3000);
-              }
-            });
-            observerRef.current = observer;
-            observer.observe(container, { childList: true, subtree: true });
-          }
+    // Token passé par la navigation (médecin qui a démarré)
+    const stateToken = location.state?.livekitToken;
+    const stateWsUrl = location.state?.livekitWsUrl;
+    if (stateToken && stateWsUrl) {
+      setLivekitToken(stateToken);
+      setLivekitWsUrl(stateWsUrl);
+      setTokenReady(true);
+      return;
+    }
+    // Sinon, demander un token au backend
+    if (!consultation?.id) return;
+    let cancelled = false;
+    consultationsApi
+      .getLivekitToken(consultation.id)
+      .then((res) => {
+        if (!cancelled) {
+          setLivekitToken(res.data?.livekit_token || null);
+          setLivekitWsUrl(res.data?.livekit_ws_url || null);
         }
-
-        // Set subject after join
-        api.addEventListener("videoConferenceJoined", () => {
-          clearTimeout(dismissTimer);
-          setConnectionState("connected");
-          setOverlayDismissed(true);
-          setParticipantCount((p) => p + 1);
-          try {
-            api.executeCommand("subject", subject);
-          } catch {}
-        });
-
-        api.addEventListener("connectionEstablished", () => {
-          setConnectionState("connected");
-          setOverlayDismissed(true);
-        });
-
-        api.addEventListener("connectionFailed", () => {
-          setConnectionState("poor");
-          toast.warning("Connexion instable — tentative de reconnexion…");
-          // Auto-reload after 10s if still degraded
-          setTimeout(() => {
-            const current = connectionStateRef.current;
-            if (current === "poor" || current === "disconnected") {
-              window.location.reload();
-            }
-          }, 10000);
-        });
-
-        api.addEventListener("videoConferenceLeft", () => {
-          setConnectionState("disconnected");
-        });
-
-        api.addEventListener("participantJoined", () => {
-          setParticipantCount((p) => p + 1);
-          toast.info("Un participant a rejoint la salle");
-        });
-
-        api.addEventListener("participantLeft", () => {
-          setParticipantCount((p) => Math.max(0, p - 1));
-          toast.info("L'autre participant a quitté la salle");
-        });
-
-        // Network quality monitoring (Jitsi sends 1 = bad … 5 = excellent)
-        api.addEventListener("videoQualityChanged", (e) => {
-          if (e?.videoQuality <= 2) {
-            setConnectionState("poor");
-          } else if (e?.videoQuality >= 3) {
-            setConnectionState("connected");
-          }
-        });
-      } catch {
-        setConnectionState("disconnected");
-        toast.error("Erreur d'initialisation Jitsi");
-      }
-    };
-
-    loadJitsi();
-
+      })
+      .catch(() => {
+        console.warn("[LiveKit] Token non disponible");
+      })
+      .finally(() => {
+        if (!cancelled) setTokenReady(true);
+      });
     return () => {
-      if (observerRef.current) {
-        try {
-          observerRef.current.disconnect();
-        } catch {}
-        observerRef.current = null;
-      }
-      if (jitsiApiRef.current) {
-        try {
-          jitsiApiRef.current.dispose();
-        } catch {}
-        jitsiApiRef.current = null;
-      }
+      cancelled = true;
     };
-  }, [
-    consultation?.id,
-    consultation?.jitsi_room_name,
-    user?.id,
-    user?.first_name,
-    user?.last_name,
-  ]);
+  }, [consultation?.id, location.state]);
 
   const fmt = (secs) => {
     const h = Math.floor(secs / 3600);
@@ -649,11 +577,10 @@ export default function ConsultationRoom() {
         </div>
       </div>
 
-      {/* Jitsi container */}
+      {/* LiveKit video container */}
       <div className="flex-1 relative overflow-hidden">
         <div
           ref={jitsiContainerRef}
-          data-jitsi-container
           className="absolute inset-0"
           style={{
             width:
@@ -663,7 +590,46 @@ export default function ConsultationRoom() {
             height: "100%",
             transition: "width 0.3s",
           }}
-        />
+        >
+          {tokenReady && livekitToken && livekitWsUrl ? (
+            <LiveKitRoom
+              serverUrl={livekitWsUrl}
+              token={livekitToken}
+              connect={true}
+              audio={true}
+              video={true}
+              onConnected={() => {
+                setConnectionState("connected");
+                setOverlayDismissed(true);
+              }}
+              onDisconnected={() => setConnectionState("disconnected")}
+              onError={(err) => {
+                console.error("[LiveKit]", err);
+                setConnectionState("disconnected");
+                toast.error("Erreur de connexion vidéo");
+              }}
+              style={{ height: "100%", width: "100%" }}
+            >
+              <LiveKitVideoUI
+                setConnectionState={setConnectionState}
+                setParticipantCount={setParticipantCount}
+                setOverlayDismissed={setOverlayDismissed}
+              />
+            </LiveKitRoom>
+          ) : tokenReady && !livekitToken ? (
+            <div className="h-full flex flex-col items-center justify-center bg-gray-900 text-white gap-4">
+              <VideoOff className="w-12 h-12 text-red-400" />
+              <p className="text-lg font-semibold">
+                Visioconférence non disponible
+              </p>
+              <p className="text-sm text-gray-400 text-center max-w-md">
+                Le serveur LiveKit n'est pas configuré. Contactez
+                l'administrateur pour configurer LIVEKIT_API_KEY,
+                LIVEKIT_API_SECRET et LIVEKIT_WS_URL.
+              </p>
+            </div>
+          ) : null}
+        </div>
 
         {/* Patient record sidebar */}
         {showPatientRecord && (
