@@ -47,8 +47,6 @@ import {
   useTracks,
   useConnectionState,
   useRoomContext,
-  TrackToggle,
-  DisconnectButton,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import {
@@ -76,17 +74,23 @@ function LiveKitVideoUI({
   const room = useRoomContext();
   const lkConnectionState = useConnectionState();
   const remoteParticipants = useRemoteParticipants();
-  const { localParticipant } = useLocalParticipant();
+  const {
+    localParticipant,
+    isMicrophoneEnabled,
+    isCameraEnabled,
+    isScreenShareEnabled,
+  } = useLocalParticipant();
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
       { source: Track.Source.Microphone, withPlaceholder: false },
       { source: Track.Source.ScreenShare, withPlaceholder: false },
+      { source: Track.Source.ScreenShareAudio, withPlaceholder: false },
     ],
     { onlySubscribed: false },
   );
 
-  // Sync connection state
+  // ── Sync connection state ──
   useEffect(() => {
     if (lkConnectionState === ConnectionState.Connected) {
       setConnectionState("connected");
@@ -98,16 +102,18 @@ function LiveKitVideoUI({
     }
   }, [lkConnectionState, setConnectionState, setOverlayDismissed]);
 
-  // Sync participant count
+  // ── Sync participant count ──
   useEffect(() => {
     setParticipantCount(remoteParticipants.length + (localParticipant ? 1 : 0));
   }, [remoteParticipants.length, localParticipant, setParticipantCount]);
 
-  // Notify on participant join/leave
+  // ── Notify on participant join/leave ──
   useEffect(() => {
     if (!room) return;
-    const onJoin = () => toast.info("Un participant a rejoint la salle");
-    const onLeave = () => toast.info("L'autre participant a quitté la salle");
+    const onJoin = (p) =>
+      toast.info(`${p.name || "Un participant"} a rejoint la salle`);
+    const onLeave = (p) =>
+      toast.info(`${p.name || "Un participant"} a quitté la salle`);
     room.on(RoomEvent.ParticipantConnected, onJoin);
     room.on(RoomEvent.ParticipantDisconnected, onLeave);
     return () => {
@@ -116,76 +122,178 @@ function LiveKitVideoUI({
     };
   }, [room]);
 
-  // Separate tracks by participant
-  const videoTracks = tracks.filter(
-    (t) =>
-      t.source === Track.Source.Camera || t.source === Track.Source.ScreenShare,
-  );
+  // ── Toggle handlers ──
+  const toggleMic = useCallback(async () => {
+    try {
+      await localParticipant?.setMicrophoneEnabled(!isMicrophoneEnabled);
+    } catch {
+      toast.error("Impossible d'accéder au microphone");
+    }
+  }, [localParticipant, isMicrophoneEnabled]);
 
-  const remoteVideoTracks = videoTracks.filter(
+  const toggleCamera = useCallback(async () => {
+    try {
+      await localParticipant?.setCameraEnabled(!isCameraEnabled);
+    } catch {
+      toast.error("Impossible d'accéder à la caméra");
+    }
+  }, [localParticipant, isCameraEnabled]);
+
+  const toggleScreenShare = useCallback(async () => {
+    try {
+      await localParticipant?.setScreenShareEnabled(!isScreenShareEnabled);
+    } catch (e) {
+      // NotAllowedError = user cancelled the share dialog
+      if (e?.name !== "NotAllowedError") {
+        toast.error("Impossible de partager l'écran");
+      }
+    }
+  }, [localParticipant, isScreenShareEnabled]);
+
+  // ── Track separation ──
+  const screenShareTracks = tracks.filter(
+    (t) => t.source === Track.Source.ScreenShare && t.publication?.track,
+  );
+  const remoteScreenShare = screenShareTracks.find(
     (t) => t.participant?.sid !== localParticipant?.sid,
   );
-  const localVideoTrack = videoTracks.find(
-    (t) =>
-      t.participant?.sid === localParticipant?.sid &&
-      t.source === Track.Source.Camera,
+  const localScreenShare = screenShareTracks.find(
+    (t) => t.participant?.sid === localParticipant?.sid,
+  );
+  const activeScreenShare = remoteScreenShare || localScreenShare;
+  const isRemoteScreenShare = !!remoteScreenShare;
+
+  const cameraTracks = tracks.filter((t) => t.source === Track.Source.Camera);
+  const remoteCameraTrack = cameraTracks.find(
+    (t) => t.participant?.sid !== localParticipant?.sid,
+  );
+  const localCameraTrack = cameraTracks.find(
+    (t) => t.participant?.sid === localParticipant?.sid,
   );
 
   return (
     <div className="relative h-full w-full bg-gray-900 flex flex-col">
       {/* Main video area */}
-      <div className="flex-1 relative flex items-center justify-center">
-        {remoteVideoTracks.length > 0 ? (
-          <div className="h-full w-full">
-            {remoteVideoTracks.map((track) =>
-              track.publication?.track ? (
+      <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+        {activeScreenShare ? (
+          /* ── SCREEN SHARE LAYOUT ── */
+          <>
+            {/* Screen share as primary view */}
+            <VideoTrack
+              trackRef={activeScreenShare}
+              className="h-full w-full object-contain"
+            />
+            {/* Screen share label */}
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm rounded-lg px-3 py-1.5">
+              <Monitor className="w-4 h-4 text-white" />
+              <span className="text-xs text-white font-medium">
+                {isRemoteScreenShare
+                  ? `${remoteScreenShare.participant?.name || "Participant"} partage son écran`
+                  : "Vous partagez votre écran"}
+              </span>
+            </div>
+            {/* Remote camera thumbnail (top-right) */}
+            {remoteCameraTrack?.publication?.track && (
+              <div className="absolute top-4 right-4 w-40 h-28 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10">
                 <VideoTrack
-                  key={track.publication.trackSid}
-                  trackRef={track}
-                  className="h-full w-full object-contain"
+                  trackRef={remoteCameraTrack}
+                  className="h-full w-full object-cover"
                 />
-              ) : (
-                <div
-                  key={track.participant?.sid || "placeholder"}
-                  className="h-full w-full flex items-center justify-center bg-gray-800"
-                >
-                  <div className="w-24 h-24 rounded-full bg-gray-600 flex items-center justify-center">
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
+                  <span className="text-[10px] text-white font-medium">
+                    {remoteCameraTrack.participant?.name || "Participant"}
+                  </span>
+                </div>
+              </div>
+            )}
+            {/* Local camera PiP (bottom-right) */}
+            {localCameraTrack?.publication?.track ? (
+              <div className="absolute bottom-4 right-4 w-32 h-24 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10">
+                <VideoTrack
+                  trackRef={localCameraTrack}
+                  className="h-full w-full object-cover"
+                  style={{ transform: "scaleX(-1)" }}
+                />
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
+                  <span className="text-[10px] text-white font-medium">
+                    Vous
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="absolute bottom-4 right-4 w-32 h-24 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10 bg-gray-700 flex items-center justify-center">
+                <VideoOff className="w-5 h-5 text-gray-400" />
+              </div>
+            )}
+          </>
+        ) : (
+          /* ── NORMAL CAMERA LAYOUT ── */
+          <>
+            {remoteCameraTrack?.publication?.track ? (
+              <VideoTrack
+                trackRef={remoteCameraTrack}
+                className="h-full w-full object-contain"
+              />
+            ) : remoteCameraTrack ? (
+              <div className="h-full w-full flex items-center justify-center bg-gray-800">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center ring-4 ring-gray-600/50">
                     <span className="text-3xl text-white font-bold">
-                      {track.participant?.name?.[0]?.toUpperCase() || "?"}
+                      {remoteCameraTrack.participant?.name?.[0]?.toUpperCase() ||
+                        "?"}
                     </span>
                   </div>
+                  <span className="text-sm text-gray-400">
+                    {remoteCameraTrack.participant?.name || "Participant"} —
+                    caméra désactivée
+                  </span>
                 </div>
-              ),
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4 text-gray-400">
+                <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center">
+                  <Video className="w-10 h-10" />
+                </div>
+                <p className="text-lg font-medium">
+                  En attente de l'autre participant…
+                </p>
+                <p className="text-sm text-gray-500">
+                  Le lien a été partagé, patience…
+                </p>
+              </div>
             )}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-4 text-gray-400">
-            <Video className="w-16 h-16" />
-            <p className="text-lg">En attente de l'autre participant…</p>
-          </div>
-        )}
-
-        {/* Local video PiP */}
-        {localVideoTrack?.publication?.track ? (
-          <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg z-10">
-            <VideoTrack
-              trackRef={localVideoTrack}
-              className="h-full w-full object-cover mirror"
-              style={{ transform: "scaleX(-1)" }}
-            />
-          </div>
-        ) : (
-          <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg z-10 bg-gray-700 flex items-center justify-center">
-            <VideoOff className="w-8 h-8 text-gray-400" />
-          </div>
+            {/* Local camera PiP */}
+            {localCameraTrack?.publication?.track ? (
+              <div className="absolute bottom-4 right-4 w-48 h-36 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10 group">
+                <VideoTrack
+                  trackRef={localCameraTrack}
+                  className="h-full w-full object-cover"
+                  style={{ transform: "scaleX(-1)" }}
+                />
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-[10px] text-white font-medium">
+                    Vous
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="absolute bottom-4 right-4 w-48 h-36 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10 bg-gray-700 flex flex-col items-center justify-center gap-2">
+                <VideoOff className="w-8 h-8 text-gray-400" />
+                <span className="text-[10px] text-gray-500">
+                  Caméra désactivée
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Audio tracks (render hidden for remote audio) */}
+      {/* Remote audio tracks (hidden) */}
       {tracks
         .filter(
           (t) =>
-            t.source === Track.Source.Microphone &&
+            (t.source === Track.Source.Microphone ||
+              t.source === Track.Source.ScreenShareAudio) &&
             t.participant?.sid !== localParticipant?.sid,
         )
         .map((t) =>
@@ -194,20 +302,67 @@ function LiveKitVideoUI({
           ) : null,
         )}
 
-      {/* LiveKit controls bar */}
-      <div className="flex items-center justify-center gap-3 py-3 bg-gray-800/90 border-t border-gray-700">
-        <TrackToggle
-          source={Track.Source.Microphone}
-          className="p-2.5 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition"
-        />
-        <TrackToggle
-          source={Track.Source.Camera}
-          className="p-2.5 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition"
-        />
-        <TrackToggle
-          source={Track.Source.ScreenShare}
-          className="p-2.5 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition"
-        />
+      {/* ── Enhanced control bar ── */}
+      <div className="flex items-center justify-center gap-2 sm:gap-3 py-3 px-4 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700">
+        {/* Microphone toggle */}
+        <button
+          onClick={toggleMic}
+          className={`relative p-3.5 rounded-full transition-all duration-200 group ${
+            isMicrophoneEnabled
+              ? "bg-gray-600/80 hover:bg-gray-500 text-white"
+              : "bg-red-500 hover:bg-red-600 text-white ring-2 ring-red-400/50"
+          }`}
+          title={isMicrophoneEnabled ? "Couper le micro" : "Activer le micro"}
+        >
+          {isMicrophoneEnabled ? (
+            <Mic className="w-5 h-5" />
+          ) : (
+            <MicOff className="w-5 h-5" />
+          )}
+          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-gray-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            {isMicrophoneEnabled ? "Micro" : "Micro coupé"}
+          </span>
+        </button>
+
+        {/* Camera toggle */}
+        <button
+          onClick={toggleCamera}
+          className={`relative p-3.5 rounded-full transition-all duration-200 group ${
+            isCameraEnabled
+              ? "bg-gray-600/80 hover:bg-gray-500 text-white"
+              : "bg-red-500 hover:bg-red-600 text-white ring-2 ring-red-400/50"
+          }`}
+          title={isCameraEnabled ? "Couper la caméra" : "Activer la caméra"}
+        >
+          {isCameraEnabled ? (
+            <Video className="w-5 h-5" />
+          ) : (
+            <VideoOff className="w-5 h-5" />
+          )}
+          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-gray-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            {isCameraEnabled ? "Caméra" : "Caméra coupée"}
+          </span>
+        </button>
+
+        {/* Screen share toggle */}
+        <button
+          onClick={toggleScreenShare}
+          className={`relative p-3.5 rounded-full transition-all duration-200 group ${
+            isScreenShareEnabled
+              ? "bg-cyan-500 hover:bg-cyan-600 text-white ring-2 ring-cyan-300/50"
+              : "bg-gray-600/80 hover:bg-gray-500 text-white"
+          }`}
+          title={
+            isScreenShareEnabled
+              ? "Arrêter le partage d'écran"
+              : "Partager l'écran"
+          }
+        >
+          <Monitor className="w-5 h-5" />
+          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-gray-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            {isScreenShareEnabled ? "Arrêter" : "Partager"}
+          </span>
+        </button>
       </div>
     </div>
   );
