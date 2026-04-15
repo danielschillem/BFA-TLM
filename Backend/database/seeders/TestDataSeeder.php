@@ -677,7 +677,7 @@ class TestDataSeeder extends Seeder
             [
                 'type' => 'medicamenteux', 'medicaments' => 'Metformine 850mg',
                 'dosages' => '1 cp matin et soir', 'posologies' => '2 fois/jour au milieu des repas',
-                'duree' => '90 jours', 'statut' => 'en_cours',
+                'duree' => 90, 'statut' => 'en_cours',
             ]
         );
         Traitement::firstOrCreate(
@@ -685,7 +685,7 @@ class TestDataSeeder extends Seeder
             [
                 'type' => 'medicamenteux', 'medicaments' => 'Amlodipine 10mg + Hydrochlorothiazide 12.5mg',
                 'dosages' => '1 cp/jour chacun', 'posologies' => 'Matin au petit déjeuner',
-                'duree' => '30 jours', 'statut' => 'en_cours',
+                'duree' => 30, 'statut' => 'en_cours',
             ]
         );
 
