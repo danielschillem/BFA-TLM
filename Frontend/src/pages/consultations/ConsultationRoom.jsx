@@ -233,6 +233,8 @@ export default function ConsultationRoom() {
   const [livekitToken, setLivekitToken] = useState(null);
   const [livekitWsUrl, setLivekitWsUrl] = useState(null);
   const [tokenReady, setTokenReady] = useState(false);
+  const [livekitFatalError, setLivekitFatalError] = useState(null);
+  const livekitErrorCountRef = useRef(0);
 
   // Keep ref in sync for closures
   useEffect(() => {
@@ -480,6 +482,18 @@ export default function ConsultationRoom() {
     };
   }, [consultation?.id, location.state]);
 
+  // Stable LiveKit room options (memoized to prevent re-renders from causing reconnection loops)
+  const livekitRoomOptions = useMemo(
+    () => ({
+      reconnectPolicy: {
+        maxRetries: 3,
+        nextRetryDelayInMs: (context) =>
+          context.retryCount < 3 ? context.retryCount * 1000 + 1000 : null,
+      },
+    }),
+    [],
+  );
+
   const fmt = (secs) => {
     const h = Math.floor(secs / 3600);
     const m = Math.floor((secs % 3600) / 60)
@@ -600,31 +614,32 @@ export default function ConsultationRoom() {
             transition: "width 0.3s",
           }}
         >
-          {tokenReady && livekitToken && livekitWsUrl ? (
+          {tokenReady && livekitToken && livekitWsUrl && !livekitFatalError ? (
             <LiveKitRoom
               serverUrl={livekitWsUrl}
               token={livekitToken}
               connect={true}
               audio={true}
               video={true}
-              options={{
-                reconnectPolicy: {
-                  maxRetries: 3,
-                  nextRetryDelayInMs: (context) =>
-                    context.retryCount < 3
-                      ? context.retryCount * 1000 + 1000
-                      : null,
-                },
-              }}
+              options={livekitRoomOptions}
               onConnected={() => {
+                livekitErrorCountRef.current = 0;
                 setConnectionState("connected");
                 setOverlayDismissed(true);
               }}
               onDisconnected={() => setConnectionState("disconnected")}
               onError={(err) => {
-                console.error("[LiveKit]", err);
-                setConnectionState("disconnected");
-                toast.error("Erreur de connexion vidéo");
+                console.error("[LiveKit] Connection error:", err);
+                livekitErrorCountRef.current += 1;
+                if (livekitErrorCountRef.current >= 2) {
+                  // Stop trying — unmount LiveKitRoom entirely
+                  setLivekitFatalError(
+                    err?.message || "Impossible de se connecter à LiveKit",
+                  );
+                  setConnectionState("disconnected");
+                  setOverlayDismissed(true);
+                  toast.error("Connexion vidéo échouée — arrêt des tentatives");
+                }
               }}
               style={{ height: "100%", width: "100%" }}
             >
@@ -634,17 +649,29 @@ export default function ConsultationRoom() {
                 setOverlayDismissed={setOverlayDismissed}
               />
             </LiveKitRoom>
-          ) : tokenReady && !livekitToken ? (
+          ) : tokenReady && (livekitFatalError || !livekitToken) ? (
             <div className="h-full flex flex-col items-center justify-center bg-gray-900 text-white gap-4">
               <VideoOff className="w-12 h-12 text-red-400" />
               <p className="text-lg font-semibold">
-                Visioconférence non disponible
+                {livekitFatalError
+                  ? "Erreur de connexion vidéo"
+                  : "Visioconférence non disponible"}
               </p>
               <p className="text-sm text-gray-400 text-center max-w-md">
-                Le serveur LiveKit n'est pas configuré. Contactez
-                l'administrateur pour configurer LIVEKIT_API_KEY,
-                LIVEKIT_API_SECRET et LIVEKIT_WS_URL.
+                {livekitFatalError ||
+                  "Le serveur vidéo n'est pas configuré. Contactez l'administrateur."}
               </p>
+              {livekitFatalError && (
+                <button
+                  onClick={() => {
+                    livekitErrorCountRef.current = 0;
+                    setLivekitFatalError(null);
+                  }}
+                  className="mt-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-sm"
+                >
+                  Réessayer la connexion
+                </button>
+              )}
             </div>
           ) : null}
         </div>

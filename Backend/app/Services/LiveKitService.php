@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Firebase\JWT\JWT;
+use Illuminate\Support\Facades\Log;
 
 class LiveKitService
 {
@@ -33,6 +34,13 @@ class LiveKitService
         bool $canSubscribe = true,
     ): ?string {
         if (!$this->isEnabled()) {
+            return null;
+        }
+
+        if (strlen($this->apiKey) < 5 || strlen($this->apiSecret) < 10) {
+            Log::error('[LiveKit] API key or secret is too short — refusing to generate token', [
+                'api_key_length' => strlen($this->apiKey),
+            ]);
             return null;
         }
 

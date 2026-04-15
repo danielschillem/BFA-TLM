@@ -79,6 +79,33 @@ Route::get('/diag', function () {
         // 5. APP_KEY
         $checks['app_key'] = ['ok' => !empty(config('app.key'))];
 
+        // 6. LiveKit configuration
+        try {
+            $lk = app(\App\Services\LiveKitService::class);
+            $checks['livekit'] = [
+                'ok' => $lk->isEnabled(),
+                'ws_url_set' => config('livekit.ws_url') !== '',
+                'api_key_set' => config('livekit.api_key') !== '',
+                'api_key_length' => strlen(config('livekit.api_key', '')),
+                'api_secret_set' => config('livekit.api_secret') !== '',
+            ];
+            // Generate a test token and verify kid header is present
+            if ($lk->isEnabled()) {
+                $testToken = $lk->generateToken('diag-test', 'diag', 'diag-user');
+                if ($testToken) {
+                    $parts = explode('.', $testToken);
+                    $header = json_decode(base64_decode(strtr($parts[0], '-_', '+/')), true);
+                    $checks['livekit']['jwt_header'] = $header;
+                    $checks['livekit']['kid_present'] = isset($header['kid']) && $header['kid'] !== '';
+                } else {
+                    $checks['livekit']['ok'] = false;
+                    $checks['livekit']['token_error'] = 'generateToken returned null';
+                }
+            }
+        } catch (\Throwable $e) {
+            $checks['livekit'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $allOk = collect($checks)->every(fn($c) => $c['ok'] ?? false);
 
         return response()->json([
@@ -92,6 +119,27 @@ Route::get('/diag', function () {
         ], 500);
     }
 })->middleware(['auth:api', 'role:admin']);
+
+// ── LiveKit health check (public, no secrets exposed) ─────────────────────────
+Route::get('/livekit-check', function () {
+    $lk = app(\App\Services\LiveKitService::class);
+    if (!$lk->isEnabled()) {
+        return response()->json(['ok' => false, 'reason' => 'LiveKit not configured']);
+    }
+    $testToken = $lk->generateToken('health-check', 'health', 'health-user');
+    if (!$testToken) {
+        return response()->json(['ok' => false, 'reason' => 'Token generation failed']);
+    }
+    $parts = explode('.', $testToken);
+    $header = json_decode(base64_decode(strtr($parts[0], '-_', '+/')), true);
+    $hasKid = isset($header['kid']) && $header['kid'] !== '';
+    return response()->json([
+        'ok' => $hasKid,
+        'jwt_header_keys' => array_keys($header ?? []),
+        'kid_present' => $hasKid,
+        'ws_url_set' => config('livekit.ws_url') !== '',
+    ]);
+});
 
 // ── Auth (public) ─────────────────────────────────────────────────────────────
 
