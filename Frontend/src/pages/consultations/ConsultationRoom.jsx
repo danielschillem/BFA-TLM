@@ -29,6 +29,22 @@ import {
   VideoOff,
   Monitor,
   PhoneOff,
+  Hand,
+  Volume2,
+  VolumeX,
+  Settings,
+  MoreVertical,
+  PictureInPicture2,
+  Users,
+  Wifi,
+  WifiLow,
+  Signal,
+  SignalLow,
+  SignalZero,
+  MonitorOff,
+  Airplay,
+  Copy,
+  LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -37,6 +53,7 @@ import {
   Track,
   ConnectionState,
   VideoPresets,
+  ConnectionQuality,
 } from "livekit-client";
 import {
   LiveKitRoom,
@@ -47,6 +64,8 @@ import {
   useTracks,
   useConnectionState,
   useRoomContext,
+  useConnectionQualityIndicator,
+  useIsSpeaking,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import {
@@ -64,6 +83,103 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input, { Textarea, Select } from "@/components/ui/Input";
 import logoImg from "@/assets/logo.jpeg";
+
+// ── Indicateur de qualité réseau ─────────────────────────────────────────────
+function NetworkQualityBadge({ participant }) {
+  const { quality } = useConnectionQualityIndicator({ participant });
+  const config = {
+    [ConnectionQuality.Excellent]: {
+      icon: Signal,
+      color: "text-green-400",
+      bg: "bg-green-500/20",
+      label: "Excellent",
+    },
+    [ConnectionQuality.Good]: {
+      icon: Signal,
+      color: "text-yellow-400",
+      bg: "bg-yellow-500/20",
+      label: "Bon",
+    },
+    [ConnectionQuality.Poor]: {
+      icon: SignalLow,
+      color: "text-orange-400",
+      bg: "bg-orange-500/20",
+      label: "Faible",
+    },
+    [ConnectionQuality.Lost]: {
+      icon: SignalZero,
+      color: "text-red-400",
+      bg: "bg-red-500/20",
+      label: "Perdu",
+    },
+  };
+  const c = config[quality] || config[ConnectionQuality.Good];
+  const Icon = c.icon;
+  return (
+    <div
+      className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${c.bg}`}
+      title={`Qualité réseau : ${c.label}`}
+    >
+      <Icon className={`w-3 h-3 ${c.color}`} />
+      <span className={`text-[10px] font-medium ${c.color} hidden sm:inline`}>
+        {c.label}
+      </span>
+    </div>
+  );
+}
+
+// ── Indicateur de parole actif ───────────────────────────────────────────────
+function SpeakingIndicator({ participant }) {
+  const isSpeaking = useIsSpeaking(participant);
+  if (!isSpeaking) return null;
+  return (
+    <div className="absolute inset-0 rounded-xl ring-[3px] ring-green-400 ring-opacity-80 pointer-events-none z-20 animate-pulse" />
+  );
+}
+
+// ── Bouton de contrôle individualisé ─────────────────────────────────────────
+function ControlButton({
+  onClick,
+  active,
+  danger,
+  accent,
+  icon: Icon,
+  label,
+  badge,
+  disabled,
+  className = "",
+}) {
+  const base = danger
+    ? "bg-red-500 hover:bg-red-600 text-white"
+    : accent
+      ? "bg-cyan-500 hover:bg-cyan-600 text-white ring-2 ring-cyan-300/40"
+      : active === false
+        ? "bg-red-500/90 hover:bg-red-600 text-white ring-2 ring-red-400/40"
+        : "bg-white/10 hover:bg-white/20 text-white";
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`relative flex flex-col items-center gap-1 group ${className}`}
+      title={label}
+    >
+      <div
+        className={`p-3 sm:p-3.5 rounded-full transition-all duration-200 ${base} ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+      >
+        <Icon className="w-5 h-5" />
+        {badge && (
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-cyan-500 rounded-full text-[9px] text-white font-bold flex items-center justify-center">
+            {badge}
+          </span>
+        )}
+      </div>
+      <span className="text-[10px] text-gray-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+        {label}
+      </span>
+    </button>
+  );
+}
 
 // ── Composant interne LiveKit : affiche la vidéo + gère les événements ──────
 function LiveKitVideoUI({
@@ -89,6 +205,42 @@ function LiveKitVideoUI({
     ],
     { onlySubscribed: false },
   );
+
+  // Local state
+  const [handRaised, setHandRaised] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [pipActive, setPipActive] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimerRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const moreMenuRef = useRef(null);
+
+  // ── Auto-hide controls after 4s of inactivity ──
+  const resetControlsTimer = useCallback(() => {
+    setControlsVisible(true);
+    clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = setTimeout(
+      () => setControlsVisible(false),
+      4000,
+    );
+  }, []);
+
+  useEffect(() => {
+    resetControlsTimer();
+    return () => clearTimeout(controlsTimerRef.current);
+  }, [resetControlsTimer]);
+
+  // ── Close "more" menu on outside click ──
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const handler = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMoreMenu]);
 
   // ── Sync connection state ──
   useEffect(() => {
@@ -122,10 +274,31 @@ function LiveKitVideoUI({
     };
   }, [room]);
 
+  // ── Track active-speaker highlight via data messages ──
+  useEffect(() => {
+    if (!room || !localParticipant) return;
+    const onData = (payload, participant) => {
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(payload));
+        if (msg.type === "hand_raised") {
+          toast.info(
+            `✋ ${participant?.name || "Un participant"} lève la main`,
+            { duration: 5000 },
+          );
+        }
+      } catch {
+        /* ignore non-JSON data */
+      }
+    };
+    room.on(RoomEvent.DataReceived, onData);
+    return () => room.off(RoomEvent.DataReceived, onData);
+  }, [room, localParticipant]);
+
   // ── Toggle handlers ──
   const toggleMic = useCallback(async () => {
     try {
       await localParticipant?.setMicrophoneEnabled(!isMicrophoneEnabled);
+      if (isMicrophoneEnabled) toast("Micro coupé", { icon: "🔇" });
     } catch {
       toast.error("Impossible d'accéder au microphone");
     }
@@ -141,14 +314,104 @@ function LiveKitVideoUI({
 
   const toggleScreenShare = useCallback(async () => {
     try {
-      await localParticipant?.setScreenShareEnabled(!isScreenShareEnabled);
+      await localParticipant?.setScreenShareEnabled(!isScreenShareEnabled, {
+        audio: true,
+        selfBrowserSurface: "include",
+        surfaceSwitching: "include",
+        systemAudio: "include",
+      });
     } catch (e) {
-      // NotAllowedError = user cancelled the share dialog
       if (e?.name !== "NotAllowedError") {
         toast.error("Impossible de partager l'écran");
       }
     }
   }, [localParticipant, isScreenShareEnabled]);
+
+  const toggleHandRaise = useCallback(() => {
+    const next = !handRaised;
+    setHandRaised(next);
+    if (next && room) {
+      const data = new TextEncoder().encode(
+        JSON.stringify({ type: "hand_raised" }),
+      );
+      room.localParticipant.publishData(data, { reliable: true });
+      toast("✋ Main levée", { duration: 2000 });
+    } else {
+      toast("Main baissée", { duration: 2000 });
+    }
+  }, [handRaised, room]);
+
+  // ── Picture-in-Picture ──
+  const togglePiP = useCallback(async () => {
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        setPipActive(false);
+      } else if (remoteVideoRef.current) {
+        // Find the actual <video> element inside the VideoTrack
+        const videoEl =
+          remoteVideoRef.current.tagName === "VIDEO"
+            ? remoteVideoRef.current
+            : remoteVideoRef.current.querySelector("video");
+        if (videoEl) {
+          await videoEl.requestPictureInPicture();
+          setPipActive(true);
+          videoEl.addEventListener(
+            "leavepictureinpicture",
+            () => setPipActive(false),
+            { once: true },
+          );
+        } else {
+          toast.error("Aucune vidéo disponible pour le PiP");
+        }
+      }
+    } catch {
+      toast.error("Picture-in-Picture non supporté");
+    }
+  }, []);
+
+  // ── Copy room link ──
+  const copyRoomLink = useCallback(() => {
+    navigator.clipboard
+      .writeText(window.location.href)
+      .then(() => toast.success("Lien de la salle copié"))
+      .catch(() => toast.error("Impossible de copier le lien"));
+  }, []);
+
+  // ── Keyboard shortcuts ──
+  useEffect(() => {
+    const onKey = (e) => {
+      // Ignore if user is typing in an input/textarea
+      if (
+        e.target.tagName === "INPUT" ||
+        e.target.tagName === "TEXTAREA" ||
+        e.target.isContentEditable
+      )
+        return;
+
+      switch (e.key.toLowerCase()) {
+        case "m":
+          e.preventDefault();
+          toggleMic();
+          break;
+        case "v":
+          e.preventDefault();
+          toggleCamera();
+          break;
+        case "s":
+          if (e.ctrlKey || e.metaKey) return; // Don't override Ctrl+S
+          e.preventDefault();
+          toggleScreenShare();
+          break;
+        case "h":
+          e.preventDefault();
+          toggleHandRaise();
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleMic, toggleCamera, toggleScreenShare, toggleHandRaise]);
 
   // ── Track separation ──
   const screenShareTracks = tracks.filter(
@@ -171,124 +434,216 @@ function LiveKitVideoUI({
     (t) => t.participant?.sid === localParticipant?.sid,
   );
 
+  // ── Video tile wrapper with speaking indicator ──
+  const VideoTile = ({ trackRef, mirror, className, children }) => (
+    <div className={`relative ${className || ""}`}>
+      {trackRef?.publication?.track ? (
+        <VideoTrack
+          trackRef={trackRef}
+          className="h-full w-full object-cover"
+          style={mirror ? { transform: "scaleX(-1)" } : undefined}
+        />
+      ) : (
+        <div className="h-full w-full flex items-center justify-center bg-gray-800">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center ring-4 ring-white/10">
+              <span className="text-2xl sm:text-3xl text-white font-bold">
+                {trackRef?.participant?.name?.[0]?.toUpperCase() || "?"}
+              </span>
+            </div>
+            <span className="text-xs text-gray-400 mt-1">
+              {trackRef?.participant?.name || "Participant"}
+            </span>
+          </div>
+        </div>
+      )}
+      {trackRef?.participant && (
+        <SpeakingIndicator participant={trackRef.participant} />
+      )}
+      {children}
+    </div>
+  );
+
+  // ── Name badge ──
+  const NameBadge = ({ name, muted, className = "" }) => (
+    <div
+      className={`absolute bottom-2 left-2 z-10 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 ${className}`}
+    >
+      {muted && <MicOff className="w-3 h-3 text-red-400" />}
+      <span className="text-[11px] text-white font-medium truncate max-w-[120px]">
+        {name}
+      </span>
+    </div>
+  );
+
   return (
-    <div className="relative h-full w-full bg-gray-900 flex flex-col">
-      {/* Main video area */}
+    <div
+      className="relative h-full w-full bg-gray-900 flex flex-col"
+      onMouseMove={resetControlsTimer}
+      onTouchStart={resetControlsTimer}
+    >
+      {/* ── Main video area ── */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
         {activeScreenShare ? (
-          /* ── SCREEN SHARE LAYOUT ── */
+          /* ═══ SCREEN SHARE LAYOUT ═══ */
           <>
-            {/* Screen share as primary view */}
-            <VideoTrack
-              trackRef={activeScreenShare}
-              className="h-full w-full object-contain"
-            />
-            {/* Screen share label */}
-            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-cyan-600/90 backdrop-blur-sm rounded-lg px-3 py-1.5">
+            <div className="h-full w-full" ref={remoteVideoRef}>
+              <VideoTrack
+                trackRef={activeScreenShare}
+                className="h-full w-full object-contain"
+              />
+            </div>
+            {/* Screen share banner */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-cyan-600/90 backdrop-blur-md rounded-full px-4 py-1.5 shadow-lg">
               <Monitor className="w-4 h-4 text-white" />
               <span className="text-xs text-white font-medium">
                 {isRemoteScreenShare
-                  ? `${remoteScreenShare.participant?.name || "Participant"} partage son écran`
-                  : "Vous partagez votre écran"}
+                  ? `${remoteScreenShare.participant?.name || "Participant"} présente`
+                  : "Vous présentez"}
               </span>
+              {!isRemoteScreenShare && (
+                <button
+                  onClick={toggleScreenShare}
+                  className="ml-2 px-2 py-0.5 bg-red-500 hover:bg-red-600 text-white text-[10px] font-semibold rounded-full transition"
+                >
+                  Arrêter
+                </button>
+              )}
             </div>
-            {/* Remote camera thumbnail (top-right) */}
-            {remoteCameraTrack?.publication?.track && (
-              <div className="absolute top-4 right-4 w-40 h-28 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10">
-                <VideoTrack
+
+            {/* Side strip with camera thumbnails */}
+            <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+              {/* Remote camera */}
+              {remoteCameraTrack && (
+                <VideoTile
                   trackRef={remoteCameraTrack}
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
-                  <span className="text-[10px] text-white font-medium">
-                    {remoteCameraTrack.participant?.name || "Participant"}
-                  </span>
-                </div>
-              </div>
-            )}
-            {/* Local camera PiP (bottom-right) */}
-            {localCameraTrack?.publication?.track ? (
-              <div className="absolute bottom-4 right-4 w-32 h-24 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10">
-                <VideoTrack
-                  trackRef={localCameraTrack}
-                  className="h-full w-full object-cover"
-                  style={{ transform: "scaleX(-1)" }}
-                />
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
-                  <span className="text-[10px] text-white font-medium">
-                    Vous
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="absolute bottom-4 right-4 w-32 h-24 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10 bg-gray-700 flex items-center justify-center">
-                <VideoOff className="w-5 h-5 text-gray-400" />
-              </div>
-            )}
+                  className="w-36 h-28 sm:w-44 sm:h-32 rounded-xl overflow-hidden border border-white/10 shadow-2xl"
+                >
+                  <NameBadge
+                    name={remoteCameraTrack.participant?.name || "Participant"}
+                    muted={!remoteCameraTrack.participant?.isMicrophoneEnabled}
+                  />
+                  {remoteCameraTrack.participant && (
+                    <div className="absolute top-1.5 right-1.5 z-10">
+                      <NetworkQualityBadge
+                        participant={remoteCameraTrack.participant}
+                      />
+                    </div>
+                  )}
+                </VideoTile>
+              )}
+              {/* Local camera */}
+              <VideoTile
+                trackRef={localCameraTrack}
+                mirror
+                className="w-36 h-28 sm:w-44 sm:h-32 rounded-xl overflow-hidden border border-white/10 shadow-2xl"
+              >
+                <NameBadge name="Vous" muted={!isMicrophoneEnabled} />
+              </VideoTile>
+            </div>
           </>
         ) : (
-          /* ── NORMAL CAMERA LAYOUT ── */
+          /* ═══ NORMAL CAMERA LAYOUT ═══ */
           <>
-            {remoteCameraTrack?.publication?.track ? (
-              <VideoTrack
-                trackRef={remoteCameraTrack}
-                className="h-full w-full object-contain"
-              />
-            ) : remoteCameraTrack ? (
-              <div className="h-full w-full flex items-center justify-center bg-gray-800">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center ring-4 ring-gray-600/50">
-                    <span className="text-3xl text-white font-bold">
-                      {remoteCameraTrack.participant?.name?.[0]?.toUpperCase() ||
-                        "?"}
+            {/* Remote participant (main) */}
+            <div className="h-full w-full relative" ref={remoteVideoRef}>
+              {remoteCameraTrack?.publication?.track ? (
+                <>
+                  <VideoTrack
+                    trackRef={remoteCameraTrack}
+                    className="h-full w-full object-contain"
+                  />
+                  {remoteCameraTrack.participant && (
+                    <SpeakingIndicator
+                      participant={remoteCameraTrack.participant}
+                    />
+                  )}
+                </>
+              ) : remoteCameraTrack ? (
+                <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-28 h-28 rounded-full bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center ring-4 ring-white/10 shadow-2xl">
+                      <span className="text-4xl text-white font-bold">
+                        {remoteCameraTrack.participant?.name?.[0]?.toUpperCase() ||
+                          "?"}
+                      </span>
+                    </div>
+                    <span className="text-base text-gray-300 font-medium">
+                      {remoteCameraTrack.participant?.name || "Participant"}
                     </span>
+                    <div className="flex items-center gap-2 text-gray-500 text-xs">
+                      <VideoOff className="w-3.5 h-3.5" />
+                      <span>Caméra désactivée</span>
+                    </div>
+                    {remoteCameraTrack.participant && (
+                      <NetworkQualityBadge
+                        participant={remoteCameraTrack.participant}
+                      />
+                    )}
                   </div>
-                  <span className="text-sm text-gray-400">
-                    {remoteCameraTrack.participant?.name || "Participant"} —
-                    caméra désactivée
-                  </span>
                 </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4 text-gray-400">
-                <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center">
-                  <Video className="w-10 h-10" />
+              ) : (
+                <div className="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 gap-5">
+                  <div className="w-24 h-24 rounded-full bg-gray-800 border-2 border-dashed border-gray-600 flex items-center justify-center animate-pulse">
+                    <Users className="w-10 h-10 text-gray-500" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-medium text-gray-300">
+                      En attente de l'autre participant…
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Partagez le lien pour inviter quelqu'un
+                    </p>
+                  </div>
+                  <button
+                    onClick={copyRoomLink}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-sm text-gray-300 transition"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copier le lien
+                  </button>
                 </div>
-                <p className="text-lg font-medium">
-                  En attente de l'autre participant…
-                </p>
-                <p className="text-sm text-gray-500">
-                  Le lien a été partagé, patience…
-                </p>
-              </div>
-            )}
-            {/* Local camera PiP */}
-            {localCameraTrack?.publication?.track ? (
-              <div className="absolute bottom-4 right-4 w-48 h-36 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10 group">
-                <VideoTrack
-                  trackRef={localCameraTrack}
-                  className="h-full w-full object-cover"
-                  style={{ transform: "scaleX(-1)" }}
+              )}
+
+              {/* Name badge on main video */}
+              {remoteCameraTrack?.publication?.track && (
+                <NameBadge
+                  name={remoteCameraTrack.participant?.name || "Participant"}
+                  muted={!remoteCameraTrack.participant?.isMicrophoneEnabled}
+                  className="bottom-4 left-4"
                 />
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-[10px] text-white font-medium">
-                    Vous
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="absolute bottom-4 right-4 w-48 h-36 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10 bg-gray-700 flex flex-col items-center justify-center gap-2">
-                <VideoOff className="w-8 h-8 text-gray-400" />
-                <span className="text-[10px] text-gray-500">
-                  Caméra désactivée
-                </span>
-              </div>
-            )}
+              )}
+              {/* Network quality on main video */}
+              {remoteCameraTrack?.participant &&
+                remoteCameraTrack.publication?.track && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <NetworkQualityBadge
+                      participant={remoteCameraTrack.participant}
+                    />
+                  </div>
+                )}
+            </div>
+
+            {/* Local camera PiP (draggable feel) */}
+            <div className="absolute bottom-20 right-4 z-10">
+              <VideoTile
+                trackRef={localCameraTrack}
+                mirror
+                className="w-40 h-28 sm:w-48 sm:h-36 rounded-xl overflow-hidden border border-white/15 shadow-2xl ring-1 ring-black/30 group"
+              >
+                <NameBadge name="Vous" muted={!isMicrophoneEnabled} />
+                {localParticipant && (
+                  <div className="absolute top-1.5 right-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <NetworkQualityBadge participant={localParticipant} />
+                  </div>
+                )}
+              </VideoTile>
+            </div>
           </>
         )}
       </div>
 
-      {/* Remote audio tracks (hidden) */}
+      {/* ── Remote audio tracks (hidden) ── */}
       {tracks
         .filter(
           (t) =>
@@ -302,67 +657,133 @@ function LiveKitVideoUI({
           ) : null,
         )}
 
-      {/* ── Enhanced control bar ── */}
-      <div className="flex items-center justify-center gap-2 sm:gap-3 py-3 px-4 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700">
-        {/* Microphone toggle */}
-        <button
-          onClick={toggleMic}
-          className={`relative p-3.5 rounded-full transition-all duration-200 group ${
-            isMicrophoneEnabled
-              ? "bg-gray-600/80 hover:bg-gray-500 text-white"
-              : "bg-red-500 hover:bg-red-600 text-white ring-2 ring-red-400/50"
-          }`}
-          title={isMicrophoneEnabled ? "Couper le micro" : "Activer le micro"}
-        >
-          {isMicrophoneEnabled ? (
-            <Mic className="w-5 h-5" />
-          ) : (
-            <MicOff className="w-5 h-5" />
-          )}
-          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-gray-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            {isMicrophoneEnabled ? "Micro" : "Micro coupé"}
-          </span>
-        </button>
+      {/* Hand raised indicator floating */}
+      {handRaised && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-yellow-500/90 backdrop-blur-sm text-white text-xs font-semibold px-4 py-1.5 rounded-full flex items-center gap-2 shadow-lg animate-bounce">
+          <Hand className="w-4 h-4" />
+          Vous avez levé la main
+        </div>
+      )}
 
-        {/* Camera toggle */}
-        <button
-          onClick={toggleCamera}
-          className={`relative p-3.5 rounded-full transition-all duration-200 group ${
-            isCameraEnabled
-              ? "bg-gray-600/80 hover:bg-gray-500 text-white"
-              : "bg-red-500 hover:bg-red-600 text-white ring-2 ring-red-400/50"
-          }`}
-          title={isCameraEnabled ? "Couper la caméra" : "Activer la caméra"}
-        >
-          {isCameraEnabled ? (
-            <Video className="w-5 h-5" />
-          ) : (
-            <VideoOff className="w-5 h-5" />
-          )}
-          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-gray-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            {isCameraEnabled ? "Caméra" : "Caméra coupée"}
-          </span>
-        </button>
+      {/* ═══ CONTROL BAR ═══ */}
+      <div
+        className={`absolute bottom-0 left-0 right-0 z-20 transition-all duration-300 ${
+          controlsVisible
+            ? "translate-y-0 opacity-100"
+            : "translate-y-full opacity-0"
+        }`}
+      >
+        <div className="bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-12 pb-4 px-4">
+          <div className="flex items-end justify-center gap-1.5 sm:gap-3">
+            {/* Mic */}
+            <ControlButton
+              onClick={toggleMic}
+              active={isMicrophoneEnabled}
+              icon={isMicrophoneEnabled ? Mic : MicOff}
+              label={`Micro (M)${isMicrophoneEnabled ? "" : " — coupé"}`}
+            />
 
-        {/* Screen share toggle */}
-        <button
-          onClick={toggleScreenShare}
-          className={`relative p-3.5 rounded-full transition-all duration-200 group ${
-            isScreenShareEnabled
-              ? "bg-cyan-500 hover:bg-cyan-600 text-white ring-2 ring-cyan-300/50"
-              : "bg-gray-600/80 hover:bg-gray-500 text-white"
-          }`}
-          title={
-            isScreenShareEnabled
-              ? "Arrêter le partage d'écran"
-              : "Partager l'écran"
-          }
-        >
-          <Monitor className="w-5 h-5" />
-          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-gray-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            {isScreenShareEnabled ? "Arrêter" : "Partager"}
-          </span>
-        </button>
+            {/* Camera */}
+            <ControlButton
+              onClick={toggleCamera}
+              active={isCameraEnabled}
+              icon={isCameraEnabled ? Video : VideoOff}
+              label={`Caméra (V)${isCameraEnabled ? "" : " — coupée"}`}
+            />
+
+            {/* Screen Share */}
+            <ControlButton
+              onClick={toggleScreenShare}
+              accent={isScreenShareEnabled}
+              icon={isScreenShareEnabled ? MonitorOff : Monitor}
+              label={`${isScreenShareEnabled ? "Arrêter le partage" : "Partager l'écran"} (S)`}
+            />
+
+            {/* Divider */}
+            <div className="w-px h-8 bg-white/20 mx-1 hidden sm:block" />
+
+            {/* Hand raise */}
+            <ControlButton
+              onClick={toggleHandRaise}
+              accent={handRaised}
+              icon={Hand}
+              label={`${handRaised ? "Baisser" : "Lever"} la main (H)`}
+            />
+
+            {/* PiP */}
+            <ControlButton
+              onClick={togglePiP}
+              accent={pipActive}
+              icon={PictureInPicture2}
+              label="Picture-in-Picture"
+              disabled={!document.pictureInPictureEnabled}
+            />
+
+            {/* More menu */}
+            <div className="relative" ref={moreMenuRef}>
+              <ControlButton
+                onClick={() => setShowMoreMenu((v) => !v)}
+                icon={MoreVertical}
+                label="Plus d'options"
+              />
+              {showMoreMenu && (
+                <div className="absolute bottom-full mb-3 right-0 w-56 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl py-2 animate-in fade-in slide-in-from-bottom-2 z-50">
+                  <button
+                    onClick={() => {
+                      copyRoomLink();
+                      setShowMoreMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition text-left"
+                  >
+                    <Copy className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm text-gray-200">
+                      Copier le lien
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      togglePiP();
+                      setShowMoreMenu(false);
+                    }}
+                    disabled={!document.pictureInPictureEnabled}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition text-left disabled:opacity-40"
+                  >
+                    <PictureInPicture2 className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm text-gray-200">
+                      {pipActive ? "Quitter le PiP" : "Picture-in-Picture"}
+                    </span>
+                  </button>
+                  <div className="border-t border-gray-700 my-1" />
+                  <div className="px-4 py-2">
+                    <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">
+                      Raccourcis clavier
+                    </p>
+                    <div className="space-y-1">
+                      {[
+                        ["M", "Micro"],
+                        ["V", "Caméra"],
+                        ["S", "Partage d'écran"],
+                        ["H", "Lever la main"],
+                      ].map(([key, action]) => (
+                        <div
+                          key={key}
+                          className="flex items-center justify-between"
+                        >
+                          <span className="text-[11px] text-gray-400">
+                            {action}
+                          </span>
+                          <kbd className="px-1.5 py-0.5 bg-gray-700 rounded text-[10px] text-gray-300 font-mono">
+                            {key}
+                          </kbd>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
