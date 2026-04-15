@@ -135,6 +135,13 @@ Route::get('/livekit-check', function () {
     $hasKid = isset($header['kid']) && $header['kid'] !== '';
     $wsUrl = config('livekit.ws_url', '');
     $apiKey = config('livekit.api_key', '');
+    $apiSecret = config('livekit.api_secret', '');
+
+    // Secret fingerprint for debugging (never expose full secret)
+    $secretLen = strlen($apiSecret);
+    $secretHint = $secretLen > 6
+        ? substr($apiSecret, 0, 3) . '...' . substr($apiSecret, -3) . " ({$secretLen} chars)"
+        : "too short ({$secretLen})";
 
     // End-to-end test: verify token against LiveKit Cloud
     $cloudOk = false;
@@ -166,6 +173,7 @@ Route::get('/livekit-check', function () {
         'ok' => $hasKid && $cloudOk,
         'jwt_kid' => $header['kid'] ?? null,
         'api_key_hint' => substr($apiKey, 0, 6) . '...' . substr($apiKey, -3),
+        'secret_hint' => $secretHint,
         'kid_present' => $hasKid,
         'ws_url' => $wsUrl,
         'cloud_test' => [
