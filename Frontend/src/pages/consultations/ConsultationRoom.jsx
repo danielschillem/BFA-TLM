@@ -441,46 +441,49 @@ export default function ConsultationRoom() {
   }, []);
 
   // ── Récupérer le token LiveKit depuis le backend ───────────────────────────
-  useEffect(() => {
-    // Token passé par la navigation (médecin qui a démarré)
-    const stateToken = location.state?.livekitToken;
-    const stateWsUrl = location.state?.livekitWsUrl;
-    if (stateToken && stateWsUrl) {
-      setLivekitToken(stateToken);
-      setLivekitWsUrl(stateWsUrl);
-      setTokenReady(true);
-      return;
+  const fetchFreshToken = useCallback(async (consultationId) => {
+    try {
+      const res = await consultationsApi.getLivekitToken(consultationId);
+      const token = res.data?.livekit_token || null;
+      const wsUrl = res.data?.livekit_ws_url || null;
+      return { token, wsUrl };
+    } catch {
+      return { token: null, wsUrl: null };
     }
-    // Sinon, demander un token au backend
-    if (!consultation?.id) return;
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
-    consultationsApi
-      .getLivekitToken(consultation.id)
-      .then((res) => {
-        if (!cancelled) {
-          const token = res.data?.livekit_token || null;
-          const wsUrl = res.data?.livekit_ws_url || null;
-          setLivekitToken(token);
-          setLivekitWsUrl(wsUrl);
-          setTokenReady(true);
-          if (!token) {
-            setOverlayDismissed(true);
-            setConnectionState("disconnected");
-          }
-        }
-      })
-      .catch(() => {
-        console.warn("[LiveKit] Token non disponible");
-        if (!cancelled) {
-          setTokenReady(true);
-          setOverlayDismissed(true);
-          setConnectionState("disconnected");
-        }
-      });
+
+    async function initToken() {
+      // 1. Try token from navigation state first (quick start for doctor)
+      const stateToken = location.state?.livekitToken;
+      const stateWsUrl = location.state?.livekitWsUrl;
+      if (stateToken && stateWsUrl) {
+        setLivekitToken(stateToken);
+        setLivekitWsUrl(stateWsUrl);
+        setTokenReady(true);
+        return;
+      }
+
+      // 2. Otherwise fetch fresh token from backend
+      if (!consultation?.id) return;
+      const { token, wsUrl } = await fetchFreshToken(consultation.id);
+      if (cancelled) return;
+      setLivekitToken(token);
+      setLivekitWsUrl(wsUrl);
+      setTokenReady(true);
+      if (!token) {
+        setOverlayDismissed(true);
+        setConnectionState("disconnected");
+      }
+    }
+
+    initToken();
     return () => {
       cancelled = true;
     };
-  }, [consultation?.id, location.state]);
+  }, [consultation?.id, location.state, fetchFreshToken]);
 
   // Stable LiveKit room options (memoized to prevent re-renders from causing reconnection loops)
   const livekitRoomOptions = useMemo(
@@ -631,7 +634,16 @@ export default function ConsultationRoom() {
               onError={(err) => {
                 console.error("[LiveKit] Connection error:", err);
                 livekitErrorCountRef.current += 1;
-                if (livekitErrorCountRef.current >= 2) {
+                if (livekitErrorCountRef.current === 1 && consultation?.id) {
+                  // First failure: try refreshing token from backend (may fix stale/invalid token)
+                  console.info("[LiveKit] Refreshing token from backend...");
+                  fetchFreshToken(consultation.id).then(({ token, wsUrl }) => {
+                    if (token && wsUrl) {
+                      setLivekitToken(token);
+                      setLivekitWsUrl(wsUrl);
+                    }
+                  });
+                } else if (livekitErrorCountRef.current >= 3) {
                   // Stop trying — unmount LiveKitRoom entirely
                   setLivekitFatalError(
                     err?.message || "Impossible de se connecter à LiveKit",
@@ -663,9 +675,18 @@ export default function ConsultationRoom() {
               </p>
               {livekitFatalError && (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     livekitErrorCountRef.current = 0;
                     setLivekitFatalError(null);
+                    if (consultation?.id) {
+                      const { token, wsUrl } = await fetchFreshToken(
+                        consultation.id,
+                      );
+                      if (token && wsUrl) {
+                        setLivekitToken(token);
+                        setLivekitWsUrl(wsUrl);
+                      }
+                    }
                   }}
                   className="mt-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-sm"
                 >
