@@ -42,15 +42,9 @@ import Modal from "@/components/ui/Modal";
 import Input, { Textarea, Select } from "@/components/ui/Input";
 import logoImg from "@/assets/logo.jpeg";
 
-// ── Jitsi / JaaS 8x8.vc configuration ────────────────────────────────────────
-// Si VITE_JAAS_APP_ID est défini → mode JaaS (8x8.vc, JWT obligatoire)
-// Sinon → mode meet.jit.si (serveur public gratuit, sans JWT)
-const JAAS_APP_ID = import.meta.env.VITE_JAAS_APP_ID || "";
-const USE_JAAS = !!JAAS_APP_ID;
-const JITSI_DOMAIN = USE_JAAS ? "8x8.vc" : "meet.jit.si";
-const JITSI_SCRIPT_URL = USE_JAAS
-  ? `https://8x8.vc/${JAAS_APP_ID}/external_api.js`
-  : `https://meet.jit.si/external_api.js`;
+// ── Jitsi configuration (meet.jit.si — serveur public, connexion directe) ───────
+const JITSI_DOMAIN = "meet.jit.si";
+const JITSI_SCRIPT_URL = "https://meet.jit.si/external_api.js";
 
 export default function ConsultationRoom() {
   const { id } = useParams(); // consultation id
@@ -82,9 +76,6 @@ export default function ConsultationRoom() {
   const [rating, setRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
   const [participantCount, setParticipantCount] = useState(0);
-  const [jitsiToken, setJitsiToken] = useState(null);
-  const [tokenReady, setTokenReady] = useState(!USE_JAAS); // meet.jit.si → prêt immédiatement
-  const tokenRefreshTimer = useRef(null);
 
   const [vitals, setVitals] = useState({
     weight: "",
@@ -282,62 +273,11 @@ export default function ConsultationRoom() {
     return () => clearInterval(t);
   }, []);
 
-  // ── Récupérer le JWT JaaS depuis le backend (uniquement en mode JaaS) ──────
+  // ── Jitsi Meet (connexion directe, pas de JWT) ───────────────────────────────
   useEffect(() => {
-    if (!USE_JAAS) return; // meet.jit.si → pas de JWT
-    // Token passé par la navigation (médecin qui a démarré la consultation)
-    const stateToken = location.state?.jitsiToken;
-    if (stateToken) {
-      setJitsiToken(stateToken);
-      setTokenReady(true);
-      return;
-    }
-    // Sinon (patient / rechargement) → demander un token au backend
-    if (!consultation?.id) return;
-    let cancelled = false;
-    consultationsApi
-      .refreshJitsiToken(consultation.id)
-      .then((res) => {
-        if (!cancelled && res.data?.jitsi_token) {
-          setJitsiToken(res.data.jitsi_token);
-        }
-      })
-      .catch(() => {
-        // backend sans clé privée → on continue sans JWT (sera bloqué par 8x8)
-        console.warn(
-          "[JaaS] JWT non disponible — JAAS_PRIVATE_KEY manquant côté serveur ?",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setTokenReady(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [consultation?.id, location.state?.jitsiToken]);
+    if (!consultation || !jitsiContainerRef.current) return;
 
-  // ── Renouvellement automatique du JWT (toutes les 55 min si TTL = 60 min) ──
-  useEffect(() => {
-    if (!USE_JAAS || !consultation?.id || !jitsiToken) return;
-    const REFRESH_MS = 55 * 60 * 1000;
-    tokenRefreshTimer.current = setInterval(async () => {
-      try {
-        const res = await consultationsApi.refreshJitsiToken(consultation.id);
-        if (res.data?.jitsi_token) setJitsiToken(res.data.jitsi_token);
-      } catch {
-        /* non bloquant */
-      }
-    }, REFRESH_MS);
-    return () => clearInterval(tokenRefreshTimer.current);
-  }, [consultation?.id, jitsiToken]);
-
-  // ── Jitsi IFrame API ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!consultation || !jitsiContainerRef.current || !tokenReady) return;
-
-    // Room name : JaaS = "<AppID>/<room>", meet.jit.si = "<room>"
-    const roomSuffix = consultation.jitsi_room_name ?? `tlm-${consultation.id}`;
-    const fullRoomName = USE_JAAS ? `${JAAS_APP_ID}/${roomSuffix}` : roomSuffix;
+    const fullRoomName = consultation.jitsi_room_name ?? `tlm-${consultation.id}`;
 
     const loadJitsi = () => {
       if (window.JitsiMeetExternalAPI) {
@@ -389,29 +329,17 @@ export default function ConsultationRoom() {
           ? `LiptakoCare Live · ${doctorName} — ${patientName}`
           : "LiptakoCare Live";
 
-      // Toolbar buttons by role
-      const toolbarButtons = isDoctor()
-        ? [
-            "microphone",
-            "camera",
-            "desktop",
-            "chat",
-            "tileview",
-            "fullscreen",
-            "settings",
-            "raisehand",
-            "filmstrip",
-            "select-background",
-          ]
-        : [
-            "microphone",
-            "camera",
-            "chat",
-            "tileview",
-            "fullscreen",
-            "raisehand",
-            "select-background",
-          ];
+      // Toolbar : même boutons pour tous
+      const toolbarButtons = [
+        "microphone",
+        "camera",
+        "desktop",
+        "chat",
+        "tileview",
+        "fullscreen",
+        "raisehand",
+        "select-background",
+      ];
 
       try {
         const jitsiOptions = {
@@ -429,14 +357,9 @@ export default function ConsultationRoom() {
             disableDeepLinking: true,
             enableNoisyMicDetection: true,
             enableClosePage: false,
-            disableRemoteMute: !isDoctor(),
             defaultLanguage: "fr",
-            // Restrictions médecin / patient
-            disableScreenSharingForGuests: !isDoctor(),
-            remoteVideoMenu: {
-              disableKick: !isDoctor(),
-              disableGrantModerator: true,
-            },
+            // Pas de modérateur : tous les participants sont égaux
+            enableUserRolesBasedOnToken: false,
             // Qualité & performance
             resolution: 720,
             constraints: {
@@ -444,10 +367,11 @@ export default function ConsultationRoom() {
             },
             enableLayerSuspension: true,
             channelLastN: 2,
-            // Sécurité & lobby
+            // Pas de lobby — le patient entre directement
             enableLobbyChat: false,
             hideLobbyButton: true,
-            // Notifications selectionnées
+            lobby: { autoKnock: true, enableChat: false },
+            // Notifications sélectionnées
             notifications: [
               "connection.CONNFAIL",
               "dialog.micNotSendingData",
@@ -495,19 +419,6 @@ export default function ConsultationRoom() {
           width: "100%",
           height: "100%",
         };
-
-        // Injecter le JWT en mode JaaS (doc officielle : option `jwt`)
-        if (USE_JAAS && jitsiToken) {
-          jitsiOptions.jwt = jitsiToken;
-        } else if (USE_JAAS && !jitsiToken) {
-          console.warn(
-            "[JaaS] Connexion sans JWT — la room risque d'être bloquée par 8x8.vc",
-          );
-          toast.warning(
-            "Token vidéo manquant. Contactez l'administrateur si la connexion échoue.",
-            { duration: 8000 },
-          );
-        }
 
         const api = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, jitsiOptions);
 
@@ -627,8 +538,6 @@ export default function ConsultationRoom() {
   }, [
     consultation?.id,
     consultation?.jitsi_room_name,
-    tokenReady,
-    jitsiToken,
     user?.id,
     user?.first_name,
     user?.last_name,
