@@ -476,7 +476,7 @@ class TestDataSeeder extends Seeder
         );
         $rdv5->actes()->syncWithoutDetaching([$acteConsultGen->id]);
 
-        // RDV 6 — en_cours MAINTENANT, téléconsultation (Patient 3 + Dr Compaoré) — POUR TESTER JITSI
+        // RDV 6 — en_cours MAINTENANT, téléconsultation (Patient 3 + Dr Compaoré) — POUR TESTER LIVEKIT
         $rdv6 = RendezVous::firstOrCreate(
             ['date' => now()->toDateString(), 'heure' => now()->format('H:i'), 'patient_id' => $patient3->id, 'user_id' => $specialist->id],
             [
@@ -882,7 +882,7 @@ class TestDataSeeder extends Seeder
         $this->command->info('╠══════════════════════════════════════════════════════════╣');
         $this->command->info('║ RENDEZ-VOUS                                              ║');
         $this->command->info('║  7 RDV : 2 terminés, 2 confirmés, 1 planifié,            ║');
-        $this->command->info('║          1 en cours (visio Jitsi), 1 annulé              ║');
+        $this->command->info('║          1 en cours (visio LiveKit), 1 annulé            ║');
         $this->command->info('║ CONSULTATIONS : 3 (2 terminées + 1 en cours)             ║');
         $this->command->info('║ PAIEMENTS     : 4 (3 confirmés + 1 en attente)           ║');
         $this->command->info('║ TÉLÉEXPERTISE : 2 (1 répondue + 1 en attente)            ║');

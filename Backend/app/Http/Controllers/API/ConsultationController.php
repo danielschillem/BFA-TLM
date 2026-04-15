@@ -122,7 +122,7 @@ class ConsultationController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
-        // Generate a unique room name for Jitsi only for teleconsultation
+        // Generate a unique room name for LiveKit only for teleconsultation
         if ($rdv->type !== 'presentiel' && !$rdv->room_name) {
             $rdv->update(['room_name' => 'tlm-' . $rdv->id . '-' . bin2hex(random_bytes(4))]);
         }

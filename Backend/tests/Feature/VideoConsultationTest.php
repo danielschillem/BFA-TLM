@@ -38,7 +38,7 @@ class VideoConsultationTest extends TestCase
         $this->dossier = DossierPatient::factory()->create(['patient_id' => $this->patient->id]);
     }
 
-    // ── Jitsi room name generation ─────────────────────────────────────────────
+    // ── Room name generation ─────────────────────────────────────────────────────
 
     public function test_teleconsultation_start_generates_room_name(): void
     {
@@ -54,7 +54,7 @@ class VideoConsultationTest extends TestCase
             ->assertJsonPath('success', true);
 
         $rdv->refresh();
-        $this->assertNotNull($rdv->room_name, 'Le room_name Jitsi doit être généré');
+        $this->assertNotNull($rdv->room_name, 'Le room_name doit être généré');
         $this->assertStringStartsWith('tlm-', $rdv->room_name);
     }
 
@@ -92,7 +92,7 @@ class VideoConsultationTest extends TestCase
         $this->assertEquals('tlm-existing-room', $rdv->room_name);
     }
 
-    public function test_consultation_resource_includes_jitsi_room_name(): void
+    public function test_consultation_resource_includes_room_name(): void
     {
         $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
             'patient_id' => $this->patient->id,
@@ -111,7 +111,7 @@ class VideoConsultationTest extends TestCase
             ->getJson("/api/v1/consultations/{$consultation->id}");
 
         $response->assertOk()
-            ->assertJsonPath('data.jitsi_room_name', 'tlm-42-abc123')
+            ->assertJsonPath('data.room_name', 'tlm-42-abc123')
             ->assertJsonPath('data.type', 'teleconsultation');
     }
 
@@ -483,9 +483,9 @@ class VideoConsultationTest extends TestCase
         $this->assertGreaterThanOrEqual(2, $response->json('data.stats.total_consultations'));
     }
 
-    // ── JWT Jitsi token ────────────────────────────────────────────────────────
+    // ── JWT LiveKit token ────────────────────────────────────────────────────────
 
-    public function test_start_teleconsultation_returns_jitsi_token_key(): void
+    public function test_start_teleconsultation_returns_livekit_token_key(): void
     {
         $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
             'patient_id' => $this->patient->id,
@@ -496,10 +496,10 @@ class VideoConsultationTest extends TestCase
             ->postJson("/api/v1/consultations/appointments/{$rdv->id}/start");
 
         $response->assertStatus(201)
-            ->assertJsonStructure(['success', 'data', 'jitsi_token']);
+            ->assertJsonStructure(['success', 'data', 'livekit_token']);
     }
 
-    public function test_refresh_jitsi_token_for_active_consultation(): void
+    public function test_refresh_livekit_token_for_active_consultation(): void
     {
         $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
             'patient_id' => $this->patient->id,
@@ -516,20 +516,19 @@ class VideoConsultationTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->doctor, 'api')
-            ->postJson("/api/v1/consultations/{$consultation->id}/jitsi-token");
+            ->postJson("/api/v1/consultations/{$consultation->id}/livekit-token");
 
-        // Si la clé privée est configurée → 200 avec token, sinon → 501
-        if (app(\App\Services\JitsiService::class)->isEnabled()) {
+        if (app(\App\Services\LiveKitService::class)->isEnabled()) {
             $response->assertOk()
                 ->assertJsonPath('success', true)
-                ->assertJsonStructure(['jitsi_token']);
+                ->assertJsonStructure(['livekit_token']);
         } else {
             $response->assertStatus(501)
                 ->assertJsonPath('success', false);
         }
     }
 
-    public function test_refresh_jitsi_token_rejects_finished_consultation(): void
+    public function test_refresh_livekit_token_rejects_finished_consultation(): void
     {
         $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
             'patient_id' => $this->patient->id,
@@ -546,13 +545,13 @@ class VideoConsultationTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->doctor, 'api')
-            ->postJson("/api/v1/consultations/{$consultation->id}/jitsi-token");
+            ->postJson("/api/v1/consultations/{$consultation->id}/livekit-token");
 
         $response->assertStatus(422)
             ->assertJsonPath('success', false);
     }
 
-    public function test_refresh_jitsi_token_rejects_without_room(): void
+    public function test_refresh_livekit_token_rejects_without_room(): void
     {
         $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
             'patient_id' => $this->patient->id,
@@ -569,31 +568,9 @@ class VideoConsultationTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->doctor, 'api')
-            ->postJson("/api/v1/consultations/{$consultation->id}/jitsi-token");
+            ->postJson("/api/v1/consultations/{$consultation->id}/livekit-token");
 
         $response->assertStatus(422)
             ->assertJsonPath('success', false);
-    }
-
-    public function test_consultation_resource_includes_jitsi_app_id(): void
-    {
-        $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
-            'patient_id' => $this->patient->id,
-            'user_id' => $this->doctor->id,
-            'room_name' => 'tlm-app-id-test',
-        ]);
-
-        $consultation = Consultation::factory()->create([
-            'user_id' => $this->doctor->id,
-            'dossier_patient_id' => $this->dossier->id,
-            'rendez_vous_id' => $rdv->id,
-            'type' => 'teleconsultation',
-        ]);
-
-        $response = $this->actingAs($this->doctor, 'api')
-            ->getJson("/api/v1/consultations/{$consultation->id}");
-
-        $response->assertOk()
-            ->assertJsonPath('data.jitsi_app_id', config('jitsi.app_id'));
     }
 }

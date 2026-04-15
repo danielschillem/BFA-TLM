@@ -218,7 +218,7 @@ export default function ConsultationRoom() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isDoctor } = useAuthStore();
-  const jitsiContainerRef = useRef(null);
+  const videoContainerRef = useRef(null);
 
   // WebSocket: écouter les events temps réel de la consultation
   useConsultationChannel(id ? Number(id) : null);
@@ -589,7 +589,7 @@ export default function ConsultationRoom() {
       {/* LiveKit video container */}
       <div className="flex-1 relative overflow-hidden">
         <div
-          ref={jitsiContainerRef}
+          ref={videoContainerRef}
           className="absolute inset-0"
           style={{
             width:

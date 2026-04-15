@@ -79,15 +79,13 @@ services:
         sync: false
       - key: PASSPORT_PUBLIC_KEY
         sync: false
-      # ── JaaS 8x8.vc (visioconférence Jitsi) ──
-      - key: JAAS_APP_ID
-        value: vpaas-magic-cookie-ed63b1c31e924e1aa588fe9388143c2c
-      - key: JAAS_API_KEY_ID
-        value: vpaas-magic-cookie-ed63b1c31e924e1aa588fe9388143c2c/6be129
-      - key: JAAS_PRIVATE_KEY
+      # ── LiveKit (visioconférence WebRTC) ──
+      - key: LIVEKIT_WS_URL
         sync: false
-      - key: JAAS_TOKEN_TTL
-        value: "120"
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
 
   - type: worker
     name: tlm-temp-queue

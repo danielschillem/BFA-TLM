@@ -253,8 +253,8 @@ export default function PatientBookAppointment() {
   // ══════════════════════════════════════════════════════════════════════════════
   if (step === 3 && bookingResult) {
     const isOnline = consultationType === "teleconsultation";
-    const roomName = bookingResult.rdv?.room_name;
-    const jitsiUrl = roomName ? `https://meet.jit.si/${roomName}` : null;
+    const rdvId = bookingResult.rdv?.id;
+    const waitingRoomUrl = rdvId ? `/appointments/${rdvId}/waiting` : null;
 
     return (
       <AppLayout title="Rendez-vous confirmé">
@@ -388,24 +388,23 @@ export default function PatientBookAppointment() {
             </Card>
           )}
 
-          {/* Jitsi link */}
-          {isOnline && jitsiUrl && (
+          {/* Lien salle d'attente */}
+          {isOnline && waitingRoomUrl && (
             <Card>
               <CardContent className="pt-4">
                 <div className="bg-primary-50 rounded-xl p-4 flex items-center gap-3">
                   <Video className="w-6 h-6 text-primary-600 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-primary-800">
-                      Lien de visioconférence
+                      Salle d'attente vidéo
                     </p>
-                    <p className="text-xs text-primary-600 truncate">
-                      {jitsiUrl}
+                    <p className="text-xs text-primary-600">
+                      Vous serez redirigé automatiquement quand le médecin
+                      démarrera
                     </p>
                   </div>
                   <a
-                    href={jitsiUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={waitingRoomUrl}
                     className="flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-800"
                   >
                     Rejoindre <ExternalLink className="w-4 h-4" />

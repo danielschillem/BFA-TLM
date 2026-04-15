@@ -17,7 +17,7 @@ class SecurityHeaders
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-        // Permissions-Policy : autoriser caméra/micro (téléconsultation Jitsi)
+        // Permissions-Policy : autoriser caméra/micro (téléconsultation LiveKit)
         // mais bloquer les API sensibles non utilisées
         $response->headers->set('Permissions-Policy', implode(', ', [
             'camera=(self)',
@@ -32,7 +32,7 @@ class SecurityHeaders
 
         // Cross-Origin Isolation (protection contre Spectre/side-channel)
         // En prod, frontend et API sont sur des domaines séparés :
-        // COOP same-origin-allow-popups autorise les popups (Jitsi) tout en protégeant contre Spectre
+        // COOP same-origin-allow-popups autorise les popups tout en protégeant contre Spectre
         // CORP cross-origin est requis pour que le frontend puisse charger les réponses API
         if ($request->is('api/*')) {
             $response->headers->set('Cross-Origin-Resource-Policy', 'cross-origin');
