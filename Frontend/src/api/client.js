@@ -2,24 +2,33 @@ import axios from "axios";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/authStore";
 import { mockClient } from "./mockAdapter";
-import { apiUrl } from "@/config/appConfig";
+import { apiUrl, apiOrigin } from "@/config/appConfig";
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
 
 // Détection du mode gateway (Hostinger CDN) : VITE_API_URL se termine par /index.php
 const isGatewayMode = apiUrl.endsWith("/index.php");
 
-// Client Axios réel
+/**
+ * Initialise le cookie CSRF (Sanctum SPA).
+ * À appeler une fois avant login/register.
+ */
+export async function fetchCsrfCookie() {
+  const base = apiOrigin || window.location.origin;
+  await axios.get(`${base}/sanctum/csrf-cookie`, { withCredentials: true });
+}
+
+// Client Axios réel — cookies httpOnly (Sanctum SPA)
 const axiosClient = axios.create({
   baseURL: apiUrl,
   headers: { "Content-Type": "application/json", Accept: "application/json" },
+  withCredentials: true,
+  withXSRFToken: true,
   timeout: 30000,
 });
 
-// Intercepteur : ajout du token + Accept header adapté pour blob + gateway CDN
+// Intercepteur : ajout Accept header adapté pour blob + gateway CDN (cookies httpOnly = pas de Bearer)
 axiosClient.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().token;
-  if (token) config.headers.Authorization = `Bearer ${token}`;
   // Pour les requêtes blob (PDF, fichiers), Accept doit être */* et non application/json
   if (config.responseType === "blob") {
     config.headers.Accept = "*/*";

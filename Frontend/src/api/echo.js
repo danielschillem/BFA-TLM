@@ -37,10 +37,9 @@ export function getEcho() {
     return null;
   }
 
-  const token = useAuthStore.getState().token;
   const authHeaders = {
-    Authorization: `Bearer ${token}`,
     Accept: "application/json",
+    "X-Requested-With": "XMLHttpRequest",
   };
 
   if (isGatewayMode) {
@@ -58,6 +57,7 @@ export function getEcho() {
     authEndpoint: resolveAuthEndpoint(),
     auth: {
       headers: authHeaders,
+      withCredentials: true,
     },
   });
 
@@ -72,16 +72,6 @@ export function disconnectEcho() {
   if (echoInstance) {
     echoInstance.disconnect();
     echoInstance = null;
-  }
-}
-
-/**
- * Met à jour le token d'authentification dans l'instance Echo.
- * À appeler après un refresh token.
- */
-export function updateEchoToken(newToken) {
-  if (echoInstance) {
-    echoInstance.connector.options.auth.headers.Authorization = `Bearer ${newToken}`;
   }
 }
 

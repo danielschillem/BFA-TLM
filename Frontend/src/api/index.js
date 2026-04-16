@@ -48,9 +48,17 @@ const toSharePayload = (payload) => {
   return { ...defaultSharePayload, ...payload };
 };
 // ── Auth ─────────────────────────────────────────────────────────────────────
+import { fetchCsrfCookie } from "./client";
+
 export const authApi = {
-  register: (data) => apiClient.post("/auth/register", data),
-  login: (data) => apiClient.post("/auth/login", data),
+  register: async (data) => {
+    await fetchCsrfCookie();
+    return apiClient.post("/auth/register", data);
+  },
+  login: async (data) => {
+    await fetchCsrfCookie();
+    return apiClient.post("/auth/login", data);
+  },
   verifyTwoFactor: (data) => apiClient.post("/auth/two-factor/verify", data),
   resendTwoFactor: () => apiClient.post("/auth/two-factor/resend", {}),
   logout: () => apiClient.post("/auth/logout", {}),

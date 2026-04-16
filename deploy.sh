@@ -48,7 +48,7 @@ echo -e "\n${YELLOW}[0/7] Vérifications préalables...${NC}"
 
 # Vérifier que PHP est disponible
 if ! command -v php &> /dev/null; then
-    echo -e "${RED}✗ PHP introuvable. Installez PHP 8.2+${NC}"
+    echo -e "${RED}✗ PHP introuvable. Installez PHP 8.3+${NC}"
     exit 1
 fi
 

@@ -6,15 +6,13 @@ export const useAuthStore = create(
   persist(
     (set, get) => ({
       user: null,
-      token: null,
       isAuthenticated: false,
       requiresTwoFactor: false,
       pendingUserId: null,
 
-      setAuth: (user, token) =>
+      setAuth: (user) =>
         set({
           user,
-          token,
           isAuthenticated: true,
           requiresTwoFactor: false,
           pendingUserId: null,
@@ -22,18 +20,16 @@ export const useAuthStore = create(
 
       setUser: (user) => set({ user }),
 
-      setTwoFactorPending: (userId, pendingToken = null) =>
+      setTwoFactorPending: (userId) =>
         set({
           requiresTwoFactor: true,
           pendingUserId: userId,
-          ...(pendingToken ? { token: pendingToken } : {}),
         }),
 
       logout: () => {
         disconnectEcho();
         set({
           user: null,
-          token: null,
           isAuthenticated: false,
           requiresTwoFactor: false,
           pendingUserId: null,
@@ -56,10 +52,7 @@ export const useAuthStore = create(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
         isAuthenticated: state.isAuthenticated,
-        requiresTwoFactor: state.requiresTwoFactor,
-        pendingUserId: state.pendingUserId,
       }),
     },
   ),

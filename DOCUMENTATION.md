@@ -3,7 +3,7 @@
 **Version :** 3.0.0 — 26 mars 2026  
 **Développeur :** Alternatives-IT (AIT)  
 **Financé par :** ANABASE INC  
-**Framework :** Laravel 11.50 · PHP 8.4 | React 18 · Vite 5  
+**Framework :** Laravel 11.50 · PHP 8.3 | React 18 · Vite 5  
 **Licence :** Propriétaire — Alternatives-IT & ANABASE INC  
 **Copyright :** © 2025-2026 Alternatives-IT & ANABASE INC. Tous droits réservés.
 
@@ -81,7 +81,7 @@
 
 | Composant           | Technologie                         |
 | ------------------- | ----------------------------------- |
-| Backend             | Laravel 11 (PHP 8.2+)               |
+| Backend             | Laravel 11 (PHP 8.3)                |
 | Authentification    | Laravel Passport (OAuth2)           |
 | Autorisation (RBAC) | Spatie Laravel Permission           |
 | Audit / Traçabilité | Spatie Activity Log                 |
@@ -1181,7 +1181,7 @@ Tous les champs médicaux et personnels sensibles sont chiffrés au repos (AES-2
 
 ### Prérequis
 
-- PHP 8.2+
+- PHP 8.3+
 - Composer 2.x
 - Node.js 18+ & NPM
 - MySQL 8.x (ou SQLite pour développement)

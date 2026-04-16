@@ -37,17 +37,9 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          {
-            urlPattern: /\/api\/.*$/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
-              networkTimeoutSeconds: 10,
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
         ],
+        // Routes API exclues du cache SW (données médicales sensibles)
+        navigateFallbackDenylist: [/\/api\//],
       },
     }),
   ],

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Traits;
 
+use App\Models\Consultation;
 use App\Models\DossierPatient;
 use App\Models\Patient;
+use App\Models\RendezVous;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -101,5 +103,46 @@ trait AuthorizesStructureAccess
         return $query->whereHas('dossierPatient.patient', function ($q) use ($user) {
             $q->where('structure_id', $user->structure_id);
         });
+    }
+
+    /**
+     * Vérifie qu'un médecin (doctor/specialist) a une relation médicale
+     * avec le patient propriétaire du dossier (consultation ou rendez-vous existant).
+     * Les admins et les patients eux-mêmes sont dispensés de cette vérification.
+     */
+    protected function authorizeMedecinPatientRelation(int $dossierId): void
+    {
+        $user = request()->user();
+        if ($user->hasRole('admin')) {
+            return;
+        }
+
+        $dossier = DossierPatient::with('patient')->findOrFail($dossierId);
+        $patient = $dossier->patient;
+
+        // Le patient peut accéder à son propre dossier
+        if ($user->hasRole('patient') && $patient->user_id === $user->id) {
+            return;
+        }
+
+        // Vérifier qu'il existe au moins une consultation ou un rendez-vous
+        // entre ce médecin et ce patient
+        $hasConsultation = Consultation::where('user_id', $user->id)
+            ->whereHas('rendezVous', fn ($q) => $q->where('patient_id', $patient->id))
+            ->exists();
+
+        if ($hasConsultation) {
+            return;
+        }
+
+        $hasAppointment = RendezVous::where('user_id', $user->id)
+            ->where('patient_id', $patient->id)
+            ->exists();
+
+        if ($hasAppointment) {
+            return;
+        }
+
+        abort(403, 'Aucune relation médicale avec ce patient.');
     }
 }

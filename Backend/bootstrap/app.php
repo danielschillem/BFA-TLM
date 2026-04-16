@@ -24,7 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Middleware globaux pour toutes les réponses
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
-        // Middleware API : forcer JSON + valider Content-Type
+        // Middleware API : Sanctum stateful (cookies SPA) + forcer JSON + valider Content-Type
+        $middleware->prependToGroup('api', [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        ]);
         $middleware->appendToGroup('api', [
             \App\Http\Middleware\ForceJsonResponse::class,
             \App\Http\Middleware\ValidateContentType::class,

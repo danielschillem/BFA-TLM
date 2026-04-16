@@ -39,6 +39,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "dompurify": "^3.4.0",
     "laravel-echo": "^2.3.1",
     "livekit-client": "^2.18.2",
     "lucide-react": "^0.414.0",

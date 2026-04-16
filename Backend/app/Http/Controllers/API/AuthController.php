@@ -54,14 +54,15 @@ class AuthController extends Controller
                 'patient_id' => $patient->id,
             ]);
 
-            $token = $user->createToken('auth-token')->accessToken;
+            // Authentification par session (cookie httpOnly)
+            Auth::guard('web')->login($user);
+            $request->session()->regenerate();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Inscription réussie',
                 'data' => [
                     'user' => new UserResource($user->load('roles')),
-                    'token' => $token,
                     'requires_two_factor' => false,
                 ],
             ], 201);
@@ -121,12 +122,15 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth-token')->accessToken;
 
+        // Authentification par session (cookie httpOnly)
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
+
         return response()->json([
             'success' => true,
             'message' => 'Connexion réussie',
             'data' => [
                 'user' => new UserResource($user->load('roles', 'structure')),
-                'token' => $token,
                 'requires_two_factor' => false,
             ],
         ]);
@@ -172,7 +176,15 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->token()?->revoke();
+        // Révoquer le token Passport si présent (rétro-compatibilité)
+        if ($request->user()->token()) {
+            $request->user()->token()->revoke();
+        }
+
+        // Invalider la session (cookie httpOnly)
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return response()->json([
             'success' => true,

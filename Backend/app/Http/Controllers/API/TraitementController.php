@@ -15,9 +15,9 @@ class TraitementController extends Controller
     public function store(StoreTraitementRequest $request): JsonResponse
     {
         $validated = $request->validated();
-        if (!empty($validated['dossier_patient_id'])) {
-            $this->authorizeDossierAccess($validated['dossier_patient_id']);
-        }
+        abort_unless(!empty($validated['dossier_patient_id']), 422, 'Le dossier patient est requis.');
+        $this->authorizeDossierAccess($validated['dossier_patient_id']);
+        $this->authorizeMedecinPatientRelation($validated['dossier_patient_id']);
 
         $traitement = Traitement::create($validated);
 

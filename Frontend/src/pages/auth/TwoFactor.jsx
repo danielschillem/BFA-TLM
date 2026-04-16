@@ -87,11 +87,11 @@ export default function TwoFactor() {
         code: fullCode,
       });
       const data = res.data?.data;
-      if (!data?.token || !data?.user) {
+      if (!data?.user) {
         throw new Error("Réponse 2FA incomplète");
       }
 
-      setAuth(data.user, data.token);
+      setAuth(data.user);
 
       try {
         const me = await authApi.me();

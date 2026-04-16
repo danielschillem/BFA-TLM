@@ -7,10 +7,9 @@ cd /var/www/html
 php artisan storage:link || true
 
 if [ -z "${APP_KEY:-}" ]; then
-  echo "⚠ APP_KEY manquant — generation automatique d'une cle temporaire." >&2
-  echo "⚠ IMPORTANT: Definissez APP_KEY dans les variables d'environnement Render pour la persistance." >&2
-  export APP_KEY="base64:$(head -c 32 /dev/urandom | base64)"
-  echo "APP_KEY=$APP_KEY" >> /var/www/html/.env
+  echo "❌ ERREUR FATALE: APP_KEY est absente. Definissez-la dans les variables d'environnement Render." >&2
+  echo "Generez-en une avec: php artisan key:generate --show" >&2
+  exit 1
 fi
 
 if [ -z "${REVERB_APP_KEY:-}" ]; then
@@ -40,7 +39,14 @@ case "${APP_RUNTIME_MODE:-web}" in
       php artisan passport:keys --force || true
     fi
     php artisan passport:client --personal --name="Render Personal Access Client" --no-interaction || true
-    exec php artisan serve --host=0.0.0.0 --port="${PORT:-10000}"
+
+    # ── Remplacer le port dans la config nginx si PORT != 10000 ──
+    PORT="${PORT:-10000}"
+    sed -i "s/listen 10000/listen ${PORT}/" /etc/nginx/sites-available/default
+
+    # ── Démarrer PHP-FPM en arrière-plan puis Nginx au premier plan ──
+    php-fpm -D
+    exec nginx -g "daemon off;"
     ;;
   worker)
     exec php artisan queue:work --sleep=3 --tries=3 --timeout=120

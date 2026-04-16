@@ -16,9 +16,9 @@ class ExamenController extends Controller
 
     public function store(StoreExamenRequest $request): JsonResponse
     {
-        if ($request->dossier_patient_id) {
-            $this->authorizeDossierAccess($request->dossier_patient_id);
-        }
+        abort_unless($request->dossier_patient_id, 422, 'Le dossier patient est requis.');
+        $this->authorizeDossierAccess($request->dossier_patient_id);
+        $this->authorizeMedecinPatientRelation($request->dossier_patient_id);
 
         $examen = Examen::create($request->validated() + [
             'dossier_patient_id' => $request->dossier_patient_id,

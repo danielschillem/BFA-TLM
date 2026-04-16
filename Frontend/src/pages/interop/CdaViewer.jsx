@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import DOMPurify from "dompurify";
 import {
   FileCode2,
   Download,
@@ -37,7 +38,7 @@ function XmlViewer({ xml }) {
   return (
     <pre
       className="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-auto max-h-[60vh] leading-relaxed whitespace-pre-wrap"
-      dangerouslySetInnerHTML={{ __html: highlighted }}
+      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlighted) }}
     />
   );
 }

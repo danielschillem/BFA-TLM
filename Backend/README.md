@@ -18,7 +18,7 @@ API REST pour la plateforme de télémédecine **TLM_APP-BFA**. Gère le parcour
 
 | Composant        | Technologie                          |
 | ---------------- | ------------------------------------ |
-| Framework        | Laravel 11 (PHP 8.2+)                |
+| Framework        | Laravel 11 (PHP 8.3)                 |
 | Authentification | Laravel Passport 13.x (OAuth2)       |
 | Autorisation     | Spatie Laravel Permission 6.x (RBAC) |
 | Audit            | Spatie Activity Log 4.x              |
@@ -28,7 +28,7 @@ API REST pour la plateforme de télémédecine **TLM_APP-BFA**. Gère le parcour
 
 ## Prérequis
 
-- PHP 8.2+ (extensions : `pdo`, `mbstring`, `openssl`, `tokenizer`, `xml`, `bcmath`)
+- PHP 8.3+ (extensions : `pdo`, `mbstring`, `openssl`, `tokenizer`, `xml`, `bcmath`)
 - Composer 2.x
 - Node.js 18+ & NPM
 - MySQL 8.x (ou SQLite pour développement local)
@@ -171,7 +171,7 @@ php artisan serve --port=8000
 ### Prérequis serveur
 
 - Ubuntu 22.04+ ou Debian 12+
-- PHP 8.2+ (FPM) avec extensions : `pdo_mysql`, `mbstring`, `openssl`, `xml`, `bcmath`, `gd`, `zip`
+- PHP 8.3+ (FPM) avec extensions : `pdo_mysql`, `mbstring`, `openssl`, `xml`, `bcmath`, `gd`, `zip`
 - MySQL 8.x ou PostgreSQL 15+
 - Nginx ou Apache
 - Composer 2.x
