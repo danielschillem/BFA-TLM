@@ -275,6 +275,39 @@ function LiveKitVideoUI({
     };
   }, [room]);
 
+  // ── Reconnexion réseau — toast informatif ──
+  useEffect(() => {
+    if (!room) return;
+    let reconnectToastId = null;
+
+    const onReconnecting = () => {
+      reconnectToastId = toast.loading("Reconnexion en cours…", {
+        duration: Infinity,
+        icon: <WifiOff className="w-4 h-4 text-yellow-400 animate-pulse" />,
+      });
+    };
+    const onReconnected = () => {
+      if (reconnectToastId) toast.dismiss(reconnectToastId);
+      toast.success("Connexion rétablie", { duration: 3000 });
+    };
+    const onMediaDevicesError = (err) => {
+      toast.error(
+        `Erreur périphérique : ${err?.message || "caméra/micro indisponible"}`,
+        { duration: 6000 },
+      );
+    };
+
+    room.on(RoomEvent.Reconnecting, onReconnecting);
+    room.on(RoomEvent.Reconnected, onReconnected);
+    room.on(RoomEvent.MediaDevicesError, onMediaDevicesError);
+    return () => {
+      room.off(RoomEvent.Reconnecting, onReconnecting);
+      room.off(RoomEvent.Reconnected, onReconnected);
+      room.off(RoomEvent.MediaDevicesError, onMediaDevicesError);
+      if (reconnectToastId) toast.dismiss(reconnectToastId);
+    };
+  }, [room]);
+
   // ── Track active-speaker highlight via data messages ──
   useEffect(() => {
     if (!room || !localParticipant) return;
@@ -1074,10 +1107,37 @@ export default function ConsultationRoom() {
   // Stable LiveKit room options (memoized to prevent re-renders from causing reconnection loops)
   const livekitRoomOptions = useMemo(
     () => ({
+      // ── Streaming adaptatif — essentiel pour les réseaux instables ──
+      adaptiveStream: true, // adapte la résolution reçue à la taille de l'élément
+      dynacast: true, // pause les tracks non visibles côté serveur
+
+      // ── Contraintes de capture vidéo ──
+      videoCaptureDefaults: {
+        resolution: VideoPresets.h720.resolution, // 1280x720 max
+        facingMode: "user",
+      },
+
+      // ── Contraintes de capture audio ──
+      audioCaptureDefaults: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+
+      // ── Publication avec simulcast pour adaptation bande passante ──
+      publishDefaults: {
+        simulcast: true,
+        videoCodec: "vp8",
+      },
+
+      // ── Reconnexion tolérante aux réseaux africains ──
       reconnectPolicy: {
-        maxRetries: 3,
-        nextRetryDelayInMs: (context) =>
-          context.retryCount < 3 ? context.retryCount * 1000 + 1000 : null,
+        maxRetries: 15,
+        nextRetryDelayInMs: (context) => {
+          // Backoff exponentiel plafonné à 30s
+          const delay = Math.min(Math.pow(2, context.retryCount) * 1000, 30000);
+          return delay;
+        },
       },
     }),
     [],
@@ -1223,20 +1283,27 @@ export default function ConsultationRoom() {
                 if (livekitErrorCountRef.current === 1 && consultation?.id) {
                   // First failure: try refreshing token from backend (may fix stale/invalid token)
                   console.info("[LiveKit] Refreshing token from backend...");
+                  toast.loading("Récupération d'un nouveau jeton vidéo…", {
+                    id: "lk-token-refresh",
+                    duration: 8000,
+                  });
                   fetchFreshToken(consultation.id).then(({ token, wsUrl }) => {
+                    toast.dismiss("lk-token-refresh");
                     if (token && wsUrl) {
                       setLivekitToken(token);
                       setLivekitWsUrl(wsUrl);
                     }
                   });
-                } else if (livekitErrorCountRef.current >= 3) {
+                } else if (livekitErrorCountRef.current >= 5) {
                   // Stop trying — unmount LiveKitRoom entirely
                   setLivekitFatalError(
                     err?.message || "Impossible de se connecter à LiveKit",
                   );
                   setConnectionState("disconnected");
                   setOverlayDismissed(true);
-                  toast.error("Connexion vidéo échouée — arrêt des tentatives");
+                  toast.error(
+                    "Connexion vidéo échouée après plusieurs tentatives",
+                  );
                 }
               }}
               style={{ height: "100%", width: "100%" }}
