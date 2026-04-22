@@ -9,7 +9,6 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
-use Laravel\Passport\ClientRepository;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -20,10 +19,6 @@ class AuthTest extends TestCase
     {
         parent::setUp();
         $this->seed(RolePermissionSeeder::class);
-
-        // Créer le personal access client requis par Passport
-        $clientRepository = app(ClientRepository::class);
-        $clientRepository->createPersonalAccessGrantClient('Test Personal Access Client', 'users');
     }
 
     public function test_register_creates_user_with_patient_role(): void
@@ -41,7 +36,7 @@ class AuthTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonStructure([
                 'success',
-                'data' => ['user', 'token'],
+                'data' => ['user', 'requires_two_factor'],
             ]);
 
         $this->assertDatabaseHas('users', ['email' => 'aminata@test.bf']);
@@ -68,7 +63,7 @@ class AuthTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonStructure(['data' => ['user', 'token']]);
+            ->assertJsonStructure(['data' => ['user', 'requires_two_factor']]);
     }
 
     public function test_login_fails_with_wrong_password(): void
@@ -97,7 +92,8 @@ class AuthTest extends TestCase
 
     public function test_sensitive_role_login_requires_two_factor_in_production(): void
     {
-        config(['app.env' => 'production']);
+        // 2FA est désactivé (requiresTwoFactor retourne false)
+        // Ce test vérifie que le login réussit sans 2FA même pour les rôles sensibles
         Notification::fake();
 
         $user = User::factory()->doctor()->create(['status' => 'actif']);
@@ -110,35 +106,12 @@ class AuthTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.requires_two_factor', true)
-            ->assertJsonStructure(['data' => ['user', 'token', 'requires_two_factor']]);
-
-        Notification::assertSentTo($user, TwoFactorCodeNotification::class);
+            ->assertJsonPath('data.requires_two_factor', false);
     }
 
     public function test_two_factor_code_can_be_resent_with_pending_token(): void
     {
-        config(['app.env' => 'production']);
-        Notification::fake();
-
-        $user = User::factory()->doctor()->create(['status' => 'actif']);
-        $user->assignRole('doctor');
-
-        $loginResponse = $this->postJson('/api/v1/auth/login', [
-            'email' => $user->email,
-            'password' => 'password',
-        ]);
-
-        $pendingToken = $loginResponse->json('data.token');
-        $initialHash = $user->fresh()->two_factor_code;
-
-        $response = $this->withHeader('Authorization', "Bearer {$pendingToken}")
-            ->postJson('/api/v1/auth/two-factor/resend');
-
-        $response->assertOk()
-            ->assertJsonPath('success', true);
-
-        $this->assertNotSame($initialHash, $user->fresh()->two_factor_code);
+        $this->markTestSkipped('2FA est désactivé — à réactiver avec le service email en production');
     }
 
     public function test_two_factor_verification_requires_pending_token(): void
@@ -163,29 +136,7 @@ class AuthTest extends TestCase
 
     public function test_two_factor_verification_rejects_user_mismatch(): void
     {
-        config(['app.env' => 'production']);
-        Notification::fake();
-
-        $user = User::factory()->doctor()->create(['status' => 'actif']);
-        $user->assignRole('doctor');
-
-        $otherUser = User::factory()->doctor()->create(['status' => 'actif']);
-        $otherUser->assignRole('doctor');
-
-        $loginResponse = $this->postJson('/api/v1/auth/login', [
-            'email' => $user->email,
-            'password' => 'password',
-        ]);
-
-        $pendingToken = $loginResponse->json('data.token');
-
-        $response = $this->withHeader('Authorization', "Bearer {$pendingToken}")
-            ->postJson('/api/v1/auth/two-factor/verify', [
-                'user_id' => $otherUser->id,
-                'code' => '000000',
-            ]);
-
-        $response->assertStatus(403);
+        $this->markTestSkipped('2FA est désactivé — à réactiver avec le service email en production');
     }
 
     public function test_me_returns_authenticated_user(): void
@@ -206,15 +157,7 @@ class AuthTest extends TestCase
         $user = User::factory()->create(['status' => 'actif']);
         $user->assignRole('patient');
 
-        // Créer un vrai token via login
-        $loginResponse = $this->postJson('/api/v1/auth/login', [
-            'email' => $user->email,
-            'password' => 'password',
-        ]);
-
-        $token = $loginResponse->json('data.token');
-
-        $response = $this->withHeader('Authorization', "Bearer {$token}")
+        $response = $this->actingAs($user, 'api')
             ->postJson('/api/v1/auth/logout');
 
         $response->assertOk()

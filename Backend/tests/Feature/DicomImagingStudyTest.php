@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\DicomStudy;
 use App\Models\Patient;
+use App\Models\Structure;
 use App\Models\User;
 use App\Services\DicomService;
 use Database\Seeders\RolePermissionSeeder;
@@ -15,13 +16,16 @@ class DicomImagingStudyTest extends TestCase
     use RefreshDatabase;
 
     protected User $doctor;
+    protected Structure $structure;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(RolePermissionSeeder::class);
 
-        $this->doctor = User::factory()->doctor()->create(['status' => 'actif']);
+        $this->structure = Structure::factory()->create();
+
+        $this->doctor = User::factory()->doctor()->create(['status' => 'actif', 'structure_id' => $this->structure->id]);
         $this->doctor->assignRole('doctor');
     }
 
@@ -97,7 +101,9 @@ class DicomImagingStudyTest extends TestCase
 
     public function test_dicom_show_returns_study(): void
     {
-        $study = DicomStudy::factory()->create();
+        $patient = Patient::factory()->create();
+        $patient->forceFill(['structure_id' => $this->structure->id])->save();
+        $study = DicomStudy::factory()->create(['patient_id' => $patient->id]);
 
         $response = $this->actingAs($this->doctor, 'api')
             ->getJson('/api/v1/dicom/studies/' . $study->id);
@@ -120,6 +126,7 @@ class DicomImagingStudyTest extends TestCase
     public function test_dicom_store_creates_study(): void
     {
         $patient = Patient::factory()->create();
+        $patient->forceFill(['structure_id' => $this->structure->id])->save();
 
         $payload = [
             'study_instance_uid' => '1.2.826.9999.1234.5678',
@@ -157,7 +164,9 @@ class DicomImagingStudyTest extends TestCase
 
     public function test_dicom_update_changes_status(): void
     {
-        $study = DicomStudy::factory()->create(['statut' => 'recu']);
+        $patient = Patient::factory()->create();
+        $patient->forceFill(['structure_id' => $this->structure->id])->save();
+        $study = DicomStudy::factory()->create(['statut' => 'recu', 'patient_id' => $patient->id]);
 
         $response = $this->actingAs($this->doctor, 'api')
             ->putJson('/api/v1/dicom/studies/' . $study->id, [

@@ -16,6 +16,7 @@ class AllergieController extends Controller
     public function store(StoreAllergieRequest $request): JsonResponse
     {
         $this->authorizeDossierAccess($request->validated()['dossier_patient_id']);
+        $this->authorizeMedecinPatientRelation($request->validated()['dossier_patient_id']);
 
         $allergie = Allergie::create($request->validated());
 

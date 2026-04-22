@@ -51,7 +51,6 @@ export const useAuthStore = create(
       name: "tlm-auth",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
     },

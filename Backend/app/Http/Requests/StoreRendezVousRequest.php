@@ -23,7 +23,14 @@ class StoreRendezVousRequest extends FormRequest
             'priorite' => ['nullable', 'in:normale,haute,urgente'],
             // patient_id auto-rempli pour les patients autonomes
             'patient_id' => [$isPatient ? 'nullable' : 'required', 'exists:patients,id'],
-            'user_id' => ['nullable', 'exists:users,id'],
+            'user_id' => ['nullable', 'exists:users,id', function ($attribute, $value, $fail) {
+                if ($value) {
+                    $target = \App\Models\User::find($value);
+                    if (!$target || !$target->hasAnyRole(['doctor', 'specialist', 'health_professional'])) {
+                        $fail('Le médecin sélectionné doit être un professionnel de santé.');
+                    }
+                }
+            }],
             'structure_id' => ['nullable', 'exists:structures,id'],
             'service_id' => ['nullable', 'exists:services,id'],
             'salle_id' => ['nullable', 'exists:salles,id'],

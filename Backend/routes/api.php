@@ -385,7 +385,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
         Route::get('/dashboard', [ConsultationController::class, 'dashboard'])->middleware('permission:consultations.view');
         Route::get('/{id}', [ConsultationController::class, 'show'])->middleware('permission:consultations.view');
         Route::post('/appointments/{appointmentId}/start', [ConsultationController::class, 'startFromAppointment'])->middleware('permission:consultations.create');
-        Route::post('/{id}/end', [ConsultationController::class, 'end'])->middleware('permission:consultations.view');
+        Route::post('/{id}/end', [ConsultationController::class, 'end'])->middleware('permission:consultations.update');
         Route::post('/{id}/report', [ConsultationController::class, 'createReport'])->middleware('permission:consultations.update');
         Route::post('/{id}/report/sign', [ConsultationController::class, 'signReport'])->middleware('permission:consultations.update');
         Route::post('/{id}/report/share', [ConsultationController::class, 'shareReport'])->middleware('permission:consultations.update');

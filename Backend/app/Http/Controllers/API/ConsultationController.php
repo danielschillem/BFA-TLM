@@ -83,8 +83,15 @@ class ConsultationController extends Controller
     {
         $rdv = RendezVous::with('patient.dossier')->findOrFail($appointmentId);
 
-        // Vérifier qu'il existe un paiement confirmé ou en espèces (sauf admin)
+        // Vérifier que l'utilisateur est le médecin assigné au RDV
         $user = $request->user();
+        if (!$user->hasRole('admin')
+            && $rdv->user_id !== $user->id
+            && !$rdv->invites()->where('users.id', $user->id)->exists()) {
+            abort(403, 'Vous n\'êtes pas assigné à ce rendez-vous.');
+        }
+
+        // Vérifier qu'il existe un paiement confirmé ou en espèces (sauf admin)
         if (!$user->hasRole('admin')) {
             $hasPaidOrCash = $rdv->paiements()
                 ->where(function ($q) {
@@ -164,8 +171,14 @@ class ConsultationController extends Controller
 
     public function end(int $id): JsonResponse
     {
-        $consultation = Consultation::findOrFail($id);
-        $this->authorizeAccess($consultation, request()->user());
+        $consultation = Consultation::with('dossierPatient.patient')->findOrFail($id);
+        $user = request()->user();
+
+        // Seul le médecin de la consultation ou un admin peut terminer
+        if (!$user->hasRole('admin') && $consultation->user_id !== $user->id) {
+            abort(403, 'Seul le médecin de la consultation peut la terminer.');
+        }
+
         $consultation->update(['statut' => 'terminee']);
 
         if ($consultation->rendez_vous_id) {
@@ -449,6 +462,7 @@ class ConsultationController extends Controller
     public function consent(int $id, Request $request): JsonResponse
     {
         $consultation = Consultation::with('dossierPatient.patient')->findOrFail($id);
+        $this->authorizeAccess($consultation, $request->user());
 
         $request->validate([
             'accepted' => 'required|boolean',
@@ -615,7 +629,8 @@ class ConsultationController extends Controller
      */
     public function rateVideoQuality(Request $request, int $id): JsonResponse
     {
-        $consultation = Consultation::findOrFail($id);
+        $consultation = Consultation::with('dossierPatient.patient')->findOrFail($id);
+        $this->authorizeAccess($consultation, $request->user());
 
         $validated = $request->validate([
             'rating' => 'required|integer|min:1|max:5',

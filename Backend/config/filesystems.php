@@ -65,8 +65,8 @@ return [
             'root' => storage_path('app/private'),
             'serve' => false,
             'visibility' => 'private',
-            'throw' => false,
-            'report' => false,
+            'throw' => true,
+            'report' => true,
         ],
 
     ],

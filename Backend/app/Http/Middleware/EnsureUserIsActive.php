@@ -16,8 +16,10 @@ class EnsureUserIsActive
         $user = $request->user();
 
         if ($user && !in_array($user->status, ['active', 'actif'])) {
-            // Révoquer le token pour couper l'accès immédiatement
-            $user->token()?->revoke();
+            // Révoquer le token Sanctum si présent
+            if ($user->currentAccessToken()) {
+                $user->currentAccessToken()->delete();
+            }
 
             return response()->json([
                 'success' => false,

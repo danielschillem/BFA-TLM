@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Patient;
+use App\Models\Structure;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,13 +14,16 @@ class FhirTest extends TestCase
     use RefreshDatabase;
 
     protected User $doctor;
+    protected Structure $structure;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(RolePermissionSeeder::class);
 
-        $this->doctor = User::factory()->doctor()->create(['status' => 'actif']);
+        $this->structure = Structure::factory()->create();
+
+        $this->doctor = User::factory()->doctor()->create(['status' => 'actif', 'structure_id' => $this->structure->id]);
         $this->doctor->assignRole('doctor');
     }
 
@@ -91,6 +95,7 @@ class FhirTest extends TestCase
     public function test_fhir_patient_read(): void
     {
         $patient = Patient::factory()->create();
+        $patient->forceFill(['structure_id' => $this->structure->id])->save();
 
         $response = $this->actingAs($this->doctor, 'api')
             ->getJson("/api/v1/fhir/Patient/{$patient->id}");
@@ -231,6 +236,7 @@ class FhirTest extends TestCase
     public function test_fhir_patient_everything(): void
     {
         $patient = Patient::factory()->create();
+        $patient->forceFill(['structure_id' => $this->structure->id])->save();
 
         $response = $this->actingAs($this->doctor, 'api')
             ->getJson("/api/v1/fhir/Patient/{$patient->id}/\$everything");

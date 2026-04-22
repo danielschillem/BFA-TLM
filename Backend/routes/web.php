@@ -8,4 +8,4 @@ Route::get('/', function () {
 });
 
 // Route d'authentification WebSocket (broadcasting) — compatible Passport Bearer tokens
-Broadcast::routes(['middleware' => ['auth:api']]);
+Broadcast::routes(['middleware' => ['auth:api', 'active']]);

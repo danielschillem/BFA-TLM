@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Acte;
 use App\Models\Consultation;
 use App\Models\DossierPatient;
 use App\Models\Paiement;
@@ -53,28 +54,31 @@ class PaymentTest extends TestCase
 
     public function test_can_initiate_payment(): void
     {
+        // Attacher des actes au RDV pour que le montant soit calculé côté serveur
+        $acte = Acte::factory()->create(['cout' => 5000]);
+        $this->rdv->actes()->attach($acte->id);
+
         $response = $this->actingAs($this->patientUser, 'api')
             ->postJson("/api/v1/payments/consultations/{$this->consultation->id}/initiate", [
-                'amount' => 5000,
                 'method' => 'orange_money',
                 'phone' => '+22670000001',
             ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('success', true);
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure(['fees']);
 
         $this->assertDatabaseHas('paiements', [
-            'montant' => 5000,
             'methode' => 'orange_money',
             'statut' => 'en_attente',
         ]);
     }
 
-    public function test_initiate_payment_validates_amount(): void
+    public function test_initiate_payment_validates_method(): void
     {
         $response = $this->actingAs($this->patientUser, 'api')
             ->postJson("/api/v1/payments/consultations/{$this->consultation->id}/initiate", [
-                'method' => 'orange_money',
+                'method' => 'invalid_method',
             ]);
 
         $response->assertStatus(422);
@@ -82,9 +86,11 @@ class PaymentTest extends TestCase
 
     public function test_initiate_payment_with_card(): void
     {
+        $acte = Acte::factory()->create(['cout' => 10000]);
+        $this->rdv->actes()->attach($acte->id);
+
         $response = $this->actingAs($this->patientUser, 'api')
             ->postJson("/api/v1/payments/consultations/{$this->consultation->id}/initiate", [
-                'amount' => 10000,
                 'method' => 'card',
             ]);
 

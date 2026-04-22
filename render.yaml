@@ -4,6 +4,13 @@ databases:
     user: tlm_temp_user
 
 services:
+  # ── Redis (Render Key Value) ──
+  - type: keyvalue
+    name: tlm-temp-redis
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # internal only
+
   - type: web
     name: tlm-temp-api
     runtime: docker
@@ -23,6 +30,17 @@ services:
         value: https://tlm-temp-front.netlify.app
       - key: APP_RUNTIME_MODE
         value: web
+      # ── Stockage documents médicaux (S3) ──
+      - key: FILESYSTEM_DISK
+        value: s3
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        sync: false
+      - key: AWS_BUCKET
+        sync: false
       - key: SEED_DEMO_DATA
         value: "false"
       - key: SEED_DATABASE_CLASS
@@ -34,15 +52,22 @@ services:
           name: tlm-temp-db
           property: connectionString
       - key: CACHE_STORE
-        value: database
+        value: redis
       - key: SESSION_DRIVER
-        value: database
+        value: redis
+      - key: SESSION_ENCRYPT
+        value: "true"
       - key: QUEUE_CONNECTION
-        value: database
+        value: redis
+      - key: REDIS_URL
+        fromService:
+          name: tlm-temp-redis
+          type: keyvalue
+          property: connectionString
       - key: BROADCAST_CONNECTION
         value: reverb
       - key: LOG_CHANNEL
-        value: stack
+        value: stderr
       - key: LOG_LEVEL
         value: warning
       - key: MAIL_MAILER
@@ -115,11 +140,18 @@ services:
           name: tlm-temp-db
           property: connectionString
       - key: CACHE_STORE
-        value: database
+        value: redis
       - key: SESSION_DRIVER
-        value: database
+        value: redis
+      - key: SESSION_ENCRYPT
+        value: "true"
       - key: QUEUE_CONNECTION
-        value: database
+        value: redis
+      - key: REDIS_URL
+        fromService:
+          name: tlm-temp-redis
+          type: keyvalue
+          property: connectionString
       - key: BROADCAST_CONNECTION
         value: reverb
       - key: MAIL_MAILER
@@ -197,11 +229,16 @@ services:
           name: tlm-temp-db
           property: connectionString
       - key: CACHE_STORE
-        value: database
+        value: redis
       - key: SESSION_DRIVER
-        value: database
+        value: redis
       - key: QUEUE_CONNECTION
-        value: database
+        value: redis
+      - key: REDIS_URL
+        fromService:
+          name: tlm-temp-redis
+          type: keyvalue
+          property: connectionString
       - key: BROADCAST_CONNECTION
         value: reverb
       - key: MAIL_MAILER

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\DossierPatient;
 use App\Models\Patient;
 use App\Models\PatientConsent;
+use App\Models\Structure;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,10 +24,13 @@ class ConsentTest extends TestCase
         parent::setUp();
         $this->seed(RolePermissionSeeder::class);
 
-        $this->doctor = User::factory()->doctor()->create(['status' => 'actif']);
+        $structure = Structure::factory()->create();
+
+        $this->doctor = User::factory()->doctor()->create(['status' => 'actif', 'structure_id' => $structure->id]);
         $this->doctor->assignRole('doctor');
 
         $this->patient = Patient::factory()->create();
+        $this->patient->forceFill(['structure_id' => $structure->id])->save();
         $this->dossier = DossierPatient::factory()->create(['patient_id' => $this->patient->id]);
     }
 

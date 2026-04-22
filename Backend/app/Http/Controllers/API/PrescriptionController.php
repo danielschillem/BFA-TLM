@@ -83,6 +83,13 @@ class PrescriptionController extends Controller
             abort(403, 'Seul le médecin de la consultation peut signer cette prescription.');
         }
 
+        if ($prescription->signee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette prescription est déjà signée.',
+            ], 422);
+        }
+
         $prescription->update(['signee' => true]);
 
         PrescriptionSigned::dispatch($prescription);

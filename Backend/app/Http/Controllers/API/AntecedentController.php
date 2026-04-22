@@ -16,6 +16,7 @@ class AntecedentController extends Controller
     public function store(StoreAntecedentRequest $request): JsonResponse
     {
         $this->authorizeDossierAccess($request->validated()['dossier_patient_id']);
+        $this->authorizeMedecinPatientRelation($request->validated()['dossier_patient_id']);
 
         $antecedent = Antecedent::create(
             $request->validated() + ['user_id' => auth()->id()]

@@ -553,16 +553,11 @@ class VideoConsultationTest extends TestCase
 
     public function test_refresh_livekit_token_rejects_without_room(): void
     {
-        $rdv = RendezVous::factory()->teleconsultation()->confirmed()->create([
-            'patient_id' => $this->patient->id,
-            'user_id' => $this->doctor->id,
-            'room_name' => null,
-        ]);
-
+        // Le contrôleur auto-génère un room_name si absent → on teste le cas sans rendez-vous
         $consultation = Consultation::factory()->create([
             'user_id' => $this->doctor->id,
             'dossier_patient_id' => $this->dossier->id,
-            'rendez_vous_id' => $rdv->id,
+            'rendez_vous_id' => null,
             'statut' => 'en_cours',
             'type' => 'teleconsultation',
         ]);

@@ -32,8 +32,7 @@ class PaymentController extends Controller
     public function initiate(int $consultationId, Request $request): JsonResponse
     {
         $request->validate([
-            'amount'  => 'required|numeric|min:0',
-            'method'  => 'required|string',
+            'method'  => 'required|string|in:orange_money,moov_money,card,carte,cash,especes',
             'phone'   => 'nullable|string|max:20',
         ]);
 
@@ -48,10 +47,32 @@ class PaymentController extends Controller
             ], 404);
         }
 
+        // IDOR check: vérifier que l'utilisateur est impliqué
+        $user = $request->user();
+        if (!$user->hasRole('admin')
+            && $consultation->user_id !== $user->id
+            && $rdv->user_id !== $user->id
+            && (!$rdv->patient || $rdv->patient->user_id !== $user->id)) {
+            abort(403, 'Accès non autorisé à cette consultation.');
+        }
+
+        // Calculer le montant côté serveur à partir des actes
+        $consultationAmount = (float) $rdv->actes()->sum('cout');
+        $fees = PlatformSetting::calculateTotalWithFees($consultationAmount);
+
+        $method = self::METHOD_MAP[$request->input('method')] ?? $request->input('method');
+        if ($method === 'especes') {
+            $fees['mobile_money_fee'] = 0;
+            $fees['total'] = $fees['consultation_amount'] + $fees['platform_fee'];
+        }
+
         $paiement = Paiement::create([
             'telephone'           => $request->input('phone', $request->user()->telephone_1),
-            'montant'             => $request->input('amount'),
-            'methode'             => self::METHOD_MAP[$request->input('method')] ?? $request->input('method'),
+            'montant'             => $fees['total'],
+            'montant_consultation' => $fees['consultation_amount'],
+            'frais_plateforme'    => $fees['platform_fee'],
+            'frais_mobile_money'  => $fees['mobile_money_fee'],
+            'methode'             => $method,
             'statut'              => 'en_attente',
             'reference'           => 'PAY-' . strtoupper(Str::random(10)),
             'rendez_vous_id'      => $rdv?->id,
@@ -62,6 +83,7 @@ class PaymentController extends Controller
             'success'   => true,
             'message'   => 'Paiement initié',
             'data'      => new PaiementResource($paiement),
+            'fees'      => $fees,
         ], 201);
     }
 
@@ -72,8 +94,7 @@ class PaymentController extends Controller
     public function initiateForAppointment(int $appointmentId, Request $request): JsonResponse
     {
         $request->validate([
-            'consultation_amount' => 'required|numeric|min:0',
-            'method'              => 'required|string',
+            'method'              => 'required|string|in:orange_money,moov_money,card,carte,cash,especes',
             'phone'               => 'nullable|string|max:20',
         ]);
 
@@ -87,8 +108,8 @@ class PaymentController extends Controller
             abort(403, 'Accès non autorisé à ce rendez-vous.');
         }
 
-        // Calculer les frais avec le modèle économique
-        $consultationAmount = (float) $request->input('consultation_amount');
+        // Calculer le montant côté serveur à partir des actes liés au RDV
+        $consultationAmount = (float) $rdv->actes()->sum('cout');
         $fees = PlatformSetting::calculateTotalWithFees($consultationAmount);
 
         // Pour les paiements en espèces, pas de frais mobile money

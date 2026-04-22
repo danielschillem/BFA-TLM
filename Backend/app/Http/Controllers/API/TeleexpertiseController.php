@@ -87,6 +87,14 @@ class TeleexpertiseController extends Controller
     {
         $item = Teleexpertise::findOrFail($id);
         $this->authorizeExpert($item, request()->user());
+
+        if ($item->statut !== 'en_attente') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seule une demande en attente peut être acceptée (statut actuel : ' . $item->statut . ').',
+            ], 422);
+        }
+
         $item->update(['statut' => 'acceptee']);
 
         return response()->json(['success' => true, 'message' => 'Demande acceptée']);
@@ -97,6 +105,14 @@ class TeleexpertiseController extends Controller
         $request->validate(['reason' => 'nullable|string']);
         $item = Teleexpertise::findOrFail($id);
         $this->authorizeExpert($item, $request->user());
+
+        if ($item->statut !== 'en_attente') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seule une demande en attente peut être rejetée (statut actuel : ' . $item->statut . ').',
+            ], 422);
+        }
+
         $item->update(['statut' => 'rejetee', 'motif_rejet' => $request->input('reason')]);
 
         return response()->json(['success' => true, 'message' => 'Demande rejetée']);
@@ -111,6 +127,14 @@ class TeleexpertiseController extends Controller
         ]);
         $item = Teleexpertise::findOrFail($id);
         $this->authorizeExpert($item, $request->user());
+
+        if (!in_array($item->statut, ['en_attente', 'acceptee'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de répondre à une demande ' . $item->statut . '.',
+            ], 422);
+        }
+
         $item->update([
             'statut'          => 'repondue',
             'reponse'         => $request->input('response'),

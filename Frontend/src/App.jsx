@@ -212,11 +212,11 @@ function SmartDashboard() {
 
 // AuthInitializer: vérifie la validité du token au démarrage
 function AuthInitializer({ children }) {
-  const { isAuthenticated, token, setUser, logout } = useAuthStore();
+  const { isAuthenticated, setUser, logout } = useAuthStore();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated || !token) {
+    if (!isAuthenticated) {
       setReady(true);
       return;
     }

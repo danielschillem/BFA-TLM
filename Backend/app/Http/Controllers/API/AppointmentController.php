@@ -304,6 +304,12 @@ class AppointmentController extends Controller
         $rdv = RendezVous::findOrFail($id);
         $this->authorizeAccess($rdv, $request->user());
 
+        // Vérifier que le destinataire est un professionnel de santé
+        $delegate = \App\Models\User::findOrFail($request->input('delegate_to'));
+        if (!$delegate->hasAnyRole(['doctor', 'specialist', 'health_professional'])) {
+            abort(422, 'Le destinataire doit être un professionnel de santé.');
+        }
+
         $rdv->update([
             'user_id' => $request->input('delegate_to'),
             'resume' => $request->input('reason', 'Rendez-vous délégué'),
@@ -330,6 +336,7 @@ class AppointmentController extends Controller
         ]);
 
         $rdv = RendezVous::with('patient')->findOrFail($id);
+        $this->authorizeAccess($rdv, $request->user());
 
         // Enregistrer le consentement formel dans la table dédiée
         $consent = PatientConsent::create([

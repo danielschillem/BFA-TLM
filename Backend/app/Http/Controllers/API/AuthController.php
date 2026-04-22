@@ -54,9 +54,11 @@ class AuthController extends Controller
                 'patient_id' => $patient->id,
             ]);
 
-            // Authentification par session (cookie httpOnly)
-            Auth::guard('web')->login($user);
-            $request->session()->regenerate();
+            // Authentification par session (cookie httpOnly) — uniquement dans le contexte SPA
+            if ($request->hasSession()) {
+                Auth::guard('web')->login($user);
+                $request->session()->regenerate();
+            }
 
             return response()->json([
                 'success' => true,
@@ -120,11 +122,11 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('auth-token')->accessToken;
-
-        // Authentification par session (cookie httpOnly)
-        Auth::guard('web')->login($user);
-        $request->session()->regenerate();
+        // Authentification par session (cookie httpOnly) — uniquement dans le contexte SPA
+        if ($request->hasSession()) {
+            Auth::guard('web')->login($user);
+            $request->session()->regenerate();
+        }
 
         return response()->json([
             'success' => true,
@@ -150,7 +152,7 @@ class AuthController extends Controller
     public function resendTwoFactor(Request $request): JsonResponse
     {
         $user = $request->user();
-        $token = $user?->token();
+        $token = $user?->currentAccessToken();
 
         if (!$user || !$token || !$token->can('2fa-pending')) {
             return response()->json([
@@ -176,15 +178,17 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        // Révoquer le token Passport si présent (rétro-compatibilité)
-        if ($request->user()->token()) {
-            $request->user()->token()->revoke();
+        // Révoquer le token Sanctum si présent (API token auth)
+        if ($request->user()->currentAccessToken()) {
+            $request->user()->currentAccessToken()->delete();
         }
 
         // Invalider la session (cookie httpOnly)
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        if ($request->hasSession()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         return response()->json([
             'success' => true,
@@ -333,7 +337,7 @@ class AuthController extends Controller
         ]);
 
         $user = $request->user();
-        $token = $user?->token();
+        $token = $user?->currentAccessToken();
 
         if (!$user || !$token || !$token->can('2fa-pending')) {
             return response()->json([
@@ -405,15 +409,21 @@ class AuthController extends Controller
             'two_factor_expires_at' => null,
         ]);
 
-        // Révoquer le token 2fa-pending et créer un token complet
+        // Révoquer le token 2fa-pending et authentifier par session
         $user->tokens()->where('name', '2fa-pending')->delete();
+
+        // Authentification par session (cookie httpOnly) — uniquement dans le contexte SPA
+        if (request()->hasSession()) {
+            Auth::guard('web')->login($user);
+            request()->session()->regenerate();
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Code vérifié avec succès.',
             'data' => [
                 'user' => new UserResource($user->load('roles', 'structure')),
-                'token' => $user->createToken('auth-token')->accessToken,
+                'requires_two_factor' => false,
             ],
         ]);
     }
@@ -445,7 +455,7 @@ class AuthController extends Controller
         return [
             'message' => 'Code de vérification envoyé par email',
             'token' => $withPendingToken
-                ? $user->createToken('2fa-pending', ['2fa-pending'])->accessToken
+                ? $user->createToken('2fa-pending', ['2fa-pending'])->plainTextToken
                 : null,
         ];
     }

@@ -17,6 +17,7 @@ class HabitudeDeVieController extends Controller
         $validated = $request->validated();
         if (!empty($validated['dossier_patient_id'])) {
             $this->authorizeDossierAccess($validated['dossier_patient_id']);
+            $this->authorizeMedecinPatientRelation($validated['dossier_patient_id']);
         }
 
         $habitude = HabitudeDeVie::create($validated);
