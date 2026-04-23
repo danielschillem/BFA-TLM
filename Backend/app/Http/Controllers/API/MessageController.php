@@ -7,11 +7,13 @@ use App\Events\NewMessage;
 use App\Events\MessagesRead;
 use App\Http\Resources\MessageResource;
 use App\Http\Resources\UserResource;
+use App\Models\Consultation;
 use App\Models\Message;
+use App\Models\RendezVous;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class MessageController extends Controller
 {
@@ -68,6 +70,8 @@ class MessageController extends Controller
     public function conversation(int $userId, Request $request): JsonResponse
     {
         $authId = $request->user()->id;
+        $otherUser = User::findOrFail($userId);
+        $this->authorizeMessaging($request->user(), $otherUser);
 
         $messages = Message::with(['sender', 'recipient'])
             ->where(function ($q) use ($authId, $userId) {
@@ -101,6 +105,8 @@ class MessageController extends Controller
         ]);
 
         $body = $request->input('body') ?? $request->input('content');
+        $recipient = User::findOrFail((int) $request->input('recipient_id'));
+        $this->authorizeMessaging($request->user(), $recipient);
         
         // Au moins un body ou un attachment est requis
         if (!$body && !$request->hasFile('attachment')) {
@@ -122,7 +128,7 @@ class MessageController extends Controller
         $message = Message::create(array_merge([
             'contenu'      => $body ?? '',
             'sender_id'    => $request->user()->id,
-            'recipient_id' => $request->input('recipient_id'),
+            'recipient_id' => $recipient->id,
         ], $attachmentData));
 
         NewMessage::dispatch($message);
@@ -261,5 +267,82 @@ class MessageController extends Controller
 
         $path = Storage::disk('private')->path($message->attachment_path);
         return response()->download($path, $message->attachment_name ?? 'attachment');
+    }
+
+    private function authorizeMessaging(User $sender, User $recipient): void
+    {
+        if ($sender->id === $recipient->id) {
+            abort(422, 'Vous ne pouvez pas vous envoyer un message.');
+        }
+
+        if ($sender->hasRole('admin') || $recipient->hasRole('admin')) {
+            return;
+        }
+
+        if ($sender->structure_id && $recipient->structure_id
+            && (int) $sender->structure_id === (int) $recipient->structure_id) {
+            return;
+        }
+
+        // Doctor/specialist/health_professional can message their own patients only.
+        if ($sender->hasAnyRole(['doctor', 'specialist', 'health_professional'])) {
+            if ($this->hasPractitionerPatientRelation($sender->id, $recipient)) {
+                return;
+            }
+            abort(403, 'Messagerie non autorisée avec cet utilisateur.');
+        }
+
+        // Patient can message practitioners with whom they already had a medical relation.
+        if ($sender->hasRole('patient')) {
+            if ($this->hasPatientPractitionerRelation($sender, $recipient->id)) {
+                return;
+            }
+            abort(403, 'Messagerie non autorisée avec ce professionnel.');
+        }
+
+        // structure_manager can contact users in the same structure only.
+        if ($sender->hasRole('structure_manager')) {
+            abort(403, 'Messagerie non autorisée hors de votre structure.');
+        }
+    }
+
+    private function hasPractitionerPatientRelation(int $practitionerId, User $targetUser): bool
+    {
+        $patient = $targetUser->patient;
+        if (!$patient) {
+            return false;
+        }
+
+        $hasConsultation = Consultation::where('user_id', $practitionerId)
+            ->whereHas('rendezVous', fn ($q) => $q->where('patient_id', $patient->id))
+            ->exists();
+
+        if ($hasConsultation) {
+            return true;
+        }
+
+        return RendezVous::where('user_id', $practitionerId)
+            ->where('patient_id', $patient->id)
+            ->exists();
+    }
+
+    private function hasPatientPractitionerRelation(User $patientUser, int $practitionerId): bool
+    {
+        $patient = $patientUser->patient;
+        if (!$patient) {
+            return false;
+        }
+
+        $hasConsultation = Consultation::where('user_id', $practitionerId)
+            ->whereHas('rendezVous', fn ($q) => $q->where('patient_id', $patient->id))
+            ->exists();
+
+        if ($hasConsultation) {
+            return true;
+        }
+
+        return RendezVous::where('user_id', $practitionerId)
+            ->where('patient_id', $patient->id)
+            ->exists();
     }
 }
