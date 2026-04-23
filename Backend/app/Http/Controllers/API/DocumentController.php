@@ -5,6 +5,9 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DocumentResource;
 use App\Models\Document;
+use App\Models\DossierPatient;
+use App\Models\Patient;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -93,8 +96,8 @@ class DocumentController extends Controller
             return response()->json(['success' => false, 'message' => 'Fichier introuvable'], 404);
         }
 
-        return Storage::disk('local')->download(
-            $document->chemin_fichier,
+        return response()->download(
+            Storage::disk('local')->path($document->chemin_fichier),
             $document->titre . '.' . pathinfo($document->chemin_fichier, PATHINFO_EXTENSION)
         );
     }
@@ -109,10 +112,40 @@ class DocumentController extends Controller
         return response()->json(['success' => true, 'message' => 'Document supprimé']);
     }
 
-    private function authorizeAccess(Document $document, $user): void
+    private function authorizeAccess(Document $document, User $user): void
     {
-        if ($user->hasRole('admin')) return;
-        if ($document->user_id === $user->id) return;
+        if ($user->hasRole('admin')) {
+            return;
+        }
+
+        if ($document->user_id === $user->id) {
+            return;
+        }
+
+        // Patient may access documents linked to their own patient record or dossier.
+        if ($user->hasRole('patient') && $this->canPatientAccessLinkedDocument($document, $user)) {
+            return;
+        }
+
         abort(403, 'Accès non autorisé à ce document.');
+    }
+
+    private function canPatientAccessLinkedDocument(Document $document, User $user): bool
+    {
+        $patient = $user->patient;
+        if (!$patient) {
+            return false;
+        }
+
+        if ($document->documentable_type === Patient::class && (int) $document->documentable_id === (int) $patient->id) {
+            return true;
+        }
+
+        if ($document->documentable_type === DossierPatient::class && $patient->dossier
+            && (int) $document->documentable_id === (int) $patient->dossier->id) {
+            return true;
+        }
+
+        return false;
     }
 }

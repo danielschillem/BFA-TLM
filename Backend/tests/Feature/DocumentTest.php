@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Document;
+use App\Models\DossierPatient;
+use App\Models\Patient;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -88,5 +90,36 @@ class DocumentTest extends TestCase
     public function test_documents_require_auth(): void
     {
         $this->getJson('/api/v1/documents')->assertStatus(401);
+    }
+
+    public function test_patient_can_download_document_linked_to_own_dossier(): void
+    {
+        Storage::fake('local');
+
+        $patientUser = User::factory()->patient()->create(['status' => 'actif']);
+        $patientUser->assignRole('patient');
+        $patientUser->givePermissionTo('documents.view');
+
+        $patient = Patient::factory()->create(['user_id' => $patientUser->id]);
+        $dossier = DossierPatient::factory()->create(['patient_id' => $patient->id]);
+
+        Storage::disk('local')->put('documents/patient-linked.pdf', 'dummy');
+
+        $doc = Document::create([
+            'titre' => 'Compte-rendu patient',
+            'chemin_fichier' => 'documents/patient-linked.pdf',
+            'nom_fichier_original' => 'patient-linked.pdf',
+            'type_mime' => 'application/pdf',
+            'taille_octets' => 5,
+            'niveau_confidentialite' => 'normal',
+            'user_id' => $this->doctor->id,
+            'documentable_type' => DossierPatient::class,
+            'documentable_id' => $dossier->id,
+        ]);
+
+        $response = $this->actingAs($patientUser, 'api')
+            ->get("/api/v1/documents/{$doc->id}/download");
+
+        $response->assertStatus(200);
     }
 }
