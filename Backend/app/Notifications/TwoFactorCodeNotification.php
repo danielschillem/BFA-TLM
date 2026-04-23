@@ -11,6 +11,11 @@ class TwoFactorCodeNotification extends Notification
         private string $code
     ) {}
 
+    public function getCode(): string
+    {
+        return $this->code;
+    }
+
     public function via(object $notifiable): array
     {
         return ['mail'];

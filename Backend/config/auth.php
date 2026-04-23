@@ -116,4 +116,28 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 900),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Two-factor authentication (email OTP for sensitive roles)
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, users with any of the configured Spatie roles must complete
+    | email OTP after password validation. Set AUTH_TWO_FACTOR_SENSITIVE_ROLES=false
+    | in local .env to skip (e.g. demos without mail).
+    |
+    */
+    'two_factor' => [
+        'enabled_for_sensitive_roles' => filter_var(
+            env('AUTH_TWO_FACTOR_SENSITIVE_ROLES', true),
+            FILTER_VALIDATE_BOOLEAN
+        ),
+        'sensitive_role_names' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env(
+                'AUTH_TWO_FACTOR_SENSITIVE_ROLE_LIST',
+                'admin,structure_manager,doctor,specialist'
+            ))
+        ))),
+    ],
+
 ];

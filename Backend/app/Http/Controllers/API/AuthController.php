@@ -517,9 +517,13 @@ class AuthController extends Controller
 
     private function requiresTwoFactor(User $user): bool
     {
-        // 2FA désactivé — à réactiver quand le service email sera opérationnel en production
-        return false;
-        // return $user->hasRole(['doctor', 'specialist', 'admin']);
+        if (!config('auth.two_factor.enabled_for_sensitive_roles', true)) {
+            return false;
+        }
+
+        $roles = config('auth.two_factor.sensitive_role_names', []);
+
+        return $roles !== [] && $user->hasRole($roles);
     }
 
     private function issueTwoFactorChallenge(User $user, bool $withPendingToken): array

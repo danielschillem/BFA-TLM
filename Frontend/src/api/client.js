@@ -29,6 +29,10 @@ const axiosClient = axios.create({
 
 // Intercepteur : ajout Accept header adapté pour blob + gateway CDN (cookies httpOnly = pas de Bearer)
 axiosClient.interceptors.request.use((config) => {
+  const { requiresTwoFactor, twoFactorToken } = useAuthStore.getState();
+  if (requiresTwoFactor && twoFactorToken) {
+    config.headers.Authorization = `Bearer ${twoFactorToken}`;
+  }
   // Pour les requêtes blob (PDF, fichiers), Accept doit être */* et non application/json
   if (config.responseType === "blob") {
     config.headers.Accept = "*/*";

@@ -101,7 +101,11 @@ export default function TwoFactor() {
       }
 
       toast.success("Authentification réussie !");
-      navigate("/dashboard", { replace: true });
+      const role = data.user.roles?.[0];
+      navigate(
+        role === "admin" ? "/admin/dashboard" : "/dashboard",
+        { replace: true },
+      );
     } catch (err) {
       toast.error(
         err.response?.data?.message ??

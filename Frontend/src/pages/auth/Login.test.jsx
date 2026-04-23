@@ -31,7 +31,7 @@ describe('Login', () => {
   it('affiche le formulaire de connexion', () => {
     renderWithProviders(<Login />)
 
-    expect(screen.getByText('Connexion')).toBeInTheDocument()
+    expect(screen.getByText('Bon retour !')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('vous@exemple.com')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /se connecter/i })).toBeInTheDocument()
@@ -42,15 +42,6 @@ describe('Login', () => {
 
     expect(screen.getByText(/créer un compte/i)).toBeInTheDocument()
     expect(screen.getByText(/mot de passe oublié/i)).toBeInTheDocument()
-  })
-
-  it('affiche les comptes de démonstration', () => {
-    renderWithProviders(<Login />)
-
-    expect(screen.getByText(/comptes de démonstration/i)).toBeInTheDocument()
-    expect(screen.getByText(/patient@tlm-bfa.bf/i)).toBeInTheDocument()
-    expect(screen.getByText(/dr.sawadogo@tlm-bfa.bf/i)).toBeInTheDocument()
-    expect(screen.getByText(/admin@tlm-bfa.bf/i)).toBeInTheDocument()
   })
 
   it('affiche des erreurs de validation si le formulaire est soumis vide', async () => {
@@ -107,10 +98,11 @@ describe('Login', () => {
     await user.click(screen.getByRole('button', { name: /se connecter/i }))
 
     await waitFor(() => {
-      expect(mockSetAuth).toHaveBeenCalledWith(
-        { id: 1, nom: 'SAWADOGO', roles: ['doctor'] },
-        'token-abc'
-      )
+      expect(mockSetAuth).toHaveBeenCalledWith({
+        id: 1,
+        nom: 'SAWADOGO',
+        roles: ['doctor'],
+      })
     })
   })
 
@@ -118,8 +110,12 @@ describe('Login', () => {
     authApi.login.mockResolvedValueOnce({
       data: {
         requires_two_factor: true,
-        user_id: 42,
         message: 'Code envoyé',
+        data: {
+          user: { id: 42, roles: ['doctor'] },
+          requires_two_factor: true,
+          token: '2fa-pending-token',
+        },
       },
     })
 
@@ -131,7 +127,10 @@ describe('Login', () => {
     await user.click(screen.getByRole('button', { name: /se connecter/i }))
 
     await waitFor(() => {
-      expect(mockSetTwoFactorPending).toHaveBeenCalledWith(42)
+      expect(mockSetTwoFactorPending).toHaveBeenCalledWith(
+        42,
+        '2fa-pending-token',
+      )
     })
   })
 

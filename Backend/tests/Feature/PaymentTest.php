@@ -18,6 +18,7 @@ class PaymentTest extends TestCase
     use RefreshDatabase;
 
     protected User $doctor;
+    protected User $admin;
     protected User $patientUser;
     protected Patient $patient;
     protected DossierPatient $dossier;
@@ -31,6 +32,9 @@ class PaymentTest extends TestCase
 
         $this->doctor = User::factory()->doctor()->create(['status' => 'actif']);
         $this->doctor->assignRole('doctor');
+
+        $this->admin = User::factory()->create(['status' => 'actif']);
+        $this->admin->assignRole('admin');
 
         $this->patientUser = User::factory()->create(['status' => 'actif']);
         $this->patientUser->assignRole('patient');
@@ -114,9 +118,10 @@ class PaymentTest extends TestCase
             'rendez_vous_id' => $this->rdv->id,
         ]);
 
-        $response = $this->actingAs($this->patientUser, 'api')
+        $response = $this->actingAs($this->admin, 'api')
             ->postJson('/api/v1/payments/confirm', [
                 'reference' => 'PAY-TEST12345',
+                'otp_code' => '123456',
             ]);
 
         $response->assertOk()
@@ -138,9 +143,10 @@ class PaymentTest extends TestCase
             'rendez_vous_id' => $this->rdv->id,
         ]);
 
-        $response = $this->actingAs($this->patientUser, 'api')
+        $response = $this->actingAs($this->admin, 'api')
             ->postJson('/api/v1/payments/confirm', [
                 'reference' => 'PAY-ALREADYCONF',
+                'otp_code' => '123456',
             ]);
 
         $response->assertStatus(422);
@@ -148,9 +154,10 @@ class PaymentTest extends TestCase
 
     public function test_confirm_nonexistent_reference_fails(): void
     {
-        $response = $this->actingAs($this->patientUser, 'api')
+        $response = $this->actingAs($this->admin, 'api')
             ->postJson('/api/v1/payments/confirm', [
                 'reference' => 'PAY-DOESNOTEXIST',
+                'otp_code' => '123456',
             ]);
 
         $response->assertStatus(404);

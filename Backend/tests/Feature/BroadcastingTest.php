@@ -298,6 +298,15 @@ class BroadcastingTest extends TestCase
     {
         Event::fake([NewMessage::class]);
 
+        RendezVous::create([
+            'type'       => 'teleconsultation',
+            'date'       => now()->addDay()->toDateString(),
+            'heure'      => '10:00',
+            'statut'     => 'confirme',
+            'patient_id' => $this->patient->id,
+            'user_id'    => $this->doctor->id,
+        ]);
+
         $response = $this->actingAs($this->doctor, 'api')
             ->postJson('/api/v1/messages', [
                 'recipient_id' => $this->patientUser->id,

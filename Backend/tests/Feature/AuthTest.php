@@ -92,10 +92,10 @@ class AuthTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_sensitive_role_login_requires_two_factor_in_production(): void
+    public function test_sensitive_role_login_requires_two_factor_when_enabled(): void
     {
-        // 2FA est désactivé (requiresTwoFactor retourne false)
-        // Ce test vérifie que le login réussit sans 2FA même pour les rôles sensibles
+        config(['auth.two_factor.enabled_for_sensitive_roles' => true]);
+
         Notification::fake();
 
         $user = User::factory()->doctor()->create(['status' => 'actif']);
@@ -108,17 +108,85 @@ class AuthTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
+            ->assertJsonPath('data.requires_two_factor', true);
+
+        $this->assertNotEmpty($response->json('data.token'));
+
+        Notification::assertSentTo($user, TwoFactorCodeNotification::class);
+    }
+
+    public function test_sensitive_role_login_skips_two_factor_when_disabled_via_config(): void
+    {
+        config(['auth.two_factor.enabled_for_sensitive_roles' => false]);
+        Notification::fake();
+
+        $user = User::factory()->doctor()->create(['status' => 'actif']);
+        $user->assignRole('doctor');
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $response->assertOk()
             ->assertJsonPath('data.requires_two_factor', false);
+
+        Notification::assertNothingSent();
+    }
+
+    public function test_health_professional_login_does_not_require_two_factor_by_default(): void
+    {
+        config(['auth.two_factor.enabled_for_sensitive_roles' => true]);
+        Notification::fake();
+
+        $user = User::factory()->create(['status' => 'actif']);
+        $user->assignRole('health_professional');
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.requires_two_factor', false);
+
+        Notification::assertNothingSent();
     }
 
     public function test_two_factor_code_can_be_resent_with_pending_token(): void
     {
-        $this->markTestSkipped('2FA est désactivé — à réactiver avec le service email en production');
+        config(['auth.two_factor.enabled_for_sensitive_roles' => true]);
+        Notification::fake();
+
+        $user = User::factory()->doctor()->create(['status' => 'actif']);
+        $user->assignRole('doctor');
+
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $login->assertOk();
+        $token = $login->json('data.token');
+        $this->assertNotEmpty($token);
+
+        Notification::assertSentToTimes($user, TwoFactorCodeNotification::class, 1);
+
+        $resend = $this->postJson(
+            '/api/v1/auth/two-factor/resend',
+            [],
+            ['Authorization' => 'Bearer ' . $token]
+        );
+
+        $resend->assertOk()
+            ->assertJsonPath('success', true);
+
+        Notification::assertSentToTimes($user, TwoFactorCodeNotification::class, 2);
     }
 
     public function test_two_factor_verification_requires_pending_token(): void
     {
-        config(['app.env' => 'production']);
+        config(['auth.two_factor.enabled_for_sensitive_roles' => true]);
         Notification::fake();
 
         $user = User::factory()->doctor()->create(['status' => 'actif']);
@@ -138,7 +206,75 @@ class AuthTest extends TestCase
 
     public function test_two_factor_verification_rejects_user_mismatch(): void
     {
-        $this->markTestSkipped('2FA est désactivé — à réactiver avec le service email en production');
+        config(['auth.two_factor.enabled_for_sensitive_roles' => true]);
+        Notification::fake();
+
+        $userA = User::factory()->doctor()->create(['status' => 'actif']);
+        $userA->assignRole('doctor');
+        $userB = User::factory()->doctor()->create(['status' => 'actif']);
+        $userB->assignRole('doctor');
+
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => $userA->email,
+            'password' => 'password',
+        ]);
+        $login->assertOk();
+        $token = $login->json('data.token');
+
+        $response = $this->postJson(
+            '/api/v1/auth/two-factor/verify',
+            [
+                'user_id' => $userB->id,
+                'code' => '000000',
+            ],
+            ['Authorization' => 'Bearer ' . $token]
+        );
+
+        $response->assertStatus(403)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_two_factor_verification_succeeds_with_valid_code_and_pending_token(): void
+    {
+        config(['auth.two_factor.enabled_for_sensitive_roles' => true]);
+        Notification::fake();
+
+        $user = User::factory()->doctor()->create(['status' => 'actif']);
+        $user->assignRole('doctor');
+
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+        $login->assertOk();
+        $token = $login->json('data.token');
+
+        $plainCode = null;
+        Notification::assertSentTo($user, TwoFactorCodeNotification::class, function (TwoFactorCodeNotification $notification) use (&$plainCode) {
+            $plainCode = $notification->getCode();
+
+            return true;
+        });
+
+        $this->assertNotEmpty($plainCode);
+        $this->assertSame(6, strlen((string) $plainCode));
+
+        $verify = $this->postJson(
+            '/api/v1/auth/two-factor/verify',
+            [
+                'user_id' => $user->id,
+                'code' => $plainCode,
+            ],
+            ['Authorization' => 'Bearer ' . $token]
+        );
+
+        $verify->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.requires_two_factor', false);
+
+        $user->refresh();
+        $this->assertNull($user->two_factor_code);
+        $this->assertNull($user->two_factor_expires_at);
     }
 
     public function test_me_returns_authenticated_user(): void

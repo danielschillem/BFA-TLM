@@ -11,6 +11,8 @@ export const useAuthStore = create(
       isAuthenticated: false,
       requiresTwoFactor: false,
       pendingUserId: null,
+      /** Sanctum personal access token (abilities: 2fa-pending) until OTP succeeds */
+      twoFactorToken: null,
 
       setAuth: (user) =>
         set({
@@ -18,14 +20,16 @@ export const useAuthStore = create(
           isAuthenticated: true,
           requiresTwoFactor: false,
           pendingUserId: null,
+          twoFactorToken: null,
         }),
 
       setUser: (user) => set({ user }),
 
-      setTwoFactorPending: (userId) =>
+      setTwoFactorPending: (userId, token) =>
         set({
           requiresTwoFactor: true,
           pendingUserId: userId,
+          twoFactorToken: token ?? null,
         }),
 
       logout: (options = {}) => {
@@ -36,6 +40,7 @@ export const useAuthStore = create(
           isAuthenticated: false,
           requiresTwoFactor: false,
           pendingUserId: null,
+          twoFactorToken: null,
         });
         if (broadcast) {
           localStorage.setItem(LOGOUT_SYNC_KEY, String(Date.now()));

@@ -48,10 +48,10 @@ export default function Login() {
       const pendingToken = body.data?.token;
 
       if (requiresTwoFactor) {
-        if (!pendingUserId) {
+        if (!pendingUserId || !pendingToken) {
           throw new Error("Réponse 2FA incomplète");
         }
-        setTwoFactorPending(pendingUserId);
+        setTwoFactorPending(pendingUserId, pendingToken);
         navigate("/two-factor");
         toast.info(body.message ?? "Code de vérification envoyé.");
         return;
