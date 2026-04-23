@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   User,
   Mail,
@@ -11,6 +11,9 @@ import {
   Save,
   Edit3,
   CheckCircle,
+  Monitor,
+  Clock3,
+  LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
 import { authApi } from "@/api";
@@ -37,9 +40,10 @@ const pwdSchema = z
     current_password: z.string().min(1, "Mot de passe actuel requis"),
     password: z
       .string()
-      .min(8, "Min. 8 caractères")
+      .min(12, "Min. 12 caractères")
       .regex(/[A-Z]/, "1 majuscule")
-      .regex(/[0-9]/, "1 chiffre"),
+      .regex(/[0-9]/, "1 chiffre")
+      .regex(/[^A-Za-z0-9]/, "1 symbole"),
     password_confirmation: z.string(),
   })
   .refine((d) => d.password === d.password_confirmation, {
@@ -62,6 +66,14 @@ export default function UserProfile() {
   });
 
   const pwdForm = useForm({ resolver: zodResolver(pwdSchema) });
+  const sessionsQuery = useQuery({
+    queryKey: ["auth", "sessions"],
+    queryFn: async () => {
+      const res = await authApi.sessions();
+      return res.data?.data ?? [];
+    },
+    staleTime: 1000 * 30,
+  });
 
   const profileMutation = useMutation({
     mutationFn: (data) => authApi.updateProfile(data),
@@ -78,8 +90,30 @@ export default function UserProfile() {
     onSuccess: () => {
       toast.success("Mot de passe modifié !");
       pwdForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["auth", "sessions"] });
     },
     onError: (err) => toast.error(err.response?.data?.message ?? "Erreur"),
+  });
+
+  const revokeSessionMutation = useMutation({
+    mutationFn: (sessionId) => authApi.revokeSession(sessionId),
+    onSuccess: () => {
+      toast.success("Session révoquée");
+      queryClient.invalidateQueries({ queryKey: ["auth", "sessions"] });
+    },
+    onError: (err) =>
+      toast.error(err.response?.data?.message ?? "Impossible de révoquer la session"),
+  });
+
+  const revokeOthersMutation = useMutation({
+    mutationFn: () => authApi.revokeOtherSessions(),
+    onSuccess: (res) => {
+      const count = res.data?.data?.revoked_count ?? 0;
+      toast.success(`${count} session(s) révoquée(s).`);
+      queryClient.invalidateQueries({ queryKey: ["auth", "sessions"] });
+    },
+    onError: (err) =>
+      toast.error(err.response?.data?.message ?? "Impossible de révoquer les autres sessions"),
   });
 
   const role = user?.roles?.[0] ?? "";
@@ -259,6 +293,71 @@ export default function UserProfile() {
                 Changer le mot de passe
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Sessions actives */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="section-title flex items-center gap-2">
+                <Monitor className="w-4 h-4" /> Sessions actives
+              </h3>
+              <Button
+                size="sm"
+                variant="outline"
+                icon={LogOut}
+                loading={revokeOthersMutation.isPending}
+                onClick={() => revokeOthersMutation.mutate()}
+              >
+                Déconnecter les autres appareils
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {sessionsQuery.isLoading ? (
+              <p className="text-sm text-gray-500">Chargement des sessions…</p>
+            ) : sessionsQuery.data?.length ? (
+              <div className="space-y-3">
+                {sessionsQuery.data.map((session) => (
+                  <div
+                    key={session.id}
+                    className="rounded-xl border border-gray-200 p-3 flex items-start justify-between gap-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {session.current ? "Session actuelle" : "Appareil connecté"}
+                      </p>
+                      <p className="text-xs text-gray-500">{session.user_agent || "Navigateur inconnu"}</p>
+                      <p className="text-xs text-gray-500">IP: {session.ip_address || "n/a"}</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Clock3 className="w-3 h-3" />
+                        Dernière activité:{" "}
+                        {session.last_activity_at
+                          ? new Date(session.last_activity_at).toLocaleString()
+                          : "n/a"}
+                      </p>
+                    </div>
+                    {!session.current && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={LogOut}
+                        loading={
+                          revokeSessionMutation.isPending &&
+                          revokeSessionMutation.variables === session.id
+                        }
+                        onClick={() => revokeSessionMutation.mutate(session.id)}
+                      >
+                        Révoquer
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Aucune session active détectée.</p>
+            )}
           </CardContent>
         </Card>
       </div>
