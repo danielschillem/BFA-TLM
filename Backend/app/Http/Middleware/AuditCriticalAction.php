@@ -59,6 +59,24 @@ class AuditCriticalAction
             };
         }
 
+        if (str_contains($path, '/consultations')) {
+            return match ($method) {
+                'GET' => 'consultation.read',
+                'POST' => 'consultation.write',
+                'PUT', 'PATCH' => 'consultation.update',
+                default => 'consultation.action',
+            };
+        }
+
+        if (str_contains($path, '/messages')) {
+            return match ($method) {
+                'GET' => 'message.read',
+                'POST' => 'message.write',
+                'DELETE' => 'message.delete',
+                default => 'message.action',
+            };
+        }
+
         return null;
     }
 }
