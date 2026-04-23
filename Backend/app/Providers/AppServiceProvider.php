@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -47,9 +48,22 @@ class AppServiceProvider extends ServiceProvider
 
 
         // ── Rate limiters ──────────────────────────────────────────────────────
-        RateLimiter::for('auth', fn (Request $request) =>
-            Limit::perMinute(30)->by($request->ip())
-        );
+        RateLimiter::for('auth', function (Request $request) {
+            $emailKey = Str::lower((string) $request->input('email'));
+            $ip = (string) $request->ip();
+
+            return [
+                // Global anti-bruteforce by IP.
+                Limit::perMinute(20)->by("auth:ip:{$ip}"),
+                // Stronger lockout per email+IP combination.
+                Limit::perMinute(5)->by("auth:login:{$emailKey}|{$ip}")->response(function () {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Trop de tentatives de connexion. Réessayez dans quelques minutes.',
+                    ], 429);
+                }),
+            ];
+        });
 
         RateLimiter::for('register', fn (Request $request) =>
             Limit::perMinute(5)->by($request->ip())

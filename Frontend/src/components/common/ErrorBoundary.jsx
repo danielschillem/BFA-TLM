@@ -1,5 +1,6 @@
 import { Component } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { reportReactError } from "../../services/errorReporter";
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -13,6 +14,7 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error("[ErrorBoundary]", error, errorInfo);
+    reportReactError(error, errorInfo);
   }
 
   render() {

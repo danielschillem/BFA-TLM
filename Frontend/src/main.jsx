@@ -7,6 +7,7 @@ import App from "./App";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import InstallPWA from "./components/common/InstallPWA";
 import PWAUpdater from "./components/common/PWAUpdater";
+import { installGlobalErrorHandlers } from "./services/errorReporter";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -19,6 +20,8 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+installGlobalErrorHandlers();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

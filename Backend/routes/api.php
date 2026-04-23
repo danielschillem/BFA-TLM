@@ -23,6 +23,7 @@ use App\Http\Controllers\API\Icd11Controller;
 use App\Http\Controllers\API\GestionnaireController;
 use App\Http\Controllers\API\HabitudeDeVieController;
 use App\Http\Controllers\API\MessageController;
+use App\Http\Controllers\API\MonitoringController;
 use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\PatientConsentController;
 use App\Http\Controllers\API\PatientController;
@@ -43,6 +44,19 @@ use Illuminate\Support\Facades\Route;
 | Préfixe : /api/v1
 | Middleware : api (rate limiting, etc.)
 */
+
+// ── Health check public (monitoring / uptime) ────────────────────────────────
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'service' => config('app.name'),
+        'env' => app()->environment(),
+        'timestamp' => now()->toIso8601String(),
+    ]);
+});
+
+Route::post('/monitoring/frontend-errors', [MonitoringController::class, 'frontendError'])
+    ->middleware('throttle:api');
 
 // ── Diagnostic endpoint (admin seulement — ne jamais exposer en public) ───────
 Route::get('/diag', function () {
@@ -389,10 +403,10 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Prescriptions
-    Route::get('/prescriptions', [PrescriptionController::class, 'index'])->middleware('permission:prescriptions.view');
-    Route::post('/consultations/{consultationId}/prescriptions', [PrescriptionController::class, 'store'])->middleware('permission:prescriptions.create');
-    Route::post('/prescriptions/{id}/sign', [PrescriptionController::class, 'sign'])->middleware('permission:prescriptions.sign');
-    Route::post('/prescriptions/{id}/share', [PrescriptionController::class, 'share'])->middleware('permission:prescriptions.view');
+    Route::get('/prescriptions', [PrescriptionController::class, 'index'])->middleware(['permission:prescriptions.view', 'audit.critical']);
+    Route::post('/consultations/{consultationId}/prescriptions', [PrescriptionController::class, 'store'])->middleware(['permission:prescriptions.create', 'audit.critical']);
+    Route::post('/prescriptions/{id}/sign', [PrescriptionController::class, 'sign'])->middleware(['permission:prescriptions.sign', 'audit.critical']);
+    Route::post('/prescriptions/{id}/share', [PrescriptionController::class, 'share'])->middleware(['permission:prescriptions.view', 'audit.critical']);
 
     // Téléexpertise
     Route::prefix('teleexpertise')->group(function () {
@@ -432,7 +446,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Patients
-    Route::prefix('patients')->where(['patient' => '[0-9]+'])->middleware('throttle:sensitive')->group(function () {
+    Route::prefix('patients')->where(['patient' => '[0-9]+'])->middleware(['throttle:sensitive', 'audit.critical'])->group(function () {
         Route::get('/', [PatientController::class, 'index'])->middleware('permission:patients.view');
         Route::post('/', [PatientController::class, 'store'])->middleware('permission:patients.create');
         Route::get('/{patient}', [PatientController::class, 'show'])->middleware('permission:patients.view');
@@ -592,7 +606,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Paiements
-    Route::prefix('payments')->group(function () {
+    Route::prefix('payments')->middleware('audit.critical')->group(function () {
         Route::post('/consultations/{consultationId}/initiate', [PaymentController::class, 'initiate'])->middleware('permission:payments.initiate');
         Route::post('/appointments/{appointmentId}/initiate', [PaymentController::class, 'initiateForAppointment'])->middleware('permission:payments.initiate');
         Route::post('/confirm', [PaymentController::class, 'confirm'])->middleware('permission:payments.confirm');

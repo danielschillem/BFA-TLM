@@ -7,9 +7,10 @@
   "author": "Alternatives-IT (AIT) — Financé par ANABASE INC",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/generate-runtime-config.mjs development && vite",
-    "build": "node scripts/generate-runtime-config.mjs production && vite build --mode production",
-    "build:hostinger": "node scripts/generate-runtime-config.mjs production.hostinger && vite build --mode production.hostinger",
+    "env:check": "node scripts/env-check.mjs",
+    "dev": "node scripts/generate-runtime-config.mjs development && npm run env:check && vite",
+    "build": "node scripts/generate-runtime-config.mjs production && npm run env:check && vite build --mode production",
+    "build:hostinger": "node scripts/generate-runtime-config.mjs production.hostinger && npm run env:check && vite build --mode production.hostinger",
     "preview": "vite preview",
     "lint": "eslint src --ext .js,.jsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",

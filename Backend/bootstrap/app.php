@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'active' => \App\Http\Middleware\EnsureUserIsActive::class,
             'license' => \App\Http\Middleware\CheckLicense::class,
+            'audit.critical' => \App\Http\Middleware\AuditCriticalAction::class,
         ]);
 
         // Middleware globaux pour toutes les réponses
