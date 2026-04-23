@@ -16,6 +16,7 @@ use App\Models\PatientConsent;
 use App\Models\RendezVous;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class AppointmentController extends Controller
@@ -87,54 +88,58 @@ class AppointmentController extends Controller
 
         $user = $request->user();
 
-        // Si le patient prend lui-même rendez-vous, lier automatiquement à sa fiche patient
-        if ($user->hasRole('patient')) {
-            $patient = $user->patient;
-            
-            // Auto-créer la fiche Patient si elle n'existe pas
-            if (!$patient) {
-                $patient = \App\Models\Patient::create([
-                    'user_id' => $user->id,
-                    'nom' => $user->nom ?? 'Inconnu',
-                    'prenoms' => $user->prenoms ?? 'Patient',
-                    'date_naissance' => $user->date_naissance ?? now()->subYears(30)->toDateString(),
-                    'sexe' => $user->sexe ?? 'M',
-                    'telephone_1' => $user->telephone_1 ?? null,
-                    'email' => $user->email,
-                ]);
-                // Créer aussi le DossierPatient
-                \App\Models\DossierPatient::create([
-                    'patient_id' => $patient->id,
-                    'date_ouverture' => now(),
-                    'statut' => 'actif',
-                ]);
+        $rdv = DB::transaction(function () use ($user, $data, $acteIds, $assistantIds) {
+            // Si le patient prend lui-même rendez-vous, lier automatiquement à sa fiche patient
+            if ($user->hasRole('patient')) {
+                $patient = $user->patient;
+
+                // Auto-créer la fiche Patient si elle n'existe pas
+                if (!$patient) {
+                    $patient = \App\Models\Patient::create([
+                        'user_id' => $user->id,
+                        'nom' => $user->nom ?? 'Inconnu',
+                        'prenoms' => $user->prenoms ?? 'Patient',
+                        'date_naissance' => $user->date_naissance ?? now()->subYears(30)->toDateString(),
+                        'sexe' => $user->sexe ?? 'M',
+                        'telephone_1' => $user->telephone_1 ?? null,
+                        'email' => $user->email,
+                    ]);
+
+                    \App\Models\DossierPatient::create([
+                        'patient_id' => $patient->id,
+                        'date_ouverture' => now(),
+                        'statut' => 'ouvert',
+                    ]);
+                }
+
+                $data['patient_id'] = $patient->id;
+                // user_id = le médecin choisi (envoyé par le frontend), sinon null
+                $data['created_by_doctor_id'] = null;
+            } else {
+                // Le PS connecté est le médecin consultant principal (user_id)
+                if (empty($data['user_id'])) {
+                    $data['user_id'] = $user->id;
+                }
+                $data['created_by_doctor_id'] = $user->id;
             }
-            
-            $data['patient_id'] = $patient->id;
-            // user_id = le médecin choisi (envoyé par le frontend), sinon null
-            $data['created_by_doctor_id'] = null;
-        } else {
-            // Le PS connecté est le médecin consultant principal (user_id)
-            if (empty($data['user_id'])) {
-                $data['user_id'] = $user->id;
+
+            // Default status
+            $data['statut'] = 'planifie';
+
+            $rdv = RendezVous::create($data);
+
+            // Attach selected medical acts
+            if (!empty($acteIds)) {
+                $rdv->actes()->sync($acteIds);
             }
-            $data['created_by_doctor_id'] = $user->id;
-        }
 
-        // Default status
-        $data['statut'] = 'planifie';
+            // Attach assistant PS (invités)
+            if (!empty($assistantIds)) {
+                $rdv->invites()->sync($assistantIds);
+            }
 
-        $rdv = RendezVous::create($data);
-
-        // Attach selected medical acts
-        if (!empty($acteIds)) {
-            $rdv->actes()->sync($acteIds);
-        }
-
-        // Attach assistant PS (invités)
-        if (!empty($assistantIds)) {
-            $rdv->invites()->sync($assistantIds);
-        }
+            return $rdv;
+        });
 
         // Compute total cost of selected actes
         $totalCost = \App\Models\Acte::whereIn('id', $acteIds)->sum('cout');

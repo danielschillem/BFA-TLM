@@ -58,7 +58,7 @@ class DocumentController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,gif,doc,docx,xls,xlsx,csv,txt,rtf,odt,ods,dicom,dcm,zip',
+            'file' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,gif,doc,docx,xls,xlsx,rtf,odt,ods,dicom,dcm',
             'titre' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
             'niveau_confidentialite' => 'nullable|in:normal,confidentiel,tres_confidentiel',

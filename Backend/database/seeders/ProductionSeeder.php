@@ -22,6 +22,9 @@ class ProductionSeeder extends Seeder
         // 1. Rôles & Permissions (idempotent)
         $this->call(RolePermissionSeeder::class);
 
+        // 1b. Référentiels (pays, localités, grades, types PS…)
+        $this->call(ReferentielSeeder::class);
+
         // 2. Administrateur initial (si aucun admin n'existe)
         if (User::role('admin')->doesntExist()) {
             $password = bin2hex(random_bytes(8)); // 16 chars aléatoires

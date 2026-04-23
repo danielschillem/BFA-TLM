@@ -342,9 +342,13 @@ function CreateLicenseModal({ open, onClose, structures }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Le backend attend structure_id comme entier et modules comme tableau de codes
+    if (!form.structure_id) {
+      toast.error("Veuillez sélectionner une structure");
+      return;
+    }
     const payload = {
       structure_id: Number(form.structure_id),
+      type: form.type,
       type_centre: form.type_centre,
       capacite_lits: form.capacite_lits,
       max_utilisateurs: form.max_utilisateurs,

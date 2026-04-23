@@ -37,6 +37,8 @@ class ConsultationEnded implements ShouldBroadcast
 
     public function broadcastWith(): array
     {
+        $doctor = $this->consultation->user;
+
         return [
             'id'             => $this->consultation->id,
             'statut'         => $this->consultation->statut,
@@ -44,6 +46,7 @@ class ConsultationEnded implements ShouldBroadcast
             'date'           => $this->consultation->date?->toISOString(),
             'rendez_vous_id' => $this->consultation->rendez_vous_id,
             'user_id'        => $this->consultation->user_id,
+            'doctor_name'    => $doctor ? trim(($doctor->prenoms ?? '') . ' ' . ($doctor->nom ?? '')) : null,
         ];
     }
 

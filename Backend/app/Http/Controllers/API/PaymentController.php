@@ -175,17 +175,14 @@ class PaymentController extends Controller
     {
         $request->validate([
             'reference' => 'required|string',
-            'otp_code'  => 'nullable|string',
+            'otp_code'  => 'required|string|min:4|max:12',
         ]);
 
         $paiement = Paiement::with('rendezVous.patient')->where('reference', $request->input('reference'))->firstOrFail();
 
-        // IDOR : vérifier que l'utilisateur est lié à ce paiement
         $user = $request->user();
-        if (!$user->hasRole('admin')
-            && $paiement->rendezVous?->user_id !== $user->id
-            && $paiement->rendezVous?->patient?->user_id !== $user->id) {
-            abort(403, 'Accès non autorisé à ce paiement.');
+        if (!$user->hasRole('admin')) {
+            abort(403, 'Seul un administrateur peut confirmer manuellement un paiement.');
         }
 
         if ($paiement->statut !== 'en_attente') {
@@ -289,17 +286,24 @@ class PaymentController extends Controller
         $payments = $query->orderBy('created_at', 'desc')
             ->paginate(min((int) $request->input('per_page', 15), 100));
 
-        // Statistiques
+        // Statistiques — montant is text in DB, must cast to numeric for SUM
         $totalPaid = Paiement::whereHas('rendezVous', function ($q) use ($user) {
             $q->where('user_id', $user->id);
-        })->where('statut', 'confirme')->sum('montant');
+        })->where('statut', 'confirme')
+          ->selectRaw('COALESCE(SUM(CAST(montant AS NUMERIC)), 0) as total')
+          ->value('total');
+
+        $totalPending = Paiement::whereHas('rendezVous', fn ($q) => $q->where('user_id', $user->id))
+            ->where('statut', 'en_attente')
+            ->selectRaw('COALESCE(SUM(CAST(montant AS NUMERIC)), 0) as total')
+            ->value('total');
 
         return response()->json([
             'success' => true,
             'data'    => PaiementResource::collection($payments),
             'stats'   => [
                 'total_paid'    => (float) $totalPaid,
-                'total_pending' => (float) Paiement::whereHas('rendezVous', fn ($q) => $q->where('user_id', $user->id))->where('statut', 'en_attente')->sum('montant'),
+                'total_pending' => (float) $totalPending,
                 'count'         => $payments->total(),
             ],
             'meta' => [

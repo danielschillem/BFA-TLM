@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Rappels de rendez-vous : tous les jours à 18h
 Schedule::command('appointments:send-reminders')->dailyAt('18:00');
+
+// Nettoyer les tokens de réinitialisation de mot de passe expirés : tous les jours à 3h
+Schedule::command('auth:clear-resets')->dailyAt('03:00');

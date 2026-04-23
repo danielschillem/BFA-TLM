@@ -37,6 +37,9 @@ import {
   PictureInPicture2,
   Users,
   Wifi,
+  Search,
+  ChevronDown,
+  ChevronUp,
   WifiLow,
   Signal,
   SignalLow,
@@ -46,6 +49,10 @@ import {
   Copy,
   LayoutGrid,
   ExternalLink,
+  CheckCircle2,
+  LogOut,
+  FileCheck,
+  ClipboardCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -76,6 +83,7 @@ import {
   examensApi,
   prescriptionsApi,
   traitementsApi,
+  icd11Api,
 } from "@/api";
 import { useAuthStore } from "@/stores/authStore";
 import { useConsultationChannel } from "@/hooks/useWebSocket";
@@ -153,10 +161,10 @@ function ControlButton({
   const base = danger
     ? "bg-red-500 hover:bg-red-600 text-white"
     : accent
-      ? "bg-cyan-500 hover:bg-cyan-600 text-white ring-2 ring-cyan-300/40"
-      : active === false
-        ? "bg-red-500/90 hover:bg-red-600 text-white ring-2 ring-red-400/40"
-        : "bg-white/10 hover:bg-white/20 text-white";
+    ? "bg-cyan-500 hover:bg-cyan-600 text-white ring-2 ring-cyan-300/40"
+    : active === false
+    ? "bg-red-500/90 hover:bg-red-600 text-white ring-2 ring-red-400/40"
+    : "bg-white/10 hover:bg-white/20 text-white";
 
   return (
     <button
@@ -166,7 +174,9 @@ function ControlButton({
       title={label}
     >
       <div
-        className={`p-3 sm:p-3.5 rounded-full transition-all duration-200 ${base} ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+        className={`p-3 sm:p-3.5 rounded-full transition-all duration-200 ${base} ${
+          disabled ? "opacity-40 cursor-not-allowed" : ""
+        }`}
       >
         <Icon className="w-5 h-5" />
         {badge && (
@@ -291,8 +301,13 @@ function LiveKitVideoUI({
       toast.success("Connexion rétablie", { duration: 3000 });
     };
     const onMediaDevicesError = (err) => {
+      const isHttpInsecure = !navigator.mediaDevices;
       toast.error(
-        `Erreur périphérique : ${err?.message || "caméra/micro indisponible"}`,
+        isHttpInsecure
+          ? "Caméra/micro indisponibles en HTTP — HTTPS requis"
+          : `Erreur périphérique : ${
+              err?.message || "caméra/micro indisponible"
+            }`,
         { duration: 6000 },
       );
     };
@@ -330,6 +345,12 @@ function LiveKitVideoUI({
 
   // ── Toggle handlers ──
   const toggleMic = useCallback(async () => {
+    if (!navigator.mediaDevices) {
+      toast.error("Micro indisponible : connexion HTTPS requise", {
+        duration: 6000,
+      });
+      return;
+    }
     try {
       await localParticipant?.setMicrophoneEnabled(!isMicrophoneEnabled);
       if (isMicrophoneEnabled)
@@ -342,6 +363,12 @@ function LiveKitVideoUI({
   }, [localParticipant, isMicrophoneEnabled]);
 
   const toggleCamera = useCallback(async () => {
+    if (!navigator.mediaDevices) {
+      toast.error("Caméra indisponible : connexion HTTPS requise", {
+        duration: 6000,
+      });
+      return;
+    }
     try {
       await localParticipant?.setCameraEnabled(!isCameraEnabled);
     } catch {
@@ -541,7 +568,9 @@ function LiveKitVideoUI({
               <Monitor className="w-4 h-4 text-white" />
               <span className="text-xs text-white font-medium">
                 {isRemoteScreenShare
-                  ? `${remoteScreenShare.participant?.name || "Participant"} présente`
+                  ? `${
+                      remoteScreenShare.participant?.name || "Participant"
+                    } présente`
                   : "Vous présentez"}
               </span>
               {!isRemoteScreenShare && (
@@ -739,7 +768,9 @@ function LiveKitVideoUI({
               onClick={toggleScreenShare}
               accent={isScreenShareEnabled}
               icon={isScreenShareEnabled ? MonitorOff : Monitor}
-              label={`${isScreenShareEnabled ? "Arrêter le partage" : "Partager l'écran"} (S)`}
+              label={`${
+                isScreenShareEnabled ? "Arrêter le partage" : "Partager l'écran"
+              } (S)`}
             />
 
             {/* Divider */}
@@ -840,7 +871,15 @@ export default function ConsultationRoom() {
   const videoContainerRef = useRef(null);
 
   // WebSocket: écouter les events temps réel de la consultation
-  useConsultationChannel(id ? Number(id) : null);
+  // Quand le médecin termine, le patient voit l'écran post-consultation
+  useConsultationChannel(id ? Number(id) : null, {
+    onEnded: useCallback(() => {
+      if (!isDoctor()) {
+        // Patient: afficher l'écran post-consultation
+        setShowPostConsultation(true);
+      }
+    }, []), // eslint-disable-line react-hooks/exhaustive-deps
+  });
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -860,10 +899,14 @@ export default function ConsultationRoom() {
     connectionStateRef.current = connectionState;
   }, [connectionState]);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showPostConsultation, setShowPostConsultation] = useState(false);
   const [showVitals, setShowVitals] = useState(false);
+  const [autoReconnecting, setAutoReconnecting] = useState(false);
+  const reconnectTimerRef = useRef(null);
+  const reconnectAttemptRef = useRef(0);
   const [showPatientRecord, setShowPatientRecord] = useState(false);
   const [showConsultForm, setShowConsultForm] = useState(false);
-  const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
   const [participantCount, setParticipantCount] = useState(0);
@@ -966,7 +1009,6 @@ export default function ConsultationRoom() {
 
   const handleVitalsSubmit = (e) => {
     e.preventDefault();
-    // Map frontend keys to backend column names
     const keyMap = {
       weight: "poids",
       height: "taille",
@@ -978,10 +1020,32 @@ export default function ConsultationRoom() {
       spo2: "saturation_o2",
       glycemia: "glycemie",
     };
+    const bounds = {
+      weight: [0.1, 500],
+      height: [20, 300],
+      temperature: [30, 45],
+      blood_pressure_systolic: [40, 300],
+      blood_pressure_diastolic: [20, 200],
+      heart_rate: [20, 300],
+      respiratory_rate: [4, 80],
+      spo2: [0, 100],
+      glycemia: [0.1, 50],
+    };
     const payload = {};
-    Object.entries(vitals).forEach(([k, v]) => {
-      if (v !== "" && keyMap[k]) payload[keyMap[k]] = Number(v);
-    });
+    for (const [k, v] of Object.entries(vitals)) {
+      if (v === "" || !keyMap[k]) continue;
+      const num = Number(v);
+      if (isNaN(num)) {
+        toast.error(`Valeur invalide pour ${k}`);
+        return;
+      }
+      const [min, max] = bounds[k] || [0, 99999];
+      if (num < min || num > max) {
+        toast.error(`${k} doit être entre ${min} et ${max}`);
+        return;
+      }
+      payload[keyMap[k]] = num;
+    }
     if (Object.keys(payload).length === 0) {
       toast.error("Saisissez au moins un paramètre");
       return;
@@ -992,6 +1056,7 @@ export default function ConsultationRoom() {
   const { data: consultation, isLoading } = useQuery({
     queryKey: ["consultations", id],
     queryFn: () => consultationsApi.get(id).then((r) => r.data.data),
+    refetchInterval: 15000, // poll every 15s — fallback if WebSocket is down
   });
 
   const patientId =
@@ -1008,7 +1073,8 @@ export default function ConsultationRoom() {
     onSuccess: () => {
       setShowEndConfirm(false);
       setShowConsultForm(false);
-      setShowRating(true);
+      // Le médecin est redirigé vers le compte-rendu directement
+      navigate(`/consultations/${id}/report`);
     },
     onError: (err) => toast.error(err.response?.data?.message ?? "Erreur"),
   });
@@ -1041,7 +1107,7 @@ export default function ConsultationRoom() {
     onSuccess: () => toast.success("Merci pour votre retour !"),
     onError: () => {}, // non-bloquant
     onSettled: () => {
-      navigate(isDoctor() ? `/consultations/${id}/report` : "/appointments");
+      navigate("/appointments");
     },
   });
 
@@ -1049,9 +1115,26 @@ export default function ConsultationRoom() {
     if (rating > 0) {
       ratingMutation.mutate({ rating, comment: ratingComment || undefined });
     } else {
-      navigate(isDoctor() ? `/consultations/${id}/report` : "/appointments");
+      navigate("/appointments");
     }
   };
+
+  // ── Détection auto de fin de consultation (fallback sans WebSocket) ────────
+  useEffect(() => {
+    if (
+      consultation &&
+      (consultation.statut === "terminee" ||
+        consultation.status === "terminee") &&
+      !showPostConsultation
+    ) {
+      if (!isDoctor()) {
+        setShowPostConsultation(true);
+      } else {
+        // Médecin: si la consultation est déjà terminée, rediriger vers le rapport
+        navigate(`/consultations/${id}/report`, { replace: true });
+      }
+    }
+  }, [consultation?.statut, consultation?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Chrono ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1070,6 +1153,62 @@ export default function ConsultationRoom() {
       return { token: null, wsUrl: null };
     }
   }, []);
+
+  // ── Reconnexion automatique ────────────────────────────────────────────────
+  const triggerAutoReconnect = useCallback(() => {
+    if (!consultation?.id) return;
+    // Ne pas reconnecter si la consultation est terminée
+    if (
+      consultation.statut === "terminee" ||
+      consultation.status === "terminee"
+    )
+      return;
+
+    clearTimeout(reconnectTimerRef.current);
+    reconnectAttemptRef.current += 1;
+    const attempt = reconnectAttemptRef.current;
+    setAutoReconnecting(true);
+
+    // Backoff exponentiel : 2s, 4s, 8s, 16s, plafonné à 30s
+    const delay = Math.min(Math.pow(2, attempt) * 1000, 30000);
+
+    console.info(`[AutoReconnect] Tentative ${attempt} dans ${delay / 1000}s…`);
+
+    reconnectTimerRef.current = setTimeout(async () => {
+      const { token, wsUrl } = await fetchFreshToken(consultation.id);
+      if (token && wsUrl) {
+        livekitErrorCountRef.current = 0;
+        setLivekitFatalError(null);
+        setLivekitToken(token);
+        setLivekitWsUrl(wsUrl);
+        setConnectionState("connecting");
+        toast.info("Reconnexion en cours…", { duration: 2000 });
+      } else {
+        // Le backend a refusé (consultation terminée ?) → vérifier le statut
+        setAutoReconnecting(false);
+        // Le polling query se chargera de détecter "terminee"
+      }
+    }, delay);
+  }, [
+    consultation?.id,
+    consultation?.statut,
+    consultation?.status,
+    fetchFreshToken,
+  ]);
+
+  // Nettoyage du timer de reconnexion
+  useEffect(() => {
+    return () => clearTimeout(reconnectTimerRef.current);
+  }, []);
+
+  // Arrêter la reconnexion auto quand on est reconnecté ou consultation terminée
+  useEffect(() => {
+    if (connectionState === "connected") {
+      reconnectAttemptRef.current = 0;
+      setAutoReconnecting(false);
+      clearTimeout(reconnectTimerRef.current);
+    }
+  }, [connectionState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1176,10 +1315,20 @@ export default function ConsultationRoom() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div
-      className={`${isFullscreen ? "fixed inset-0 z-50" : "min-h-screen"} bg-gray-900 flex flex-col`}
+      className={`${
+        isFullscreen ? "fixed inset-0 z-50" : "min-h-screen"
+      } bg-gray-900 flex flex-col`}
     >
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-800/80 backdrop-blur-sm border-b border-gray-700 flex-shrink-0">
+        {/* HTTPS warning banner */}
+        {!navigator.mediaDevices && (
+          <div className="absolute top-0 left-0 right-0 bg-amber-600/90 text-white text-xs text-center py-1 z-50">
+            <AlertTriangle className="w-3 h-3 inline mr-1" />
+            Caméra/micro désactivés — connexion HTTPS requise pour la
+            visioconférence
+          </div>
+        )}
         <div className="flex items-center gap-3">
           {/* Branding */}
           <img
@@ -1197,20 +1346,20 @@ export default function ConsultationRoom() {
                 connectionState === "connected"
                   ? "bg-green-400 animate-pulse"
                   : connectionState === "poor"
-                    ? "bg-orange-400 animate-pulse"
-                    : connectionState === "disconnected"
-                      ? "bg-red-400"
-                      : "bg-yellow-400 animate-pulse"
+                  ? "bg-orange-400 animate-pulse"
+                  : connectionState === "disconnected"
+                  ? "bg-red-400"
+                  : "bg-yellow-400 animate-pulse"
               }`}
             />
             <span className="text-xs text-gray-300">
               {connectionState === "connected"
                 ? "Connecté"
                 : connectionState === "poor"
-                  ? "Connexion instable"
-                  : connectionState === "disconnected"
-                    ? "Déconnecté"
-                    : "Connexion en cours…"}
+                ? "Connexion instable"
+                : connectionState === "disconnected"
+                ? "Déconnecté"
+                : "Connexion en cours…"}
             </span>
           </div>
           <span className="text-gray-600">|</span>
@@ -1256,7 +1405,7 @@ export default function ConsultationRoom() {
           className="absolute inset-0"
           style={{
             width:
-              showPatientRecord || showConsultForm
+              showPatientRecord || showConsultForm || showVitals
                 ? "calc(100% - 400px)"
                 : "100%",
             height: "100%",
@@ -1268,20 +1417,28 @@ export default function ConsultationRoom() {
               serverUrl={livekitWsUrl}
               token={livekitToken}
               connect={true}
-              audio={true}
-              video={true}
+              audio={!!navigator.mediaDevices}
+              video={!!navigator.mediaDevices}
               options={livekitRoomOptions}
               onConnected={() => {
                 livekitErrorCountRef.current = 0;
+                reconnectAttemptRef.current = 0;
+                setAutoReconnecting(false);
                 setConnectionState("connected");
                 setOverlayDismissed(true);
               }}
-              onDisconnected={() => setConnectionState("disconnected")}
+              onDisconnected={() => {
+                // Ne pas bloquer — lancer la reconnexion automatique
+                setConnectionState("disconnected");
+                if (!showPostConsultation) {
+                  triggerAutoReconnect();
+                }
+              }}
               onError={(err) => {
                 console.error("[LiveKit] Connection error:", err);
                 livekitErrorCountRef.current += 1;
-                if (livekitErrorCountRef.current === 1 && consultation?.id) {
-                  // First failure: try refreshing token from backend (may fix stale/invalid token)
+                if (livekitErrorCountRef.current <= 3 && consultation?.id) {
+                  // Premières erreurs: rafraîchir le token
                   console.info("[LiveKit] Refreshing token from backend...");
                   toast.loading("Récupération d'un nouveau jeton vidéo…", {
                     id: "lk-token-refresh",
@@ -1294,13 +1451,14 @@ export default function ConsultationRoom() {
                       setLivekitWsUrl(wsUrl);
                     }
                   });
-                } else if (livekitErrorCountRef.current >= 5) {
-                  // Stop trying — unmount LiveKitRoom entirely
+                } else if (livekitErrorCountRef.current >= 15) {
+                  // Abandon après 15 tentatives
                   setLivekitFatalError(
                     err?.message || "Impossible de se connecter à LiveKit",
                   );
                   setConnectionState("disconnected");
                   setOverlayDismissed(true);
+                  setAutoReconnecting(false);
                   toast.error(
                     "Connexion vidéo échouée après plusieurs tentatives",
                   );
@@ -1349,7 +1507,6 @@ export default function ConsultationRoom() {
             </div>
           ) : null}
         </div>
-
         {/* Patient record sidebar */}
         {showPatientRecord && (
           <div className="absolute top-0 right-0 w-[400px] h-full bg-gray-800 border-l border-gray-700 overflow-y-auto">
@@ -1517,14 +1674,12 @@ export default function ConsultationRoom() {
             )}
           </div>
         )}
-
-        {/* ── Consultation form sidebar ── */}
+        {/* ── Consultation form sidebar (unified) ── */}
         {showConsultForm && !showPatientRecord && (
           <div className="absolute top-0 right-0 w-[400px] h-full bg-gray-800 border-l border-gray-700 overflow-y-auto">
             <div className="flex items-center justify-between p-3 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
               <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-                <FileText className="w-4 h-4 text-cyan-400" /> Formulaire de
-                consultation
+                <FileText className="w-4 h-4 text-cyan-400" /> Consultation
               </h3>
               <button
                 onClick={() => setShowConsultForm(false)}
@@ -1534,142 +1689,69 @@ export default function ConsultationRoom() {
               </button>
             </div>
             <div className="p-3 space-y-3">
-              {/* Report fields */}
-              {[
-                {
-                  key: "chief_complaint",
-                  label: "Motif de consultation",
-                  rows: 2,
-                },
-                { key: "history", label: "Anamnèse / Historique", rows: 2 },
-                { key: "examination", label: "Examen clinique", rows: 2 },
-                { key: "diagnosis", label: "Diagnostic", rows: 2 },
-                { key: "treatment_plan", label: "Plan thérapeutique", rows: 2 },
-                {
-                  key: "follow_up_instructions",
-                  label: "Consignes de suivi",
-                  rows: 1,
-                },
-                { key: "notes", label: "Notes", rows: 1 },
-              ].map(({ key, label, rows }) => (
-                <div key={key}>
-                  <label className="block text-xs font-medium text-gray-400 mb-1">
-                    {label}
-                  </label>
-                  <textarea
-                    rows={rows}
-                    value={reportForm[key]}
-                    onChange={(e) =>
-                      setReportForm((f) => ({ ...f, [key]: e.target.value }))
-                    }
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 resize-y"
-                    placeholder={`${label}…`}
-                  />
-                </div>
-              ))}
-
-              {/* Save report button */}
-              <button
-                onClick={() => saveReportMutation.mutate()}
-                disabled={saveReportMutation.isPending}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition disabled:opacity-50"
-              >
-                <Save className="w-3.5 h-3.5" />
-                {saveReportMutation.isPending
-                  ? "Sauvegarde…"
-                  : "Sauvegarder le rapport"}
-              </button>
-
-              {/* Entités médicales — boutons d'ajout */}
-              <div className="border-t border-gray-700 pt-3">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                  Entités médicales
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setShowDiagModal(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 transition"
-                  >
-                    <Stethoscope className="w-3.5 h-3.5 text-cyan-400" />{" "}
-                    Diagnostic
-                  </button>
-                  <button
-                    onClick={() => setShowExamModal(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 transition"
-                  >
-                    <FlaskConical className="w-3.5 h-3.5 text-purple-400" />{" "}
-                    Examen
-                  </button>
-                  <button
-                    onClick={() => setShowPrescModal(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 transition"
-                  >
-                    <Pill className="w-3.5 h-3.5 text-indigo-400" />{" "}
-                    Prescription
-                  </button>
-                  <button
-                    onClick={() => setShowTraitModal(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-200 transition"
-                  >
-                    <ClipboardList className="w-3.5 h-3.5 text-teal-400" />{" "}
-                    Traitement
-                  </button>
-                </div>
+              {/* ─── 1. Motif de consultation ─── */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Motif de consultation
+                </label>
+                <textarea
+                  rows={2}
+                  value={reportForm.chief_complaint}
+                  onChange={(e) =>
+                    setReportForm((f) => ({
+                      ...f,
+                      chief_complaint: e.target.value,
+                    }))
+                  }
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 resize-y"
+                  placeholder="Motif de consultation…"
+                />
               </div>
 
-              {/* Entités ajoutées */}
-              {(consultation?.diagnostics?.length > 0 ||
-                consultation?.examens?.length > 0 ||
-                consultation?.prescriptions?.length > 0 ||
-                consultation?.treatments?.length > 0) && (
-                <div className="border-t border-gray-700 pt-3 space-y-3">
-                  {/* Diagnostics */}
-                  {consultation.diagnostics?.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 mb-1.5 flex items-center gap-1">
-                        <Stethoscope className="w-3 h-3 text-cyan-400" />{" "}
-                        Diagnostics ({consultation.diagnostics.length})
-                      </p>
-                      {consultation.diagnostics.map((d) => (
-                        <div
-                          key={d.id}
-                          className="flex items-center justify-between p-1.5 bg-gray-700/50 rounded mb-1"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <span className="text-xs text-gray-200 truncate block">
-                              {d.title || d.libelle}
-                            </span>
-                            {d.icd_code && (
-                              <span className="text-[10px] text-cyan-400 font-mono">
-                                {d.icd_code}
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => {
-                              if (window.confirm("Supprimer ?"))
-                                deleteDiagnostic.mutate(d.id);
-                            }}
-                            className="p-0.5 text-gray-500 hover:text-red-400 flex-shrink-0"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              {/* ─── 2. Anamnèse ─── */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Anamnèse / Historique
+                </label>
+                <textarea
+                  rows={2}
+                  value={reportForm.history}
+                  onChange={(e) =>
+                    setReportForm((f) => ({ ...f, history: e.target.value }))
+                  }
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 resize-y"
+                  placeholder="Anamnèse / Historique…"
+                />
+              </div>
 
-                  {/* Examens */}
-                  {consultation.examens?.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 mb-1.5 flex items-center gap-1">
-                        <FlaskConical className="w-3 h-3 text-purple-400" />{" "}
-                        Examens ({consultation.examens.length})
-                      </p>
+              {/* ─── 3. Examen clinique + Examens prescrits ─── */}
+              <div className="border border-gray-700 rounded-lg overflow-hidden">
+                <div className="p-2.5">
+                  <label className="text-xs font-medium text-gray-400 mb-1 flex items-center gap-1">
+                    <FlaskConical className="w-3 h-3 text-purple-400" /> Examen
+                    clinique
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={reportForm.examination}
+                    onChange={(e) =>
+                      setReportForm((f) => ({
+                        ...f,
+                        examination: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 resize-y"
+                    placeholder="Examen clinique…"
+                  />
+                </div>
+                {/* Examens prescrits inline */}
+                <div className="px-2.5 pb-2.5">
+                  {consultation?.examens?.length > 0 && (
+                    <div className="mb-2 space-y-1">
                       {consultation.examens.map((e) => (
                         <div
                           key={e.id}
-                          className="flex items-center justify-between p-1.5 bg-gray-700/50 rounded mb-1"
+                          className="flex items-center justify-between p-1.5 bg-gray-700/50 rounded"
                         >
                           <div className="flex-1 min-w-0">
                             <span className="text-xs text-gray-200 truncate block">
@@ -1694,43 +1776,156 @@ export default function ConsultationRoom() {
                       ))}
                     </div>
                   )}
+                  <button
+                    onClick={() => setShowExamModal(true)}
+                    className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition"
+                  >
+                    <Plus className="w-3 h-3" /> Prescrire un examen
+                  </button>
+                </div>
+              </div>
 
-                  {/* Prescriptions */}
-                  {consultation.prescriptions?.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 mb-1.5 flex items-center gap-1">
-                        <Pill className="w-3 h-3 text-indigo-400" />{" "}
-                        Prescriptions ({consultation.prescriptions.length})
+              {/* ─── 4. Diagnostic (CIM-11 intégré) ─── */}
+              <div className="border border-cyan-800/50 rounded-lg overflow-hidden">
+                <div className="px-2.5 pt-2.5 pb-1">
+                  <label className="text-xs font-semibold text-cyan-400 mb-1 flex items-center gap-1">
+                    <Stethoscope className="w-3 h-3" /> Diagnostic
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={reportForm.diagnosis}
+                    onChange={(e) =>
+                      setReportForm((f) => ({
+                        ...f,
+                        diagnosis: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 resize-y"
+                    placeholder="Résumé du diagnostic…"
+                  />
+                </div>
+                {/* Diagnostics structurés (CIM-11) */}
+                <div className="px-2.5 pb-2.5">
+                  {consultation?.diagnostics?.length > 0 && (
+                    <div className="mb-2 space-y-1">
+                      {consultation.diagnostics.map((d) => (
+                        <div
+                          key={d.id}
+                          className="flex items-center justify-between p-1.5 bg-cyan-900/20 border border-cyan-800/30 rounded"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-gray-200 truncate block">
+                              {d.title || d.libelle}
+                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {d.icd_code && (
+                                <span className="text-[10px] text-cyan-400 font-mono bg-cyan-900/30 px-1 rounded">
+                                  {d.icd_code}
+                                </span>
+                              )}
+                              {d.type && (
+                                <span className="text-[10px] text-gray-400 capitalize">
+                                  {d.type}
+                                </span>
+                              )}
+                              {d.gravite && (
+                                <span className="text-[10px] text-amber-400 capitalize">
+                                  {d.gravite}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (window.confirm("Supprimer ?"))
+                                deleteDiagnostic.mutate(d.id);
+                            }}
+                            className="p-0.5 text-gray-500 hover:text-red-400 flex-shrink-0"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowDiagModal(true)}
+                    className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition"
+                  >
+                    <Plus className="w-3 h-3" /> Ajouter un diagnostic CIM-11
+                  </button>
+                </div>
+              </div>
+
+              {/* ─── 5. Traitement & Prescriptions ─── */}
+              <div className="border border-gray-700 rounded-lg overflow-hidden">
+                <div className="p-2.5">
+                  <label className="text-xs font-medium text-gray-400 mb-1 flex items-center gap-1">
+                    <ClipboardList className="w-3 h-3 text-teal-400" /> Plan
+                    thérapeutique
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={reportForm.treatment_plan}
+                    onChange={(e) =>
+                      setReportForm((f) => ({
+                        ...f,
+                        treatment_plan: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 resize-y"
+                    placeholder="Plan thérapeutique…"
+                  />
+                </div>
+                {/* Prescriptions inline */}
+                <div className="px-2.5 pb-2">
+                  {consultation?.prescriptions?.length > 0 && (
+                    <div className="mb-2 space-y-1">
+                      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        <Pill className="w-2.5 h-2.5 text-indigo-400" />{" "}
+                        Prescriptions
                       </p>
                       {consultation.prescriptions.map((p) => (
                         <div
                           key={p.id}
-                          className="p-1.5 bg-gray-700/50 rounded mb-1"
+                          className="p-1.5 bg-gray-700/50 rounded"
                         >
                           <span className="text-xs text-gray-200">
                             {p.name || p.denomination}
                           </span>
-                          {p.dosage && (
+                          {p.posologie && (
                             <span className="text-[10px] text-gray-400 ml-1">
-                              {p.dosage}
+                              — {p.posologie}
+                            </span>
+                          )}
+                          {p.duree_jours && (
+                            <span className="text-[10px] text-gray-500 ml-1">
+                              ({p.duree_jours}j)
                             </span>
                           )}
                         </div>
                       ))}
                     </div>
                   )}
-
-                  {/* Traitements */}
-                  {consultation.treatments?.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-400 mb-1.5 flex items-center gap-1">
-                        <ClipboardList className="w-3 h-3 text-teal-400" />{" "}
-                        Traitements ({consultation.treatments.length})
+                  <button
+                    onClick={() => setShowPrescModal(true)}
+                    className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition"
+                  >
+                    <Plus className="w-3 h-3" /> Ajouter une prescription
+                  </button>
+                </div>
+                {/* Traitements inline */}
+                <div className="px-2.5 pb-2.5 border-t border-gray-700/50 pt-2">
+                  {consultation?.treatments?.length > 0 && (
+                    <div className="mb-2 space-y-1">
+                      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        <ClipboardList className="w-2.5 h-2.5 text-teal-400" />{" "}
+                        Traitements
                       </p>
                       {consultation.treatments.map((t) => (
                         <div
                           key={t.id}
-                          className="flex items-center justify-between p-1.5 bg-gray-700/50 rounded mb-1"
+                          className="flex items-center justify-between p-1.5 bg-gray-700/50 rounded"
                         >
                           <span className="text-xs text-gray-200">
                             {t.type} {t.medications ? `— ${t.medications}` : ""}
@@ -1748,15 +1943,68 @@ export default function ConsultationRoom() {
                       ))}
                     </div>
                   )}
+                  <button
+                    onClick={() => setShowTraitModal(true)}
+                    className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition"
+                  >
+                    <Plus className="w-3 h-3" /> Ajouter un traitement
+                  </button>
                 </div>
-              )}
+              </div>
+
+              {/* ─── 6. Consignes de suivi ─── */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Consignes de suivi
+                </label>
+                <textarea
+                  rows={1}
+                  value={reportForm.follow_up_instructions}
+                  onChange={(e) =>
+                    setReportForm((f) => ({
+                      ...f,
+                      follow_up_instructions: e.target.value,
+                    }))
+                  }
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 resize-y"
+                  placeholder="Consignes de suivi…"
+                />
+              </div>
+
+              {/* ─── 7. Notes ─── */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  rows={1}
+                  value={reportForm.notes}
+                  onChange={(e) =>
+                    setReportForm((f) => ({ ...f, notes: e.target.value }))
+                  }
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 resize-y"
+                  placeholder="Notes…"
+                />
+              </div>
+
+              {/* ─── Sauvegarder ─── */}
+              <button
+                onClick={() => saveReportMutation.mutate()}
+                disabled={saveReportMutation.isPending}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {saveReportMutation.isPending
+                  ? "Sauvegarde…"
+                  : "Sauvegarder le rapport"}
+              </button>
 
               {/* Lien vers rapport complet */}
               <button
                 onClick={() =>
                   window.open(`/consultations/${id}/report`, "_blank")
                 }
-                className="w-full text-center text-xs text-cyan-400 hover:text-cyan-300 underline pt-2"
+                className="w-full text-center text-xs text-cyan-400 hover:text-cyan-300 underline pt-1"
               >
                 Ouvrir le rapport complet{" "}
                 <ExternalLink className="w-3 h-3 inline ml-1" />
@@ -1764,7 +2012,175 @@ export default function ConsultationRoom() {
             </div>
           </div>
         )}
-
+        {/* ── Vital signs sidebar ── */}
+        {showVitals && !showPatientRecord && !showConsultForm && (
+          <div className="absolute top-0 right-0 w-[400px] h-full bg-gray-800 border-l border-gray-700 overflow-y-auto">
+            <div className="flex items-center justify-between p-3 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
+              <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+                <Activity className="w-4 h-4 text-green-400" /> Paramètres
+                vitaux
+              </h3>
+              <button
+                onClick={() => setShowVitals(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleVitalsSubmit} className="p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Poids (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={vitals.weight}
+                    onChange={(e) =>
+                      setVitals((v) => ({ ...v, weight: e.target.value }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                    placeholder="kg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Taille (cm)
+                  </label>
+                  <input
+                    type="number"
+                    value={vitals.height}
+                    onChange={(e) =>
+                      setVitals((v) => ({ ...v, height: e.target.value }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                    placeholder="cm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Température (°C)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={vitals.temperature}
+                    onChange={(e) =>
+                      setVitals((v) => ({ ...v, temperature: e.target.value }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                    placeholder="°C"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Fréq. cardiaque
+                  </label>
+                  <input
+                    type="number"
+                    value={vitals.heart_rate}
+                    onChange={(e) =>
+                      setVitals((v) => ({ ...v, heart_rate: e.target.value }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                    placeholder="bpm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    TA systolique
+                  </label>
+                  <input
+                    type="number"
+                    value={vitals.blood_pressure_systolic}
+                    onChange={(e) =>
+                      setVitals((v) => ({
+                        ...v,
+                        blood_pressure_systolic: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                    placeholder="mmHg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    TA diastolique
+                  </label>
+                  <input
+                    type="number"
+                    value={vitals.blood_pressure_diastolic}
+                    onChange={(e) =>
+                      setVitals((v) => ({
+                        ...v,
+                        blood_pressure_diastolic: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                    placeholder="mmHg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    Fréq. respiratoire
+                  </label>
+                  <input
+                    type="number"
+                    value={vitals.respiratory_rate}
+                    onChange={(e) =>
+                      setVitals((v) => ({
+                        ...v,
+                        respiratory_rate: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                    placeholder="/min"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">
+                    SpO2 (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={vitals.spo2}
+                    onChange={(e) =>
+                      setVitals((v) => ({ ...v, spo2: e.target.value }))
+                    }
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                    placeholder="%"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Glycémie (g/L)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={vitals.glycemia}
+                  onChange={(e) =>
+                    setVitals((v) => ({ ...v, glycemia: e.target.value }))
+                  }
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  placeholder="g/L"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={vitalsMutation.isPending}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {vitalsMutation.isPending
+                  ? "Enregistrement…"
+                  : "Enregistrer les constantes"}
+              </button>
+            </form>
+          </div>
+        )}
         {connectionState === "connecting" && !overlayDismissed && (
           <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col items-center justify-center gap-6 z-10 transition-opacity duration-700">
             <img
@@ -1789,29 +2205,89 @@ export default function ConsultationRoom() {
             </div>
           </div>
         )}
-
-        {connectionState === "disconnected" && overlayDismissed && (
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col items-center justify-center gap-6">
-            <div className="w-16 h-16 rounded-2xl bg-red-500/20 flex items-center justify-center">
-              <WifiOff className="w-8 h-8 text-red-400" />
+        {/* Bannière de reconnexion non-bloquante */}
+        {connectionState === "disconnected" &&
+          overlayDismissed &&
+          !livekitFatalError && (
+            <div className="absolute top-0 left-0 right-0 z-20 bg-amber-600/95 backdrop-blur-sm px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <WifiOff className="w-5 h-5 text-white animate-pulse" />
+                <div>
+                  <p className="text-white font-medium text-sm">
+                    Connexion perdue
+                  </p>
+                  <p className="text-amber-100 text-xs">
+                    {autoReconnecting
+                      ? `Reconnexion automatique en cours… (tentative ${reconnectAttemptRef.current})`
+                      : "La consultation n'est pas terminée — reconnexion en cours…"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => triggerAutoReconnect()}
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded-lg transition"
+                >
+                  Réessayer
+                </button>
+              </div>
             </div>
-            <div className="text-center space-y-2">
-              <p className="text-white font-semibold text-lg">
-                Connexion perdue
-              </p>
-              <p className="text-gray-400 text-sm">
-                Vérifiez votre connexion internet et réessayez
-              </p>
+          )}
+        {/* Écran d'erreur fatale — uniquement après épuisement des tentatives */}
+        {connectionState === "disconnected" &&
+          overlayDismissed &&
+          livekitFatalError && (
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col items-center justify-center gap-6 z-20">
+              <div className="w-16 h-16 rounded-2xl bg-red-500/20 flex items-center justify-center">
+                <WifiOff className="w-8 h-8 text-red-400" />
+              </div>
+              <div className="text-center space-y-2">
+                <p className="text-white font-semibold text-lg">
+                  Connexion vidéo perdue
+                </p>
+                <p className="text-gray-400 text-sm">
+                  Les tentatives de reconnexion automatique ont échoué.
+                </p>
+                <p className="text-gray-500 text-xs">
+                  La consultation n'est pas terminée — le médecin peut toujours
+                  la terminer.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    livekitErrorCountRef.current = 0;
+                    reconnectAttemptRef.current = 0;
+                    setLivekitFatalError(null);
+                    setAutoReconnecting(true);
+                    if (consultation?.id) {
+                      const { token, wsUrl } = await fetchFreshToken(
+                        consultation.id,
+                      );
+                      if (token && wsUrl) {
+                        setLivekitToken(token);
+                        setLivekitWsUrl(wsUrl);
+                        setConnectionState("connecting");
+                      } else {
+                        setAutoReconnecting(false);
+                        toast.error("La consultation est peut-être terminée");
+                      }
+                    }
+                  }}
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-sm font-medium"
+                >
+                  Réessayer la connexion
+                </button>
+                <Button
+                  onClick={() => window.location.reload()}
+                  variant="outline"
+                  className="text-white border-white/30 hover:bg-white/10"
+                >
+                  Recharger la page
+                </Button>
+              </div>
             </div>
-            <Button
-              onClick={() => window.location.reload()}
-              variant="outline"
-              className="text-white border-white/30 hover:bg-white/10"
-            >
-              Reconnecter
-            </Button>
-          </div>
-        )}
+          )}
       </div>
 
       {/* Bottom bar */}
@@ -1827,73 +2303,87 @@ export default function ConsultationRoom() {
         </div>
 
         <div className="flex items-center gap-2 mx-auto sm:mx-0">
-          {!showEndConfirm ? (
+          {/* Médecin : bouton Terminer avec confirmation modale */}
+          {isDoctor() && (
             <Button
               onClick={() => setShowEndConfirm(true)}
               variant="danger"
               size="sm"
-              icon={Phone}
+              icon={PhoneOff}
             >
-              Terminer
+              Terminer la consultation
             </Button>
-          ) : (
-            <div className="flex items-center gap-2 bg-gray-700 rounded-xl p-2">
-              <span className="text-white text-sm">
-                Terminer la consultation ?
-              </span>
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => endMutation.mutate()}
-                loading={endMutation.isPending}
-              >
-                Oui
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowEndConfirm(false)}
-                className="text-white border-gray-500"
-              >
-                Non
-              </Button>
-            </div>
           )}
-          {isDoctor() && !showEndConfirm && (
+          {/* Patient : bouton Quitter avec confirmation */}
+          {!isDoctor() && (
             <Button
-              onClick={() => setShowVitals(true)}
+              onClick={() => setShowLeaveConfirm(true)}
+              variant="danger"
+              size="sm"
+              icon={LogOut}
+            >
+              Quitter
+            </Button>
+          )}
+          {isDoctor() && (
+            <Button
+              onClick={() => {
+                setShowVitals((v) => !v);
+                if (!showVitals) {
+                  setShowPatientRecord(false);
+                  setShowConsultForm(false);
+                }
+              }}
               variant="secondary"
               size="sm"
               icon={Activity}
-              className="bg-gray-700 text-white border-gray-600 hover:bg-gray-600"
+              className={`${
+                showVitals
+                  ? "bg-cyan-700 border-cyan-600"
+                  : "bg-gray-700 border-gray-600"
+              } text-white hover:bg-gray-600`}
             >
               Constantes
             </Button>
           )}
-          {isDoctor() && !showEndConfirm && (
+          {isDoctor() && (
             <Button
               onClick={() => {
                 setShowConsultForm((v) => !v);
-                if (!showConsultForm) setShowPatientRecord(false);
+                if (!showConsultForm) {
+                  setShowPatientRecord(false);
+                  setShowVitals(false);
+                }
               }}
               variant="secondary"
               size="sm"
               icon={FileText}
-              className={`${showConsultForm ? "bg-cyan-700 border-cyan-600" : "bg-gray-700 border-gray-600"} text-white hover:bg-gray-600`}
+              className={`${
+                showConsultForm
+                  ? "bg-cyan-700 border-cyan-600"
+                  : "bg-gray-700 border-gray-600"
+              } text-white hover:bg-gray-600`}
             >
               Consultation
             </Button>
           )}
-          {isDoctor() && !showEndConfirm && (
+          {isDoctor() && (
             <Button
               onClick={() => {
                 setShowPatientRecord((v) => !v);
-                if (!showPatientRecord) setShowConsultForm(false);
+                if (!showPatientRecord) {
+                  setShowConsultForm(false);
+                  setShowVitals(false);
+                }
               }}
               variant="secondary"
               size="sm"
               icon={ClipboardList}
-              className={`${showPatientRecord ? "bg-cyan-700 border-cyan-600" : "bg-gray-700 border-gray-600"} text-white hover:bg-gray-600`}
+              className={`${
+                showPatientRecord
+                  ? "bg-cyan-700 border-cyan-600"
+                  : "bg-gray-700 border-gray-600"
+              } text-white hover:bg-gray-600`}
             >
               Dossier
             </Button>
@@ -1901,177 +2391,207 @@ export default function ConsultationRoom() {
         </div>
       </div>
 
-      {/* Vital signs modal */}
+      {/* ── Modal de confirmation : Médecin termine la consultation ── */}
       <Modal
-        open={showVitals}
-        onClose={() => setShowVitals(false)}
-        title="Paramètres vitaux"
-      >
-        <form onSubmit={handleVitalsSubmit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Poids (kg)"
-              type="number"
-              step="0.1"
-              value={vitals.weight}
-              onChange={(e) =>
-                setVitals((v) => ({ ...v, weight: e.target.value }))
-              }
-            />
-            <Input
-              label="Taille (cm)"
-              type="number"
-              value={vitals.height}
-              onChange={(e) =>
-                setVitals((v) => ({ ...v, height: e.target.value }))
-              }
-            />
-            <Input
-              label="Température (°C)"
-              type="number"
-              step="0.1"
-              value={vitals.temperature}
-              onChange={(e) =>
-                setVitals((v) => ({ ...v, temperature: e.target.value }))
-              }
-            />
-            <Input
-              label="Fréq. cardiaque"
-              type="number"
-              value={vitals.heart_rate}
-              onChange={(e) =>
-                setVitals((v) => ({ ...v, heart_rate: e.target.value }))
-              }
-            />
-            <Input
-              label="TA systolique"
-              type="number"
-              value={vitals.blood_pressure_systolic}
-              onChange={(e) =>
-                setVitals((v) => ({
-                  ...v,
-                  blood_pressure_systolic: e.target.value,
-                }))
-              }
-            />
-            <Input
-              label="TA diastolique"
-              type="number"
-              value={vitals.blood_pressure_diastolic}
-              onChange={(e) =>
-                setVitals((v) => ({
-                  ...v,
-                  blood_pressure_diastolic: e.target.value,
-                }))
-              }
-            />
-            <Input
-              label="Fréq. respiratoire"
-              type="number"
-              value={vitals.respiratory_rate}
-              onChange={(e) =>
-                setVitals((v) => ({ ...v, respiratory_rate: e.target.value }))
-              }
-            />
-            <Input
-              label="SpO2 (%)"
-              type="number"
-              value={vitals.spo2}
-              onChange={(e) =>
-                setVitals((v) => ({ ...v, spo2: e.target.value }))
-              }
-            />
-          </div>
-          <Input
-            label="Glycémie (g/L)"
-            type="number"
-            step="0.01"
-            value={vitals.glycemia}
-            onChange={(e) =>
-              setVitals((v) => ({ ...v, glycemia: e.target.value }))
-            }
-          />
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowVitals(false)}
-            >
+        open={showEndConfirm}
+        onClose={() => setShowEndConfirm(false)}
+        title="Terminer la téléconsultation"
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowEndConfirm(false)}>
               Annuler
             </Button>
-            <Button type="submit" loading={vitalsMutation.isPending}>
-              Enregistrer
+            <Button
+              variant="danger"
+              onClick={() => endMutation.mutate()}
+              loading={endMutation.isPending}
+              icon={PhoneOff}
+            >
+              Oui, terminer
             </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-800">
+              <p className="font-medium mb-1">Attention</p>
+              <p>
+                Cette action mettra fin à la téléconsultation pour vous{" "}
+                <strong>et pour le patient</strong>. Le patient sera informé que
+                la consultation est terminée et recevra les indications
+                post-consultation.
+              </p>
+            </div>
           </div>
-        </form>
+          <p className="text-sm text-gray-600">
+            Assurez-vous d'avoir complété le compte-rendu et les prescriptions
+            avant de terminer.
+          </p>
+        </div>
       </Modal>
 
-      {/* Video quality rating modal – shown after ending consultation */}
+      {/* ── Modal de confirmation : Patient quitte la visio ── */}
       <Modal
-        open={showRating}
-        onClose={handleRatingSubmit}
-        title="Évaluation de la qualité vidéo"
-      >
-        <div className="space-y-5">
-          <p className="text-sm text-gray-600">
-            Comment évaluez-vous la qualité de cette téléconsultation ?
-          </p>
-          {/* Star rating */}
-          <div className="flex items-center justify-center gap-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                type="button"
-                onClick={() => setRating(star)}
-                className="transition-transform hover:scale-110"
-              >
-                <Star
-                  className={`w-10 h-10 transition-colors ${
-                    star <= rating
-                      ? "text-yellow-400 fill-yellow-400"
-                      : "text-gray-300"
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
-          <p className="text-center text-sm text-gray-500">
-            {rating === 0 && "Sélectionnez une note"}
-            {rating === 1 && "Très mauvaise"}
-            {rating === 2 && "Mauvaise"}
-            {rating === 3 && "Correcte"}
-            {rating === 4 && "Bonne"}
-            {rating === 5 && "Excellente"}
-          </p>
-          {/* Optional comment */}
-          {rating > 0 && rating <= 3 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Décrivez le problème (optionnel)
-              </label>
-              <textarea
-                value={ratingComment}
-                onChange={(e) => setRatingComment(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                rows={3}
-                placeholder="Coupures, image floue, décalage son…"
-              />
-            </div>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={handleRatingSubmit}>
-              Passer
+        open={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        title="Quitter la consultation"
+        size="md"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setShowLeaveConfirm(false)}
+            >
+              Rester en ligne
             </Button>
             <Button
-              onClick={handleRatingSubmit}
-              disabled={rating === 0}
-              loading={ratingMutation.isPending}
+              variant="danger"
+              onClick={() => navigate("/appointments")}
+              icon={LogOut}
             >
-              Envoyer
+              Quitter
             </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-800">
+              <p className="font-medium mb-1">Êtes-vous sûr(e) ?</p>
+              <p>
+                Si vous quittez maintenant, vous ne pourrez plus communiquer
+                avec le médecin. Attendez que le médecin termine la consultation
+                pour recevoir vos prescriptions et votre compte-rendu.
+              </p>
+            </div>
           </div>
         </div>
       </Modal>
+
+      {/* ── Écran post-consultation patient (affiché quand le médecin termine) ── */}
+      {showPostConsultation && (
+        <div className="fixed inset-0 z-[100] bg-gradient-to-br from-gray-50 via-white to-primary-50 flex items-center justify-center p-4">
+          <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            {/* Header avec check */}
+            <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-8 text-center text-white">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-10 h-10 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Consultation terminée</h2>
+              <p className="text-primary-100 text-sm">
+                Votre téléconsultation avec{" "}
+                <span className="font-semibold text-white">
+                  Dr.{" "}
+                  {consultation?.doctor?.last_name ??
+                    consultation?.appointment?.doctor?.last_name}
+                </span>{" "}
+                est terminée.
+              </p>
+            </div>
+
+            {/* Contenu */}
+            <div className="px-6 py-6 space-y-4">
+              {/* Infos post-consultation */}
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                  <FileCheck className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-900">
+                    <p className="font-medium">Compte-rendu médical</p>
+                    <p className="text-blue-700">
+                      Vous trouverez le détail de votre consultation, les
+                      diagnostics et les observations dans votre dossier
+                      médical.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                  <ClipboardCheck className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-green-900">
+                    <p className="font-medium">Prescriptions & Examens</p>
+                    <p className="text-green-700">
+                      Le récapitulatif de vos prescriptions médicales et des
+                      examens prescrits est disponible dans votre espace
+                      patient.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Séparateur */}
+              <hr className="border-gray-200" />
+
+              {/* Satisfaction */}
+              <div className="text-center space-y-3">
+                <p className="text-sm font-medium text-gray-700">
+                  Comment évaluez-vous la qualité de cette téléconsultation ?
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      className="transition-transform hover:scale-110"
+                    >
+                      <Star
+                        className={`w-9 h-9 transition-colors ${
+                          star <= rating
+                            ? "text-yellow-400 fill-yellow-400"
+                            : "text-gray-300"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500">
+                  {rating === 0 && "Sélectionnez une note"}
+                  {rating === 1 && "Très mauvaise"}
+                  {rating === 2 && "Mauvaise"}
+                  {rating === 3 && "Correcte"}
+                  {rating === 4 && "Bonne"}
+                  {rating === 5 && "Excellente"}
+                </p>
+                {rating > 0 && rating <= 3 && (
+                  <textarea
+                    value={ratingComment}
+                    onChange={(e) => setRatingComment(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    rows={2}
+                    placeholder="Décrivez le problème rencontré (optionnel)…"
+                  />
+                )}
+              </div>
+
+              {/* Boutons */}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleRatingSubmit}
+                >
+                  Passer
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleRatingSubmit}
+                  disabled={rating === 0}
+                  loading={ratingMutation.isPending}
+                >
+                  Envoyer & Continuer
+                </Button>
+              </div>
+
+              <p className="text-center text-xs text-gray-400">
+                Merci d'avoir utilisé LiptakoCare. Prenez soin de vous !
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Medical entity modals ── */}
       <DiagnosticFormModal
@@ -2131,8 +2651,13 @@ function DiagnosticFormModal({ open, onClose, consultationId, onSuccess }) {
     statut: "presume",
     description: "",
   });
+  const [icdSearch, setIcdSearch] = useState("");
+  const [icdResults, setIcdResults] = useState([]);
+  const [icdLoading, setIcdLoading] = useState(false);
+  const icdTimerRef = useRef(null);
+
   useEffect(() => {
-    if (open)
+    if (open) {
       setForm({
         libelle: "",
         type: "principal",
@@ -2141,7 +2666,41 @@ function DiagnosticFormModal({ open, onClose, consultationId, onSuccess }) {
         statut: "presume",
         description: "",
       });
+      setIcdSearch("");
+      setIcdResults([]);
+    }
   }, [open]);
+
+  // Debounced ICD-11 search
+  const handleIcdSearch = (value) => {
+    setIcdSearch(value);
+    if (icdTimerRef.current) clearTimeout(icdTimerRef.current);
+    if (value.trim().length < 2) {
+      setIcdResults([]);
+      return;
+    }
+    icdTimerRef.current = setTimeout(async () => {
+      setIcdLoading(true);
+      try {
+        const res = await icd11Api.search({ q: value, limit: 8 });
+        setIcdResults(res.data?.results || res.data?.data || []);
+      } catch {
+        setIcdResults([]);
+      }
+      setIcdLoading(false);
+    }, 400);
+  };
+
+  const selectIcdResult = (item) => {
+    setForm((f) => ({
+      ...f,
+      libelle: item.title || item.label || item.name || f.libelle,
+      code_cim: item.code || item.theCode || "",
+    }));
+    setIcdSearch("");
+    setIcdResults([]);
+  };
+
   const mutation = useMutation({
     mutationFn: (data) =>
       diagnosticsApi.create({ ...data, consultation_id: consultationId }),
@@ -2174,6 +2733,44 @@ function DiagnosticFormModal({ open, onClose, consultationId, onSuccess }) {
       }
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* ICD-11 search */}
+        <div className="sm:col-span-2 relative">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Recherche CIM-11 (OMS)
+          </label>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={icdSearch}
+              onChange={(e) => handleIcdSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              placeholder="Ex: paludisme, diabète, hypertension…"
+            />
+            {icdLoading && (
+              <div className="absolute right-2.5 top-2.5 w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+            )}
+          </div>
+          {icdResults.length > 0 && (
+            <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {icdResults.map((item, idx) => (
+                <button
+                  key={item.code || idx}
+                  type="button"
+                  onClick={() => selectIcdResult(item)}
+                  className="w-full text-left px-3 py-2 hover:bg-cyan-50 border-b border-gray-100 last:border-0 transition"
+                >
+                  <span className="text-xs font-mono text-cyan-600 mr-2">
+                    {item.code || item.theCode || "—"}
+                  </span>
+                  <span className="text-sm text-gray-800">
+                    {item.title || item.label || item.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="sm:col-span-2">
           <Input
             label="Intitulé *"
@@ -2189,10 +2786,10 @@ function DiagnosticFormModal({ open, onClose, consultationId, onSuccess }) {
           options={DIAG_TYPE_OPTIONS}
         />
         <Input
-          label="Code CIM-10"
+          label="Code CIM-11"
           value={form.code_cim}
           onChange={(e) => set("code_cim", e.target.value)}
-          placeholder="Ex: B50.9"
+          placeholder="Ex: 1F40"
         />
         <Select
           label="Gravité"

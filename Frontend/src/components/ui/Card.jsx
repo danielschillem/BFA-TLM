@@ -5,8 +5,8 @@ export function Card({ className, children, hover = false }) {
   return (
     <div
       className={cn(
-        "bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-100/80 shadow-card",
-        hover && "card-hover",
+        "bg-white rounded-lg border border-gray-200 shadow-card",
+        hover && "hover:shadow-card-hover transition-shadow duration-200",
         className,
       )}
     >
@@ -17,21 +17,21 @@ export function Card({ className, children, hover = false }) {
 
 export function CardHeader({ className, children }) {
   return (
-    <div className={cn("px-6 py-4 border-b border-gray-100/80", className)}>
+    <div className={cn("px-5 py-3.5 border-b border-gray-100", className)}>
       {children}
     </div>
   );
 }
 
 export function CardContent({ className, children }) {
-  return <div className={cn("px-6 py-5", className)}>{children}</div>;
+  return <div className={cn("px-5 py-4", className)}>{children}</div>;
 }
 
 export function CardFooter({ className, children }) {
   return (
     <div
       className={cn(
-        "px-6 py-3.5 border-t border-gray-100/80 bg-gray-50/40 rounded-b-2xl",
+        "px-5 py-3 border-t border-gray-100 bg-gray-50 rounded-b-lg",
         className,
       )}
     >
@@ -50,64 +50,59 @@ export function StatCard({
 }) {
   const colors = {
     blue: {
-      card: "from-blue-500 to-blue-600",
-      iconBg: "bg-white/20",
-      ring: "ring-blue-400/20",
+      border: "border-l-blue-500",
+      iconColor: "text-blue-500",
+      bg: "bg-blue-50",
     },
     green: {
-      card: "from-emerald-500 to-emerald-600",
-      iconBg: "bg-white/20",
-      ring: "ring-emerald-400/20",
+      border: "border-l-green-500",
+      iconColor: "text-green-500",
+      bg: "bg-green-50",
     },
     purple: {
-      card: "from-purple-500 to-purple-600",
-      iconBg: "bg-white/20",
-      ring: "ring-purple-400/20",
+      border: "border-l-purple-500",
+      iconColor: "text-purple-500",
+      bg: "bg-purple-50",
     },
     orange: {
-      card: "from-amber-500 to-orange-500",
-      iconBg: "bg-white/20",
-      ring: "ring-amber-400/20",
+      border: "border-l-amber-500",
+      iconColor: "text-amber-500",
+      bg: "bg-amber-50",
     },
     red: {
-      card: "from-rose-500 to-red-500",
-      iconBg: "bg-white/20",
-      ring: "ring-rose-400/20",
+      border: "border-l-red-500",
+      iconColor: "text-red-500",
+      bg: "bg-red-50",
     },
     teal: {
-      card: "from-teal-500 to-teal-600",
-      iconBg: "bg-white/20",
-      ring: "ring-teal-400/20",
+      border: "border-l-teal-500",
+      iconColor: "text-teal-500",
+      bg: "bg-teal-50",
     },
     cyan: {
-      card: "from-cyan-500 to-cyan-600",
-      iconBg: "bg-white/20",
-      ring: "ring-cyan-400/20",
+      border: "border-l-cyan-500",
+      iconColor: "text-cyan-500",
+      bg: "bg-cyan-50",
     },
   };
   const c = colors[color] ?? colors.blue;
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl bg-gradient-to-br p-5 text-white shadow-lg ring-1 card-hover",
-        c.card,
-        c.ring,
+        "bg-white rounded-lg border border-gray-200 border-l-4 p-4",
+        c.border,
         className,
       )}
     >
-      {/* Decorative circle */}
-      <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
-      <div className="relative flex items-start justify-between">
+      <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-white/80 mb-1">{label}</p>
-          <p className="text-3xl font-extrabold tracking-tight">
-            {value ?? "—"}
-          </p>
+          <p className="text-sm text-gray-500 mb-1">{label}</p>
+          <p className="text-2xl font-semibold text-gray-900">{value ?? "—"}</p>
           {delta !== undefined && (
             <p
               className={cn(
-                "text-xs mt-1.5 font-semibold flex items-center gap-1",
-                delta >= 0 ? "text-white/90" : "text-white/70",
+                "text-xs mt-1 font-medium flex items-center gap-1",
+                delta >= 0 ? "text-green-600" : "text-red-500",
               )}
             >
               {delta >= 0 ? (
@@ -121,11 +116,11 @@ export function StatCard({
         </div>
         <div
           className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center",
-            c.iconBg,
+            "w-10 h-10 rounded-lg flex items-center justify-center",
+            c.bg,
           )}
         >
-          <Icon className="w-6 h-6 text-white" />
+          <Icon className={cn("w-5 h-5", c.iconColor)} />
         </div>
       </div>
     </div>

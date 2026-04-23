@@ -1,0 +1,142 @@
+##############################################################
+# LiptakoCare v3.0.0 — Docker Compose DigitalOcean
+# Déploiement unifié : Frontend + Backend + DB + Redis
+#
+# Usage :
+#   docker compose -f digitalocean/docker-compose.yml up -d
+##############################################################
+
+services:
+  # ── Application (Frontend + Backend + Nginx) ──
+  app:
+    build:
+      context: ..
+      dockerfile: digitalocean/Dockerfile
+    container_name: liptakocare-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+    environment:
+      # ── Laravel ──
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: "${APP_KEY}"
+      APP_URL: "${APP_URL:-http://localhost}"
+      FRONTEND_URL: "${APP_URL:-http://localhost}"
+
+      # ── Database ──
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: "${DB_DATABASE:-liptakocare}"
+      DB_USERNAME: "${DB_USERNAME:-liptakocare}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+
+      # ── Redis ──
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      SESSION_ENCRYPT: "true"
+      QUEUE_CONNECTION: redis
+
+      # ── Broadcasting ──
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_KEY: "${REVERB_APP_KEY:-}"
+      REVERB_APP_SECRET: "${REVERB_APP_SECRET:-}"
+      REVERB_HOST: "0.0.0.0"
+      REVERB_PORT: 8080
+
+      # ── Logs ──
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: warning
+
+      # ── S3 Storage (optionnel) ──
+      FILESYSTEM_DISK: "${FILESYSTEM_DISK:-local}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-}"
+      AWS_BUCKET: "${AWS_BUCKET:-}"
+
+      # ── Spaces DigitalOcean (si utilisé comme S3) ──
+      AWS_ENDPOINT: "${AWS_ENDPOINT:-}"
+
+      # ── Mail ──
+      MAIL_MAILER: "${MAIL_MAILER:-smtp}"
+      MAIL_HOST: "${MAIL_HOST:-}"
+      MAIL_PORT: "${MAIL_PORT:-587}"
+      MAIL_USERNAME: "${MAIL_USERNAME:-}"
+      MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
+      MAIL_ENCRYPTION: "${MAIL_ENCRYPTION:-tls}"
+      MAIL_FROM_ADDRESS: "${MAIL_FROM_ADDRESS:-noreply@liptakocare.bf}"
+      MAIL_FROM_NAME: "LiptakoCare"
+
+      # ── Seeding ──
+      RUN_SEED: "${RUN_SEED:-false}"
+      SEED_DEMO_DATA: "${SEED_DEMO_DATA:-false}"
+
+      # ── Supervisor toggles ──
+      ENABLE_REVERB: "${ENABLE_REVERB:-true}"
+      ENABLE_QUEUE: "${ENABLE_QUEUE:-true}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - app-storage:/var/www/html/backend/storage/app
+    networks:
+      - liptakocare
+
+  # ── PostgreSQL ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: liptakocare-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${DB_DATABASE:-liptakocare}"
+      POSTGRES_USER: "${DB_USERNAME:-liptakocare}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-liptakocare}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - liptakocare
+
+  # ── Redis ──
+  redis:
+    image: redis:7-alpine
+    container_name: liptakocare-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - liptakocare
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  app-storage:
+    driver: local
+
+networks:
+  liptakocare:
+    driver: bridge

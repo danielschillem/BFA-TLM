@@ -87,7 +87,7 @@ export default function Login() {
           className="absolute inset-0 w-full h-full object-cover"
         />
         {/* Overlay gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-900/80 via-primary-800/60 to-secondary-900/70" />
+        <div className="absolute inset-0 bg-primary-900/70" />
 
         {/* Contenu superposé */}
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
@@ -96,7 +96,7 @@ export default function Login() {
             <img
               src={liptakoIcon}
               alt="LiptakoCare"
-              className="w-12 h-12 rounded-2xl object-cover border border-white/20 shadow-lg"
+              className="w-12 h-12 rounded-lg object-cover border border-white/20"
             />
             <div>
               <h2 className="text-white font-bold text-xl tracking-tight">
@@ -108,10 +108,10 @@ export default function Login() {
 
           {/* Message central */}
           <div className="max-w-md">
-            <h1 className="text-4xl font-extrabold text-white leading-tight mb-4">
+            <h1 className="text-4xl font-bold text-white leading-tight mb-4">
               La santé connectée
               <br />
-              <span className="text-secondary-300">
+              <span className="text-primary-200">
                 au service du Burkina Faso
               </span>
             </h1>
@@ -131,9 +131,9 @@ export default function Login() {
             ].map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-white/10"
+                className="flex items-center gap-2 bg-white/10 rounded-full px-4 py-2"
               >
-                <Icon className="w-4 h-4 text-secondary-300" />
+                <Icon className="w-4 h-4 text-primary-200" />
                 <span className="text-white/80 text-xs font-medium">
                   {label}
                 </span>
@@ -144,17 +144,14 @@ export default function Login() {
       </div>
 
       {/* ── Panneau Droit : Formulaire ────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-primary-50/30 p-6 lg:p-12 relative">
-        {/* Mesh background subtil */}
-        <div className="absolute inset-0 bg-mesh pointer-events-none" />
-
-        <div className="w-full max-w-md relative z-10 animate-fade-in">
+      <div className="flex-1 flex items-center justify-center bg-gray-50 p-6 lg:p-12">
+        <div className="w-full max-w-md animate-fade-in">
           {/* Logo mobile uniquement */}
           <div className="lg:hidden text-center mb-8">
             <img
               src={liptakoIcon}
               alt="LiptakoCare"
-              className="w-14 h-14 rounded-2xl object-cover shadow-lg shadow-primary-500/25 mb-4 mx-auto"
+              className="w-14 h-14 rounded-lg object-cover shadow-md mb-4 mx-auto"
             />
             <h1 className="text-2xl font-bold text-gray-900">Plateforme TLM</h1>
             <p className="text-gray-500 text-sm mt-1">
@@ -163,9 +160,11 @@ export default function Login() {
           </div>
 
           {/* Carte du formulaire */}
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-gray-200/60 border border-white/60 p-8 lg:p-10">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 lg:p-10">
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900">Bon retour !</h2>
+              <h2 className="text-2xl font-semibold text-gray-900">
+                Bon retour !
+              </h2>
               <p className="text-gray-500 text-sm mt-1">
                 Connectez-vous à votre espace santé
               </p>
@@ -224,7 +223,7 @@ export default function Login() {
               <Button
                 type="submit"
                 loading={loading}
-                className="w-full !rounded-xl !py-3 !text-base"
+                className="w-full !py-3 !text-base"
                 size="lg"
               >
                 Se connecter

@@ -1,68 +1,101 @@
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { adminApi } from '@/api'
-import { Card, CardContent } from '@/components/ui/Card'
-import Button from '@/components/ui/Button'
-import Input, { Select } from '@/components/ui/Input'
-import Modal from '@/components/ui/Modal'
-import AppLayout from '@/components/layout/AppLayout'
-import { LoadingPage } from '@/components/common/LoadingSpinner'
-import EmptyState from '@/components/common/EmptyState'
-import { toast } from 'sonner'
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { adminApi } from "@/api";
+import { Card, CardContent } from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Input, { Select } from "@/components/ui/Input";
+import Modal from "@/components/ui/Modal";
+import AppLayout from "@/components/layout/AppLayout";
+import { LoadingPage } from "@/components/common/LoadingSpinner";
+import EmptyState from "@/components/common/EmptyState";
+import { toast } from "sonner";
 import {
-  UserCog, Plus, Search, Building2, Phone, Mail, Save
-} from 'lucide-react'
+  UserCog,
+  Plus,
+  Search,
+  Building2,
+  Phone,
+  Mail,
+  Save,
+} from "lucide-react";
 
 const EMPTY_FORM = {
-  nom: '', prenoms: '', email: '', password: '',
-  telephone_1: '', telephone_2: '', sexe: '', structure_id: '',
-}
+  nom: "",
+  prenoms: "",
+  email: "",
+  password: "",
+  telephone_1: "",
+  telephone_2: "",
+  sexe: "",
+  structure_id: "",
+};
 
 export default function GestionnaireAdmin() {
-  const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
 
   // List gestionnaires
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-gestionnaires', search],
-    queryFn: () => adminApi.listGestionnaires({ search: search || undefined }).then(r => r.data),
-  })
+    queryKey: ["admin-gestionnaires", search],
+    queryFn: () =>
+      adminApi
+        .listGestionnaires({ search: search || undefined })
+        .then((r) => r.data),
+  });
 
   // List structures for select
   const { data: structuresData } = useQuery({
-    queryKey: ['admin-structures-all'],
-    queryFn: () => adminApi.listStructures({ per_page: 200 }).then(r => r.data),
-  })
+    queryKey: ["admin-structures-all"],
+    queryFn: () =>
+      adminApi.listStructures({ per_page: 200 }).then((r) => r.data),
+  });
 
   const createMutation = useMutation({
     mutationFn: (data) => adminApi.createGestionnaire(data),
     onSuccess: () => {
-      toast.success('Gestionnaire créé et affecté à la structure')
-      queryClient.invalidateQueries({ queryKey: ['admin-gestionnaires'] })
-      closeModal()
+      toast.success("Gestionnaire créé et affecté à la structure");
+      queryClient.invalidateQueries({ queryKey: ["admin-gestionnaires"] });
+      closeModal();
     },
     onError: (e) => {
-      const errors = e.response?.data?.errors
+      const errors = e.response?.data?.errors;
       if (errors) {
-        Object.values(errors).flat().forEach(msg => toast.error(msg))
+        Object.values(errors)
+          .flat()
+          .forEach((msg) => toast.error(msg));
       } else {
-        toast.error(e.response?.data?.message || 'Erreur lors de la création')
+        toast.error(e.response?.data?.message || "Erreur lors de la création");
       }
     },
-  })
+  });
 
   const closeModal = () => {
-    setShowModal(false)
-    setForm(EMPTY_FORM)
-  }
+    setShowModal(false);
+    setForm(EMPTY_FORM);
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!form.nom.trim() || !form.prenoms.trim() || !form.email.trim() || !form.password || !form.sexe || !form.structure_id) {
-      toast.error('Veuillez remplir tous les champs obligatoires')
-      return
+    e.preventDefault();
+    if (
+      !form.nom.trim() ||
+      !form.prenoms.trim() ||
+      !form.email.trim() ||
+      !form.password ||
+      !form.sexe ||
+      !form.structure_id
+    ) {
+      toast.error("Veuillez remplir tous les champs obligatoires");
+      return;
+    }
+    if (form.password.length < 8) {
+      toast.error("Le mot de passe doit contenir au moins 8 caractères");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error("Veuillez saisir un email valide");
+      return;
     }
     createMutation.mutate({
       nom: form.nom.trim(),
@@ -73,17 +106,22 @@ export default function GestionnaireAdmin() {
       telephone_2: form.telephone_2 || null,
       sexe: form.sexe,
       structure_id: Number(form.structure_id),
-    })
-  }
+    });
+  };
 
-  const gestionnaires = data?.data ?? []
-  const structures = structuresData?.data?.data || structuresData?.data || []
-  const structureOptions = structures.map(s => ({
+  const gestionnaires = data?.data ?? [];
+  const structures = structuresData?.data?.data || structuresData?.data || [];
+  const structureOptions = structures.map((s) => ({
     value: String(s.id),
     label: s.name || s.libelle,
-  }))
+  }));
 
-  if (isLoading) return <AppLayout title="Gestionnaires"><LoadingPage /></AppLayout>
+  if (isLoading)
+    return (
+      <AppLayout title="Gestionnaires">
+        <LoadingPage />
+      </AppLayout>
+    );
 
   return (
     <AppLayout title="Gestionnaires de structure">
@@ -91,12 +129,18 @@ export default function GestionnaireAdmin() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gestionnaires de structure</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Gestionnaires de structure
+            </h1>
             <p className="text-gray-500 mt-1">
               {gestionnaires.length} gestionnaire(s) enregistré(s)
             </p>
           </div>
-          <Button variant="primary" icon={Plus} onClick={() => setShowModal(true)}>
+          <Button
+            variant="primary"
+            icon={Plus}
+            onClick={() => setShowModal(true)}
+          >
             Nouveau gestionnaire
           </Button>
         </div>
@@ -124,7 +168,11 @@ export default function GestionnaireAdmin() {
             title="Aucun gestionnaire"
             description="Créez un gestionnaire et affectez-le à une structure sanitaire."
             action={
-              <Button variant="primary" icon={Plus} onClick={() => setShowModal(true)}>
+              <Button
+                variant="primary"
+                icon={Plus}
+                onClick={() => setShowModal(true)}
+              >
                 Créer un gestionnaire
               </Button>
             }
@@ -146,12 +194,16 @@ export default function GestionnaireAdmin() {
                         <span className="text-xs text-gray-500">{g.email}</span>
                       </div>
                     </div>
-                    <span className={`px-2 py-0.5 text-xs rounded-full ${
-                      (g.status === 'actif' || g.status === 'active')
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {(g.status === 'actif' || g.status === 'active') ? 'Actif' : 'Inactif'}
+                    <span
+                      className={`px-2 py-0.5 text-xs rounded-full ${
+                        g.status === "actif" || g.status === "active"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {g.status === "actif" || g.status === "active"
+                        ? "Actif"
+                        : "Inactif"}
                     </span>
                   </div>
 
@@ -166,7 +218,9 @@ export default function GestionnaireAdmin() {
                       <div className="flex items-center gap-2">
                         <Building2 className="w-3.5 h-3.5 text-gray-400" />
                         <span className="truncate">
-                          {g.structure?.libelle || g.structure?.name || g.structure_name}
+                          {g.structure?.libelle ||
+                            g.structure?.name ||
+                            g.structure_name}
                         </span>
                       </div>
                     )}
@@ -185,8 +239,15 @@ export default function GestionnaireAdmin() {
           size="lg"
           footer={
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={closeModal}>Annuler</Button>
-              <Button variant="primary" icon={Save} loading={createMutation.isPending} onClick={handleSubmit}>
+              <Button variant="outline" onClick={closeModal}>
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                icon={Save}
+                loading={createMutation.isPending}
+                onClick={handleSubmit}
+              >
                 Créer
               </Button>
             </div>
@@ -236,15 +297,17 @@ export default function GestionnaireAdmin() {
                 value={form.sexe}
                 onChange={(e) => setForm({ ...form, sexe: e.target.value })}
                 options={[
-                  { value: 'M', label: 'Masculin' },
-                  { value: 'F', label: 'Féminin' },
+                  { value: "M", label: "Masculin" },
+                  { value: "F", label: "Féminin" },
                 ]}
                 placeholder="Sélectionner"
               />
               <Select
                 label="Structure d'affectation *"
                 value={form.structure_id}
-                onChange={(e) => setForm({ ...form, structure_id: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, structure_id: e.target.value })
+                }
                 options={structureOptions}
                 placeholder="Sélectionner une structure"
               />
@@ -256,7 +319,9 @@ export default function GestionnaireAdmin() {
                 type="tel"
                 placeholder="70 XX XX XX"
                 value={form.telephone_1}
-                onChange={(e) => setForm({ ...form, telephone_1: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, telephone_1: e.target.value })
+                }
                 icon={Phone}
               />
               <Input
@@ -264,7 +329,9 @@ export default function GestionnaireAdmin() {
                 type="tel"
                 placeholder="76 XX XX XX"
                 value={form.telephone_2}
-                onChange={(e) => setForm({ ...form, telephone_2: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, telephone_2: e.target.value })
+                }
                 icon={Phone}
               />
             </div>
@@ -272,5 +339,5 @@ export default function GestionnaireAdmin() {
         </Modal>
       </div>
     </AppLayout>
-  )
+  );
 }

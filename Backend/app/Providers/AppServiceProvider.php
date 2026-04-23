@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use Laravel\Passport\Passport;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
@@ -46,15 +45,6 @@ class AppServiceProvider extends ServiceProvider
         Route::pattern('structureId', '[0-9]+');
         Route::pattern('serviceId', '[0-9]+');
 
-        // Passport scopes
-        Passport::tokensCan([
-            '2fa-pending' => 'Token en attente de vérification 2FA',
-        ]);
-
-        // Passport token lifetimes (sécurité : limiter la durée de vie des tokens)
-        Passport::tokensExpireIn(now()->addMinutes(config('passport.tokens_expire_in', 60)));
-        Passport::refreshTokensExpireIn(now()->addDays(config('passport.refresh_tokens_expire_in', 14)));
-        Passport::personalAccessTokensExpireIn(now()->addHours(config('passport.personal_access_tokens_expire_in', 6)));
 
         // ── Rate limiters ──────────────────────────────────────────────────────
         RateLimiter::for('auth', fn (Request $request) =>

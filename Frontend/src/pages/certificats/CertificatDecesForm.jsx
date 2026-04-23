@@ -253,6 +253,28 @@ export default function CertificatDecesForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    if (!form.nom_defunt?.trim() || !form.prenoms_defunt?.trim()) {
+      toast.error("Le nom et les prénoms du défunt sont obligatoires");
+      return;
+    }
+    if (!form.date_deces) {
+      toast.error("La date de décès est obligatoire");
+      return;
+    }
+    if (!form.cause_directe?.trim()) {
+      toast.error("La cause directe de décès est obligatoire");
+      return;
+    }
+    const today = new Date().toISOString().split("T")[0];
+    if (form.date_deces > today) {
+      toast.error("La date de décès ne peut pas être dans le futur");
+      return;
+    }
+    if (form.date_naissance_defunt && form.date_naissance_defunt > today) {
+      toast.error("La date de naissance ne peut pas être dans le futur");
+      return;
+    }
+
     // Grossesse: split en boolean + statut
     const PREGNANCY_CONTRIBUTING = [
       "enceinte",

@@ -60,25 +60,28 @@ export default function Modal({
       aria-labelledby="modal-title"
     >
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-black/40 animate-fade-in"
         aria-hidden="true"
       />
       <div
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          "relative bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full animate-slide-up ring-1 ring-black/5 outline-none",
+          "relative bg-white rounded-lg shadow-xl w-full animate-slide-up outline-none",
           sizes[size],
         )}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 id="modal-title" className="text-base font-bold text-gray-900">
+          <h2
+            id="modal-title"
+            className="text-base font-semibold text-gray-900"
+          >
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all duration-200"
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
             aria-label="Fermer"
           >
             <X className="w-4 h-4" />

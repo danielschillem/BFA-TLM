@@ -50,14 +50,14 @@ class RolePermissionSeeder extends Seeder
         ];
 
         foreach ($permissions as $perm) {
-            Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+            Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'api']);
         }
 
         // ── Rôles ─────────────────────────────────────────────────────────
-        $admin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $admin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'api']);
         $admin->syncPermissions($permissions);
 
-        $doctor = Role::firstOrCreate(['name' => 'doctor', 'guard_name' => 'web']);
+        $doctor = Role::firstOrCreate(['name' => 'doctor', 'guard_name' => 'api']);
         $doctor->syncPermissions([
             'patients.view', 'patients.create', 'patients.update',
             'dossiers.view', 'dossiers.update',
@@ -73,10 +73,10 @@ class RolePermissionSeeder extends Seeder
             'consents.view', 'consents.manage',
         ]);
 
-        $specialist = Role::firstOrCreate(['name' => 'specialist', 'guard_name' => 'web']);
+        $specialist = Role::firstOrCreate(['name' => 'specialist', 'guard_name' => 'api']);
         $specialist->syncPermissions($doctor->permissions->pluck('name')->toArray());
 
-        $healthPro = Role::firstOrCreate(['name' => 'health_professional', 'guard_name' => 'web']);
+        $healthPro = Role::firstOrCreate(['name' => 'health_professional', 'guard_name' => 'api']);
         $healthPro->syncPermissions([
             'patients.view', 'patients.create',
             'dossiers.view',
@@ -86,7 +86,7 @@ class RolePermissionSeeder extends Seeder
             'messages.view', 'messages.send',
         ]);
 
-        $patient = Role::firstOrCreate(['name' => 'patient', 'guard_name' => 'web']);
+        $patient = Role::firstOrCreate(['name' => 'patient', 'guard_name' => 'api']);
         $patient->syncPermissions([
             'appointments.view', 'appointments.create', 'appointments.cancel',
             'consultations.view',
@@ -94,11 +94,11 @@ class RolePermissionSeeder extends Seeder
             'documents.view',
             'messages.view', 'messages.send',
             'prescriptions.view',
-            'payments.initiate', 'payments.confirm', 'payments.view',
+            'payments.initiate', 'payments.view',
             'consents.view', 'consents.manage',
         ]);
 
-        $manager = Role::firstOrCreate(['name' => 'structure_manager', 'guard_name' => 'web']);
+        $manager = Role::firstOrCreate(['name' => 'structure_manager', 'guard_name' => 'api']);
         $manager->syncPermissions([
             'patients.view',
             'appointments.view',

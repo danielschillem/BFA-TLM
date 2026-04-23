@@ -61,24 +61,24 @@ export default function Navbar({ title }) {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/60 h-14 sm:h-16 px-3 sm:px-5 flex items-center justify-between">
+    <header className="sticky top-0 z-30 bg-white border-b border-gray-200 h-14 px-3 sm:px-5 flex items-center justify-between">
       {/* Gauche */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Mobile: ouvrir le drawer */}
         <button
           onClick={openMobileSidebar}
-          className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-all duration-200 lg:hidden"
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors lg:hidden"
         >
           <Menu className="w-5 h-5" />
         </button>
         {/* Desktop: toggle sidebar collapse */}
         <button
           onClick={toggleSidebar}
-          className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-all duration-200 hidden lg:block"
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors hidden lg:block"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="text-sm sm:text-base font-bold text-gray-800 truncate max-w-[150px] sm:max-w-none">
+        <h1 className="text-sm sm:text-base font-semibold text-gray-800 truncate max-w-[150px] sm:max-w-none">
           {title}
         </h1>
       </div>
@@ -92,17 +92,17 @@ export default function Navbar({ title }) {
               setNotifOpen((o) => !o);
               setProfileOpen(false);
             }}
-            className="relative p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-all duration-200"
+            className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
           >
             <Bell className="w-[18px] h-[18px]" />
             {unread > 0 && (
-              <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-medical-red text-white text-2xs rounded-full flex items-center justify-center font-bold animate-pulse-slow">
+              <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-2xs rounded-full flex items-center justify-center font-medium">
                 {unread > 9 ? "9+" : unread}
               </span>
             )}
           </button>
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/60 z-50 overflow-hidden animate-slide-up">
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden animate-slide-up">
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                 <span className="font-bold text-gray-900 text-sm">
                   Notifications
@@ -163,9 +163,9 @@ export default function Navbar({ title }) {
               setProfileOpen((o) => !o);
               setNotifOpen(false);
             }}
-            className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-100 transition-all duration-200"
+            className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
           >
-            <div className="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-md shadow-primary-500/20">
+            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center text-white font-medium text-xs">
               {getInitials(
                 `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() ||
                   user?.name ||
@@ -173,7 +173,7 @@ export default function Navbar({ title }) {
               )}
             </div>
             <div className="hidden sm:block text-left">
-              <p className="text-[13px] font-semibold text-gray-900 leading-none">
+              <p className="text-[13px] font-medium text-gray-900 leading-none">
                 {user?.first_name ?? user?.name ?? user?.full_name}
               </p>
               <p className="text-[11px] text-gray-500 capitalize">
@@ -183,7 +183,7 @@ export default function Navbar({ title }) {
             <ChevronDown className="w-3.5 h-3.5 text-gray-400 hidden sm:block" />
           </button>
           {profileOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/60 z-50 overflow-hidden animate-slide-up">
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden animate-slide-up">
               <div className="py-1.5">
                 <button
                   onClick={() => {

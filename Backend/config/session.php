@@ -169,7 +169,9 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE', true),
+    // En local (HTTP), un cookie "secure" n'est pas envoyé par le navigateur.
+    // On garde secure=true en production sauf override explicite via .env.
+    'secure' => env('SESSION_SECURE_COOKIE', env('APP_ENV') === 'production'),
 
     /*
     |--------------------------------------------------------------------------

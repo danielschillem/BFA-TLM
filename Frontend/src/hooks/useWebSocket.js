@@ -13,13 +13,13 @@ import { toast } from "sonner";
  * À utiliser une seule fois dans le composant racine (App).
  */
 export function useWebSocket() {
-  const { user, token, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const addNotification = useUIStore((s) => s.addNotification);
   const queryClient = useQueryClient();
   const channelsRef = useRef([]);
 
   useEffect(() => {
-    if (!isAuthenticated || !user || !token) {
+    if (!isAuthenticated || !user) {
       disconnectEcho();
       return;
     }
@@ -113,16 +113,19 @@ export function useWebSocket() {
       });
       channelsRef.current = [];
     };
-  }, [isAuthenticated, user?.id, token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /**
  * Hook pour écouter un canal de consultation spécifique (pendant la vidéo).
  * @param {number|null} consultationId
+ * @param {{ onEnded?: (data: object) => void }} callbacks
  */
-export function useConsultationChannel(consultationId) {
+export function useConsultationChannel(consultationId, callbacks = {}) {
   const { isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
 
   useEffect(() => {
     if (!isAuthenticated || !consultationId) return;
@@ -138,11 +141,15 @@ export function useConsultationChannel(consultationId) {
           queryKey: ["consultation", consultationId],
         });
       })
-      .listen(".consultation.ended", () => {
-        toast.info("La consultation est terminée");
+      .listen(".consultation.ended", (data) => {
         queryClient.invalidateQueries({
           queryKey: ["consultation", consultationId],
         });
+        if (typeof callbacksRef.current.onEnded === "function") {
+          callbacksRef.current.onEnded(data);
+        } else {
+          toast.info("La consultation est terminée");
+        }
       })
       .listen(".prescription.signed", (data) => {
         toast.success(`Ordonnance signée : ${data.denomination}`);

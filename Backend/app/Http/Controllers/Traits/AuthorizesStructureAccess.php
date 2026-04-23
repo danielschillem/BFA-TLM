@@ -34,6 +34,20 @@ trait AuthorizesStructureAccess
         if ($user->structure_id && $patient->structure_id === $user->structure_id) {
             return;
         }
+        // Un médecin ayant une relation médicale (consultation ou RDV) avec le patient
+        if ($user->hasAnyRole(['doctor', 'specialist', 'structure_manager'])) {
+            $hasRelation = Consultation::where('user_id', $user->id)
+                ->whereHas('rendezVous', fn ($q) => $q->where('patient_id', $patient->id))
+                ->exists();
+            if (!$hasRelation) {
+                $hasRelation = RendezVous::where('user_id', $user->id)
+                    ->where('patient_id', $patient->id)
+                    ->exists();
+            }
+            if ($hasRelation) {
+                return;
+            }
+        }
         abort(403, 'Accès non autorisé à ce patient.');
     }
 

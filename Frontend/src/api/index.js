@@ -300,6 +300,7 @@ export const referentielsApi = {
   localites: (params) => apiClient.get("/localites", { params }),
   grades: () => apiClient.get("/grades"),
   typesProfessionnelSante: () => apiClient.get("/type-professionnel-santes"),
+  specialites: () => apiClient.get("/specialites"),
   actes: () => apiClient.get("/actes"),
   typeSalles: () => apiClient.get("/type-salles"),
 };

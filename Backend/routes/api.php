@@ -56,13 +56,8 @@ Route::get('/diag', function () {
             $checks['database'] = ['ok' => false, 'error' => 'Connection failed'];
         }
 
-        // 2. Passport client
-        try {
-            $client = \Laravel\Passport\Client::where('name', 'TLM Personal Access Client')->first();
-            $checks['passport_client'] = ['ok' => (bool) $client];
-        } catch (\Throwable $e) {
-            $checks['passport_client'] = ['ok' => false];
-        }
+        // 2. Sanctum auth
+        $checks['auth_guard'] = ['ok' => config('auth.guards.api.driver') === 'sanctum'];
 
         // 3. Roles
         try {
@@ -71,12 +66,7 @@ Route::get('/diag', function () {
             $checks['roles'] = ['ok' => false];
         }
 
-        // 4. Passport keys
-        $checks['passport_keys'] = [
-            'ok' => file_exists(storage_path('oauth-private.key')) && file_exists(storage_path('oauth-public.key')),
-        ];
-
-        // 5. APP_KEY
+        // 4. APP_KEY
         $checks['app_key'] = ['ok' => !empty(config('app.key'))];
 
         // 6. LiveKit configuration
@@ -337,7 +327,7 @@ Route::prefix('auth')->middleware('throttle:auth')->group(function () {
 // ── Routes protégées ──────────────────────────────────────────────────────────
 Route::middleware(['auth:api', 'active'])->group(function () {
 
-    // Référentiels (pays, localités, grades, types PS)
+    // Référentiels (pays, localités, grades, types PS, spécialités)
     Route::get('/pays', fn () => \App\Models\Pays::orderBy('nom')->get(['id', 'nom', 'code', 'indicatif']));
     Route::get('/localites', function (\Illuminate\Http\Request $request) {
         $query = \App\Models\Localite::query();
@@ -348,6 +338,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
     Route::get('/grades', fn () => \App\Models\Grade::orderBy('libelle')->get(['id', 'libelle', 'code']));
     Route::get('/type-professionnel-santes', fn () => \App\Models\TypeProfessionnelSante::orderBy('libelle')->get(['id', 'libelle']));
+    Route::get('/specialites', fn () => \App\Models\Specialite::orderBy('categorie')->orderBy('libelle')->get(['id', 'libelle', 'categorie', 'description']));
     Route::get('/actes', fn () => \App\Models\Acte::with('typeActe:id,libelle')->orderBy('libelle')->get(['id', 'libelle', 'cout', 'description', 'duree', 'type_acte_id']));
     Route::get('/type-salles', fn () => \App\Models\TypeSalle::orderBy('libelle')->get(['id', 'libelle', 'description']));
 

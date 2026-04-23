@@ -101,12 +101,20 @@ export default function DoctorSchedule() {
       toast.error("Veuillez indiquer une date");
       return;
     }
+    if (mode === "date" && form.date < new Date().toISOString().split("T")[0]) {
+      toast.error("La date ne peut pas être dans le passé");
+      return;
+    }
     if (mode === "recurring" && form.jour_semaine === "") {
       toast.error("Veuillez choisir un jour de la semaine");
       return;
     }
     if (!form.start_time || !form.end_time) {
       toast.error("Veuillez remplir les heures");
+      return;
+    }
+    if (form.end_time <= form.start_time) {
+      toast.error("L'heure de fin doit être après l'heure de début");
       return;
     }
     const payload = {
@@ -214,7 +222,10 @@ export default function DoctorSchedule() {
                           size="xs"
                           variant="outline"
                           icon={Trash2}
-                          onClick={() => deleteMutation.mutate(slot.id)}
+                          onClick={() => {
+                            if (window.confirm("Supprimer ce créneau ?"))
+                              deleteMutation.mutate(slot.id);
+                          }}
                           loading={deleteMutation.isPending}
                           className="text-red-500 border-red-200 hover:bg-red-50"
                         >
@@ -327,11 +338,13 @@ export default function DoctorSchedule() {
               label="Type"
               value={form.type}
               onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-            >
-              <option value="both">Télé + Présentiel</option>
-              <option value="teleconsultation">Téléconsultation seule</option>
-              <option value="presentiel">Présentiel seul</option>
-            </Select>
+              options={[
+                { value: "both", label: "Télé + Présentiel" },
+                { value: "teleconsultation", label: "Téléconsultation seule" },
+                { value: "presentiel", label: "Présentiel seul" },
+              ]}
+              placeholder="Sélectionner un type"
+            />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Durée créneau (min)

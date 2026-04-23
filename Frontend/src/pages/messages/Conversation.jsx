@@ -27,7 +27,15 @@ const ALLOWED_TYPES = [
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain",
+];
+const ALLOWED_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".pdf",
+  ".doc",
+  ".docx",
 ];
 
 export default function Conversation({ conversationId }) {
@@ -173,6 +181,12 @@ export default function Conversation({ conversationId }) {
 
     if (file.size > MAX_FILE_SIZE) {
       toast.error("Le fichier est trop volumineux (max 10 MB)");
+      return;
+    }
+
+    const ext = "." + file.name.split(".").pop().toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      toast.error("Extension de fichier non autorisée");
       return;
     }
 

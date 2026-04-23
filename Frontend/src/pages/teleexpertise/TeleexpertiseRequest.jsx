@@ -21,7 +21,14 @@ const schema = z.object({
     .string()
     .min(20, "Résumé clinique requis (min 20 caractères)"),
   question: z.string().min(10, "Question requise"),
-  patient_age: z.string().optional(),
+  patient_age: z
+    .string()
+    .optional()
+    .refine(
+      (val) =>
+        !val || (/^\d+$/.test(val) && Number(val) >= 0 && Number(val) <= 150),
+      { message: "Âge invalide (0-150)" },
+    ),
   patient_gender: z.string().optional(),
 });
 
@@ -162,7 +169,9 @@ export default function TeleexpertiseRequest() {
                 <textarea
                   rows={5}
                   placeholder="Décrivez le cas clinique, les antécédents pertinents, les examens réalisés et leurs résultats…"
-                  className={`input-field w-full resize-y ${errors.clinical_summary ? "border-red-300" : ""}`}
+                  className={`input-field w-full resize-y ${
+                    errors.clinical_summary ? "border-red-300" : ""
+                  }`}
                   {...register("clinical_summary")}
                 />
                 {errors.clinical_summary && (
@@ -179,7 +188,9 @@ export default function TeleexpertiseRequest() {
                 <textarea
                   rows={3}
                   placeholder="Quelle est votre question précise pour le spécialiste ?"
-                  className={`input-field w-full resize-y ${errors.question ? "border-red-300" : ""}`}
+                  className={`input-field w-full resize-y ${
+                    errors.question ? "border-red-300" : ""
+                  }`}
                   {...register("question")}
                 />
                 {errors.question && (
@@ -227,7 +238,7 @@ export default function TeleexpertiseRequest() {
                           : "border-gray-100 hover:border-gray-200"
                       }`}
                     >
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-400 to-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                         {getInitials(`${doc.first_name} ${doc.last_name}`)}
                       </div>
                       <div className="flex-1">

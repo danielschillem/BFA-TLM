@@ -16,7 +16,7 @@ class PrescriptionController extends Controller
     use AuthorizesStructureAccess;
     public function index(Request $request): JsonResponse
     {
-        $query = Prescription::with('consultation.user');
+        $query = Prescription::with(['consultation.user', 'consultation.dossierPatient.patient']);
         $user = $request->user();
 
         if ($user->hasRole('admin')) {
@@ -46,10 +46,10 @@ class PrescriptionController extends Controller
     public function store(int $consultationId, Request $request): JsonResponse
     {
         $request->validate([
-            'denomination' => 'required|string',
-            'posologie' => 'nullable|string',
-            'instructions' => 'nullable|string',
-            'duree_jours' => 'nullable|integer|min:1',
+            'denomination' => 'required|string|max:255',
+            'posologie' => 'nullable|string|max:1000',
+            'instructions' => 'nullable|string|max:2000',
+            'duree_jours' => 'nullable|integer|min:1|max:365',
             'urgent' => 'nullable|boolean',
         ]);
 

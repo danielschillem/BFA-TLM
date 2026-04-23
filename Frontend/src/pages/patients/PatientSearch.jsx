@@ -90,6 +90,10 @@ export default function PatientSearch() {
       toast.error("La date de naissance est requise");
       return;
     }
+    if (form.date_naissance > new Date().toISOString().split("T")[0]) {
+      toast.error("La date de naissance ne peut pas être dans le futur");
+      return;
+    }
     if (!form.lieu_naissance.trim()) {
       toast.error("Le lieu de naissance est requis");
       return;
@@ -241,7 +245,7 @@ export default function PatientSearch() {
       <Modal
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        title="Ajouter un élément"
+        title="Ajouter un patient"
         size="lg"
         footer={
           <>

@@ -22,37 +22,41 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         try {
-            $user = User::create([
-                'nom' => $request->nom,
-                'prenoms' => $request->prenoms,
-                'email' => $request->email,
-                'password' => $request->password,
-                'telephone_1' => $request->telephone_1,
-                'sexe' => $request->sexe,
-            ]);
+            $user = DB::transaction(function () use ($request) {
+                $user = User::create([
+                    'nom' => $request->nom,
+                    'prenoms' => $request->prenoms,
+                    'email' => $request->email,
+                    'password' => $request->password,
+                    'telephone_1' => $request->telephone_1,
+                    'sexe' => $request->sexe,
+                ]);
 
-            // Sécurité : hardcoder le rôle patient (l'input est ignoré en défense en profondeur)
-            $user->assignRole('patient');
+                // Sécurité : hardcoder le rôle patient (l'input est ignoré en défense en profondeur)
+                $user->assignRole('patient');
 
-            // Créer automatiquement le dossier patient pour les inscriptions autonomes
-            $patient = \App\Models\Patient::create([
-                'nom' => $user->nom,
-                'prenoms' => $user->prenoms,
-                'email' => $user->email,
-                'telephone_1' => $user->telephone_1,
-                'sexe' => $user->sexe,
-                'date_naissance' => $request->input('date_naissance'),
-                'lieu_naissance' => $request->input('lieu_naissance'),
-                'user_id' => $user->id,
-                'created_by_id' => $user->id,
-            ]);
+                // Créer automatiquement le dossier patient pour les inscriptions autonomes
+                $patient = \App\Models\Patient::create([
+                    'nom' => $user->nom,
+                    'prenoms' => $user->prenoms,
+                    'email' => $user->email,
+                    'telephone_1' => $user->telephone_1,
+                    'sexe' => $user->sexe,
+                    'date_naissance' => $request->input('date_naissance'),
+                    'lieu_naissance' => $request->input('lieu_naissance'),
+                    'user_id' => $user->id,
+                    'created_by_id' => $user->id,
+                ]);
 
-            \App\Models\DossierPatient::create([
-                'identifiant' => 'DOS-' . str_pad($patient->id, 6, '0', STR_PAD_LEFT),
-                'statut' => 'ouvert',
-                'date_ouverture' => now(),
-                'patient_id' => $patient->id,
-            ]);
+                \App\Models\DossierPatient::create([
+                    'identifiant' => 'DOS-' . str_pad($patient->id, 6, '0', STR_PAD_LEFT),
+                    'statut' => 'ouvert',
+                    'date_ouverture' => now(),
+                    'patient_id' => $patient->id,
+                ]);
+
+                return $user;
+            });
 
             // Authentification par session (cookie httpOnly) — uniquement dans le contexte SPA
             if ($request->hasSession()) {
@@ -70,9 +74,7 @@ class AuthController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             Log::error('Register exception', [
-                'email' => $request->email,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
             ]);
             return response()->json([
                 'success' => false,
@@ -179,8 +181,9 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         // Révoquer le token Sanctum si présent (API token auth)
-        if ($request->user()->currentAccessToken()) {
-            $request->user()->currentAccessToken()->delete();
+        $token = $request->user()->currentAccessToken();
+        if ($token && !($token instanceof \Laravel\Sanctum\TransientToken)) {
+            $token->delete();
         }
 
         // Invalider la session (cookie httpOnly)

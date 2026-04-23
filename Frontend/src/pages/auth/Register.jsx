@@ -13,20 +13,18 @@ import { Select } from "@/components/ui/Input";
 
 const schema = z
   .object({
-    first_name: z.string().min(2, "Prénom requis"),
-    last_name: z.string().min(2, "Nom requis"),
+    first_name: z.string().min(2, "Prénom requis").max(255),
+    last_name: z.string().min(2, "Nom requis").max(255),
     email: z.string().email("Email invalide"),
-    phone: z.string().optional(),
+    phone: z.string().max(20, "Max 20 caractères").optional().or(z.literal("")),
     gender: z.enum(["male", "female"]).optional(),
     birth_date: z.string().optional(),
-    role: z.enum(["patient", "doctor", "health_professional"], {
-      required_error: "Rôle requis",
-    }),
     password: z
       .string()
       .min(8, "Au moins 8 caractères")
-      .regex(/[A-Z]/, "Une majuscule")
-      .regex(/[0-9]/, "Un chiffre"),
+      .regex(/[A-Z]/, "Une majuscule requise")
+      .regex(/[a-z]/, "Une minuscule requise")
+      .regex(/[0-9]/, "Un chiffre requis"),
     password_confirmation: z.string(),
   })
   .refine((d) => d.password === d.password_confirmation, {
@@ -60,7 +58,8 @@ export default function Register() {
             : data.gender === "female"
               ? "F"
               : undefined,
-        role: data.role,
+        date_naissance: data.birth_date || undefined,
+        role: "patient",
       };
       await authApi.register(payload);
       toast.success("Compte créé ! Vous pouvez vous connecter.");
@@ -215,21 +214,6 @@ export default function Register() {
                   {...register("birth_date")}
                 />
               </div>
-
-              <Select
-                label="Je suis…"
-                error={errors.role?.message}
-                {...register("role")}
-                options={[
-                  { value: "patient", label: "Patient" },
-                  { value: "doctor", label: "Médecin téléconsultant" },
-                  {
-                    value: "health_professional",
-                    label: "Professionnel de santé (PS accompagnant)",
-                  },
-                ]}
-                placeholder="Choisir votre rôle"
-              />
 
               <Input
                 label="Mot de passe"

@@ -58,7 +58,7 @@ export default function TeleexpertiseList() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-1 flex gap-1 overflow-x-auto">
+        <div className="bg-white rounded-lg border border-gray-100 p-1 flex gap-1 overflow-x-auto">
           {TABS.map((tab) => (
             <button
               key={tab.value}
@@ -113,7 +113,7 @@ function RequestCard({ request: req, onClick }) {
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md hover:border-primary-100 cursor-pointer transition-all"
+      className="bg-white rounded-lg border border-gray-100 p-4 hover:shadow-md hover:border-primary-100 cursor-pointer transition-all"
     >
       <div className="flex items-start gap-4">
         <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">

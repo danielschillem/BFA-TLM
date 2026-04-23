@@ -64,12 +64,12 @@ export default function InstallPWA() {
     <div
       className={cn(
         "fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 z-50",
-        "bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200/60",
+        "bg-white rounded-lg shadow-lg border border-gray-200",
         "p-4 animate-slide-up",
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+        <div className="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center flex-shrink-0">
           <Download className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">

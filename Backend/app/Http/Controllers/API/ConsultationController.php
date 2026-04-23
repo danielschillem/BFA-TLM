@@ -15,6 +15,7 @@ use App\Services\LiveKitService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ConsultationController extends Controller
 {
@@ -108,37 +109,51 @@ class ConsultationController extends Controller
             }
         }
 
-        $dossier = $rdv->patient->dossier;
-        if (!$dossier) {
-            $dossier = DossierPatient::create([
-                'identifiant' => 'DOS-' . str_pad($rdv->patient_id, 6, '0', STR_PAD_LEFT),
-                'statut' => 'ouvert',
-                'date_ouverture' => now(),
-                'patient_id' => $rdv->patient_id,
+        [$consultation, $rdv] = DB::transaction(function () use ($appointmentId, $request) {
+            $lockedRdv = RendezVous::with('patient.dossier')
+                ->lockForUpdate()
+                ->findOrFail($appointmentId);
+
+            // Idempotence: si une consultation existe déjà pour ce RDV, la retourner
+            $existingConsultation = Consultation::where('rendez_vous_id', $lockedRdv->id)->latest('id')->first();
+            if ($existingConsultation) {
+                return [$existingConsultation, $lockedRdv];
+            }
+
+            $dossier = $lockedRdv->patient->dossier;
+            if (!$dossier) {
+                $dossier = DossierPatient::create([
+                    'identifiant' => 'DOS-' . str_pad($lockedRdv->patient_id, 6, '0', STR_PAD_LEFT),
+                    'statut' => 'ouvert',
+                    'date_ouverture' => now(),
+                    'patient_id' => $lockedRdv->patient_id,
+                ]);
+            }
+
+            $consultation = Consultation::create([
+                'motif_principal' => $lockedRdv->motif ?? $request->input('motif_principal'),
+                'date' => now(),
+                'statut' => 'en_cours',
+                'type' => $lockedRdv->type === 'presentiel' ? 'presentiel' : 'teleconsultation',
+                'type_suivi' => $request->input('type_suivi', 'initial'),
+                'dossier_patient_id' => $dossier->id,
+                'rendez_vous_id' => $lockedRdv->id,
+                'user_id' => $request->user()->id,
             ]);
-        }
 
-        $consultation = Consultation::create([
-            'motif_principal' => $rdv->motif ?? $request->input('motif_principal'),
-            'date' => now(),
-            'statut' => 'en_cours',
-            'type' => $rdv->type === 'presentiel' ? 'presentiel' : 'teleconsultation',
-            'type_suivi' => $request->input('type_suivi', 'initial'),
-            'dossier_patient_id' => $dossier->id,
-            'rendez_vous_id' => $rdv->id,
-            'user_id' => $request->user()->id,
-        ]);
+            // Generate a unique room name for LiveKit only for teleconsultation
+            if ($lockedRdv->type !== 'presentiel' && !$lockedRdv->room_name) {
+                $lockedRdv->update(['room_name' => 'tlm-' . $lockedRdv->id . '-' . bin2hex(random_bytes(4))]);
+            }
 
-        // Generate a unique room name for LiveKit only for teleconsultation
-        if ($rdv->type !== 'presentiel' && !$rdv->room_name) {
-            $rdv->update(['room_name' => 'tlm-' . $rdv->id . '-' . bin2hex(random_bytes(4))]);
-        }
+            $lockedRdv->update(['statut' => 'en_cours']);
+            $dossier->increment('nb_consultations');
+            $dossier->update(['date_derniere_consultation' => now()]);
 
-        $rdv->update(['statut' => 'en_cours']);
-        $dossier->increment('nb_consultations');
-        $dossier->update(['date_derniere_consultation' => now()]);
+            ConsultationStarted::dispatch($consultation);
 
-        ConsultationStarted::dispatch($consultation);
+            return [$consultation, $lockedRdv->fresh()];
+        });
 
         // Générer un access token LiveKit si configuré
         $livekitToken = null;

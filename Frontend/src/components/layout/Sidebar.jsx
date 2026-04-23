@@ -162,32 +162,32 @@ export default function Sidebar() {
     return (
       <>
         {/* Logo */}
-        <div className="flex items-center justify-between px-3 h-16 border-b border-white/15">
+        <div className="flex items-center justify-between px-3 h-14 border-b border-white/10">
           {isOpen ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <img
                 src={logoImg}
                 alt="LiptakoCare"
-                className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-black/20"
+                className="w-8 h-8 rounded-lg object-cover"
               />
               <div>
-                <span className="text-sm font-bold text-white tracking-wide block">
+                <span className="text-sm font-semibold text-white block">
                   LiptakoCare
                 </span>
-                <span className="text-2xs text-white/70">e-Santé BFA</span>
+                <span className="text-2xs text-slate-400">e-Santé BFA</span>
               </div>
             </div>
           ) : (
             <img
               src={logoImg}
               alt="LiptakoCare"
-              className="w-9 h-9 rounded-xl object-cover mx-auto shadow-lg shadow-black/20"
+              className="w-8 h-8 rounded-lg object-cover mx-auto"
             />
           )}
           {isMobile ? (
             <button
               onClick={closeMobileSidebar}
-              className="p-1.5 rounded-lg hover:bg-white/15 text-white transition-all duration-200"
+              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 transition-colors duration-150"
             >
               <X className="w-5 h-5" />
             </button>
@@ -195,7 +195,7 @@ export default function Sidebar() {
             <button
               onClick={toggleSidebar}
               className={cn(
-                "p-1.5 rounded-lg hover:bg-white/15 text-white transition-all duration-200",
+                "p-1.5 rounded-lg hover:bg-white/10 text-slate-400 transition-colors duration-150",
                 !isOpen && "hidden",
               )}
             >
@@ -205,17 +205,17 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2.5 py-4 space-y-0.5 overflow-y-auto sidebar-scroll">
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto sidebar-scroll">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200",
+                  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-150",
                   isActive
-                    ? "bg-white/20 text-white font-semibold shadow-inner-glow border border-white/20"
-                    : "text-white hover:bg-white/10 hover:text-white",
+                    ? "bg-primary-500 text-white"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white",
                 )
               }
             >
@@ -231,23 +231,23 @@ export default function Sidebar() {
         </nav>
 
         {/* Footer : profil + déconnexion */}
-        <div className="border-t border-white/15 p-2.5">
+        <div className="border-t border-white/10 p-2">
           {isOpen ? (
-            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/10 transition-all duration-200">
-              <div className="w-9 h-9 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center text-white font-bold text-xs flex-shrink-0 shadow-md">
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors duration-150">
+              <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center text-white font-medium text-xs flex-shrink-0">
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-white truncate">
+                <p className="text-[13px] font-medium text-white truncate">
                   {fullName}
                 </p>
-                <p className="text-[11px] text-white/70 truncate capitalize">
+                <p className="text-[11px] text-slate-400 truncate capitalize">
                   {role?.replace("_", " ")}
                 </p>
               </div>
               <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-lg hover:bg-red-500/20 text-white hover:text-red-300 transition-all duration-200"
+                className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors duration-150"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -255,7 +255,7 @@ export default function Sidebar() {
           ) : (
             <button
               onClick={handleLogout}
-              className="w-full flex justify-center p-2.5 rounded-xl hover:bg-red-500/20 text-white hover:text-red-300 transition-all duration-200"
+              className="w-full flex justify-center p-2 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors duration-150"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -264,11 +264,11 @@ export default function Sidebar() {
 
         {/* Copyright & Version */}
         {isOpen && (
-          <div className="px-4 py-2.5 border-t border-white/15 text-center">
-            <p className="text-[10px] text-white/60">
+          <div className="px-4 py-2 border-t border-white/10 text-center">
+            <p className="text-[10px] text-slate-500">
               &copy; {new Date().getFullYear()} LiptakoCare
             </p>
-            <p className="text-[10px] text-white/50">
+            <p className="text-[10px] text-slate-600">
               v3.0.0 — Plateforme TLM BFA
             </p>
           </div>
@@ -282,12 +282,9 @@ export default function Sidebar() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen flex-col transition-all duration-300 z-40 shadow-xl hidden lg:flex",
+          "fixed left-0 top-0 h-screen flex-col transition-all duration-300 z-40 shadow-sidebar hidden lg:flex bg-slate-800",
           sidebarOpen ? "w-60" : "w-16",
         )}
-        style={{
-          background: "linear-gradient(180deg, #1e40af 0%, #2563eb 100%)",
-        }}
       >
         {sidebarContent(false)}
       </aside>
@@ -303,12 +300,9 @@ export default function Sidebar() {
       {/* Mobile drawer */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen w-72 flex flex-col z-50 shadow-2xl lg:hidden transition-transform duration-300 ease-out",
+          "fixed left-0 top-0 h-screen w-72 flex flex-col z-50 shadow-xl lg:hidden transition-transform duration-300 ease-out bg-slate-800",
           mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
-        style={{
-          background: "linear-gradient(180deg, #1e40af 0%, #2563eb 100%)",
-        }}
       >
         {sidebarContent(true)}
       </aside>
