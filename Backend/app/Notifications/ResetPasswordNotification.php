@@ -19,6 +19,7 @@ class ResetPasswordNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $frontendUrl = config('app.frontend_url', 'http://localhost:3000');
+        $expireMinutes = (int) config('auth.passwords.users.expire', 60);
         $resetUrl = "{$frontendUrl}/reset-password?token={$this->token}&email=" . urlencode($notifiable->email);
 
         return (new MailMessage)
@@ -26,7 +27,7 @@ class ResetPasswordNotification extends Notification
             ->greeting("Bonjour {$notifiable->prenoms},")
             ->line('Vous avez demandé la réinitialisation de votre mot de passe.')
             ->action('Réinitialiser mon mot de passe', $resetUrl)
-            ->line('Ce lien expirera dans 60 minutes.')
+            ->line("Ce lien expirera dans {$expireMinutes} minutes.")
             ->line('Si vous n\'avez pas demandé cette réinitialisation, ignorez cet email.')
             ->salutation('L\'équipe TLM-BFA');
     }

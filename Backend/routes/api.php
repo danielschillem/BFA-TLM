@@ -332,6 +332,9 @@ Route::prefix('auth')->middleware('throttle:auth')->group(function () {
     // Authentifié
     Route::middleware(['auth:api', 'active'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])->withoutMiddleware('active');
+        Route::get('/sessions', [AuthController::class, 'sessions']);
+        Route::delete('/sessions/others', [AuthController::class, 'revokeOtherSessions']);
+        Route::delete('/sessions/{sessionId}', [AuthController::class, 'revokeSession']);
         Route::get('/me', [AuthController::class, 'me']);
         Route::put('/profile', [AuthController::class, 'updateProfile']);
         Route::put('/password', [AuthController::class, 'changePassword']);

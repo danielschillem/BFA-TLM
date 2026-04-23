@@ -29,9 +29,16 @@ class PrescriptionController extends Controller
             } else {
                 $query->whereRaw('1 = 0');
             }
-        } else {
-            // PS voit les prescriptions de ses consultations
+        } elseif ($user->hasAnyRole(['doctor', 'specialist', 'health_professional'])) {
+            // Le PS voit ses propres prescriptions.
             $query->whereHas('consultation', fn ($q) => $q->where('user_id', $user->id));
+        } elseif ($user->hasRole('structure_manager')) {
+            // Le gestionnaire voit les prescriptions de sa structure.
+            $query->whereHas('consultation.dossierPatient.patient', function ($q) use ($user) {
+                $q->where('structure_id', $user->structure_id);
+            });
+        } else {
+            $query->whereRaw('1 = 0');
         }
 
         $prescriptions = $query->orderBy('created_at', 'desc')

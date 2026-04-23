@@ -200,6 +200,85 @@ class AuthController extends Controller
         ]);
     }
 
+    public function sessions(Request $request): JsonResponse
+    {
+        if (config('session.driver') !== 'database') {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+                'message' => 'Session listing not available with current driver.',
+            ]);
+        }
+
+        $currentSessionId = $request->hasSession() ? $request->session()->getId() : null;
+        $sessions = DB::table('sessions')
+            ->where('user_id', $request->user()->id)
+            ->orderByDesc('last_activity')
+            ->get()
+            ->map(function ($session) use ($currentSessionId) {
+                return [
+                    'id' => $session->id,
+                    'ip_address' => $session->ip_address,
+                    'user_agent' => $session->user_agent,
+                    'last_activity_at' => now()->setTimestamp((int) $session->last_activity)->toIso8601String(),
+                    'current' => $currentSessionId !== null && hash_equals($currentSessionId, (string) $session->id),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $sessions,
+        ]);
+    }
+
+    public function revokeSession(string $sessionId, Request $request): JsonResponse
+    {
+        if (config('session.driver') !== 'database') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session revocation unavailable with current driver.',
+            ], 422);
+        }
+
+        $deleted = DB::table('sessions')
+            ->where('id', $sessionId)
+            ->where('user_id', $request->user()->id)
+            ->delete();
+
+        if (!$deleted) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session introuvable.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Session révoquée.',
+        ]);
+    }
+
+    public function revokeOtherSessions(Request $request): JsonResponse
+    {
+        if (config('session.driver') !== 'database' || !$request->hasSession()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Action indisponible avec la configuration actuelle.',
+            ], 422);
+        }
+
+        $deletedCount = DB::table('sessions')
+            ->where('user_id', $request->user()->id)
+            ->where('id', '!=', $request->session()->getId())
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Autres sessions révoquées.',
+            'data' => ['revoked_count' => $deletedCount],
+        ]);
+    }
+
     public function me(Request $request): JsonResponse
     {
         return response()->json([
@@ -251,6 +330,7 @@ class AuthController extends Controller
         }
 
         $request->user()->update(['password' => $request->password]);
+        $this->invalidateUserSessions($request->user(), $request->hasSession() ? $request->session()->getId() : null);
 
         return response()->json([
             'success' => true,
@@ -309,8 +389,10 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Vérifier expiration (60 minutes)
-        if (now()->diffInMinutes($record->created_at) > 60) {
+        $expirationMinutes = (int) config('auth.passwords.users.expire', 60);
+
+        // Vérifier expiration
+        if (now()->diffInMinutes($record->created_at) > $expirationMinutes) {
             DB::table('password_reset_tokens')->where('email', $request->email)->delete();
             return response()->json([
                 'success' => false,
@@ -326,6 +408,7 @@ class AuthController extends Controller
 
         // Révoquer tous les tokens d'accès existants
         $user->tokens()->delete();
+        $this->invalidateUserSessions($user);
 
         return response()->json([
             'success' => true,
@@ -462,5 +545,18 @@ class AuthController extends Controller
                 ? $user->createToken('2fa-pending', ['2fa-pending'])->plainTextToken
                 : null,
         ];
+    }
+
+    private function invalidateUserSessions(User $user, ?string $exceptSessionId = null): void
+    {
+        if (config('session.driver') !== 'database') {
+            return;
+        }
+
+        $query = DB::table('sessions')->where('user_id', $user->id);
+        if ($exceptSessionId) {
+            $query->where('id', '!=', $exceptSessionId);
+        }
+        $query->delete();
     }
 }

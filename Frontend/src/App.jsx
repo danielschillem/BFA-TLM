@@ -1,6 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useAuthStore } from "@/stores/authStore";
+import { authStoreKeys, useAuthStore } from "@/stores/authStore";
 import { authApi } from "@/api";
 import { Spinner } from "@/components/common/LoadingSpinner";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -232,6 +232,15 @@ function AuthInitializer({ children }) {
         setReady(true);
       });
   }, []);
+
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key !== authStoreKeys.LOGOUT_SYNC_KEY || !event.newValue) return;
+      logout({ broadcast: false });
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [logout]);
 
   if (!ready) {
     return (

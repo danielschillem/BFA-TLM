@@ -27,8 +27,8 @@ class AuthTest extends TestCase
             'nom' => 'KABORE',
             'prenoms' => 'Aminata',
             'email' => 'aminata@test.bf',
-            'password' => 'Password123!',
-            'password_confirmation' => 'Password123!',
+            'password' => 'Password1234!',
+            'password_confirmation' => 'Password1234!',
             'telephone_1' => '+226 70 00 00 01',
             'sexe' => 'F',
         ]);

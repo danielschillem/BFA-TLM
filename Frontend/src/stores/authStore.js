@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { disconnectEcho } from "@/api/echo";
 
+const LOGOUT_SYNC_KEY = "tlm-auth-logout-signal";
+
 export const useAuthStore = create(
   persist(
     (set, get) => ({
@@ -26,7 +28,8 @@ export const useAuthStore = create(
           pendingUserId: userId,
         }),
 
-      logout: () => {
+      logout: (options = {}) => {
+        const { broadcast = true } = options;
         disconnectEcho();
         set({
           user: null,
@@ -34,6 +37,9 @@ export const useAuthStore = create(
           requiresTwoFactor: false,
           pendingUserId: null,
         });
+        if (broadcast) {
+          localStorage.setItem(LOGOUT_SYNC_KEY, String(Date.now()));
+        }
       },
 
       // Helpers rôles & permissions
@@ -56,3 +62,7 @@ export const useAuthStore = create(
     },
   ),
 );
+
+export const authStoreKeys = {
+  LOGOUT_SYNC_KEY,
+};
