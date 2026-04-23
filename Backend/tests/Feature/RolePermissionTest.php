@@ -79,8 +79,8 @@ class RolePermissionTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.name', 'supervisor');
 
-        $this->assertDatabaseHas('roles', ['name' => 'supervisor', 'guard_name' => 'web']);
-        $this->assertEquals(2, Role::findByName('supervisor', 'web')->permissions->count());
+        $this->assertDatabaseHas('roles', ['name' => 'supervisor', 'guard_name' => 'api']);
+        $this->assertEquals(2, Role::findByName('supervisor', 'api')->permissions->count());
     }
 
     public function test_create_role_validates_name_format(): void
@@ -101,7 +101,7 @@ class RolePermissionTest extends TestCase
 
     public function test_admin_can_update_role_permissions(): void
     {
-        $role = Role::findByName('doctor', 'web');
+        $role = Role::findByName('doctor', 'api');
 
         $response = $this->actingAs($this->admin, 'api')
             ->putJson("/api/v1/admin/roles/{$role->id}", [
@@ -119,9 +119,9 @@ class RolePermissionTest extends TestCase
     public function test_admin_can_rename_custom_role(): void
     {
         // Créer un rôle custom d'abord
-        Role::create(['name' => 'custom_role', 'guard_name' => 'web']);
+        Role::create(['name' => 'custom_role', 'guard_name' => 'api']);
 
-        $role = Role::findByName('custom_role', 'web');
+        $role = Role::findByName('custom_role', 'api');
 
         $response = $this->actingAs($this->admin, 'api')
             ->putJson("/api/v1/admin/roles/{$role->id}", ['name' => 'new_custom_name']);
@@ -132,7 +132,7 @@ class RolePermissionTest extends TestCase
 
     public function test_admin_can_delete_custom_role(): void
     {
-        $role = Role::create(['name' => 'temporary_role', 'guard_name' => 'web']);
+        $role = Role::create(['name' => 'temporary_role', 'guard_name' => 'api']);
 
         $response = $this->actingAs($this->admin, 'api')
             ->deleteJson("/api/v1/admin/roles/{$role->id}");
@@ -144,7 +144,7 @@ class RolePermissionTest extends TestCase
 
     public function test_cannot_delete_protected_roles(): void
     {
-        $role = Role::findByName('admin', 'web');
+        $role = Role::findByName('admin', 'api');
 
         $response = $this->actingAs($this->admin, 'api')
             ->deleteJson("/api/v1/admin/roles/{$role->id}");
@@ -155,7 +155,7 @@ class RolePermissionTest extends TestCase
 
     public function test_cannot_delete_role_with_users(): void
     {
-        $role = Role::create(['name' => 'in_use_role', 'guard_name' => 'web']);
+        $role = Role::create(['name' => 'in_use_role', 'guard_name' => 'api']);
         $user = User::factory()->create();
         $user->assignRole('in_use_role');
 

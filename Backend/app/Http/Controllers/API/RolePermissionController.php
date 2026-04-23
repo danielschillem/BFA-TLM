@@ -12,11 +12,13 @@ use Spatie\Permission\Models\Role;
 
 class RolePermissionController extends Controller
 {
+    private const AUTH_GUARD = 'api';
+
     // ── Rôles ─────────────────────────────────────────────────────────────────
 
     public function indexRoles(): JsonResponse
     {
-        $roles = Role::where('guard_name', 'web')
+        $roles = Role::where('guard_name', self::AUTH_GUARD)
             ->withCount('users', 'permissions')
             ->orderBy('name')
             ->get()
@@ -35,7 +37,7 @@ class RolePermissionController extends Controller
 
     public function showRole(int $id): JsonResponse
     {
-        $role = Role::where('guard_name', 'web')->findOrFail($id);
+        $role = Role::where('guard_name', self::AUTH_GUARD)->findOrFail($id);
 
         return response()->json([
             'success' => true,
@@ -61,7 +63,7 @@ class RolePermissionController extends Controller
             'permissions.*' => 'string|exists:permissions,name',
         ]);
 
-        $role = Role::create(['name' => $validated['name'], 'guard_name' => 'web']);
+        $role = Role::create(['name' => $validated['name'], 'guard_name' => self::AUTH_GUARD]);
 
         if (! empty($validated['permissions'])) {
             $role->syncPermissions($validated['permissions']);
@@ -82,7 +84,7 @@ class RolePermissionController extends Controller
 
     public function updateRole(int $id, Request $request): JsonResponse
     {
-        $role = Role::where('guard_name', 'web')->findOrFail($id);
+        $role = Role::where('guard_name', self::AUTH_GUARD)->findOrFail($id);
 
         $validated = $request->validate([
             'name'          => "sometimes|string|max:50|regex:/^[a-z_]+$/|unique:roles,name,{$role->id}",
@@ -113,7 +115,7 @@ class RolePermissionController extends Controller
 
     public function destroyRole(int $id): JsonResponse
     {
-        $role = Role::where('guard_name', 'web')->findOrFail($id);
+        $role = Role::where('guard_name', self::AUTH_GUARD)->findOrFail($id);
 
         $protectedRoles = ['admin', 'doctor', 'specialist', 'health_professional', 'patient', 'structure_manager'];
 
@@ -141,7 +143,7 @@ class RolePermissionController extends Controller
 
     public function indexPermissions(): JsonResponse
     {
-        $permissions = Permission::where('guard_name', 'web')
+        $permissions = Permission::where('guard_name', self::AUTH_GUARD)
             ->orderBy('name')
             ->get()
             ->map(fn (Permission $p) => [
@@ -202,12 +204,12 @@ class RolePermissionController extends Controller
 
     public function matrix(): JsonResponse
     {
-        $roles = Role::where('guard_name', 'web')
+        $roles = Role::where('guard_name', self::AUTH_GUARD)
             ->with('permissions')
             ->orderBy('name')
             ->get();
 
-        $permissions = Permission::where('guard_name', 'web')
+        $permissions = Permission::where('guard_name', self::AUTH_GUARD)
             ->orderBy('name')
             ->pluck('name');
 

@@ -24,16 +24,29 @@ desktop.ini
 # Private keys
 *.pk
 *.pub
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+
+# Local deployment/tooling state
+.netlify/
+*.tar.gz
 
 # Laravel
 Backend/storage/logs/*.log
 Backend/bootstrap/cache/*.php
+Backend/database/*.sqlite
+Backend/*cookie*.txt
+Backend/*cookies*.txt
+Backend/*record*.txt
+Frontend/public/app-config.runtime.js
 
 # Images (assets lourds)
 *.jpeg
 *.jpg
 *.png
 !Frontend/src/assets/**
-
-# Local Netlify folder
-.netlify
