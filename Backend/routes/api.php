@@ -388,7 +388,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     });
 
     // Consultations
-    Route::prefix('consultations')->group(function () {
+    Route::prefix('consultations')->middleware('audit.critical')->group(function () {
         Route::get('/', [ConsultationController::class, 'index'])->middleware('permission:consultations.view');
         Route::get('/dashboard', [ConsultationController::class, 'dashboard'])->middleware('permission:consultations.view');
         Route::get('/{id}', [ConsultationController::class, 'show'])->middleware('permission:consultations.view');
@@ -429,7 +429,7 @@ Route::middleware(['auth:api', 'active'])->group(function () {
     Route::delete('/documents/{id}', [DocumentController::class, 'destroy'])->middleware('permission:documents.delete');
 
     // Messages
-    Route::prefix('messages')->middleware('permission:messages.view')->group(function () {
+    Route::prefix('messages')->middleware(['permission:messages.view', 'audit.critical'])->group(function () {
         Route::get('/inbox', [MessageController::class, 'inbox']);
         Route::get('/unread', [MessageController::class, 'unreadCount']);
         Route::get('/search', [MessageController::class, 'search']);
