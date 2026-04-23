@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { authStoreKeys, useAuthStore } from "@/stores/authStore";
 import { authApi } from "@/api";
@@ -212,8 +212,9 @@ function SmartDashboard() {
 
 // AuthInitializer: vérifie la validité du token au démarrage
 function AuthInitializer({ children }) {
-  const { isAuthenticated, setUser, logout } = useAuthStore();
+  const { isAuthenticated, requiresTwoFactor, setUser, logout } = useAuthStore();
   const [ready, setReady] = useState(false);
+  const heartbeatInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -241,6 +242,38 @@ function AuthInitializer({ children }) {
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, [logout]);
+
+  useEffect(() => {
+    if (!isAuthenticated || requiresTwoFactor) return;
+
+    const parsed = Number.parseInt(
+      String(import.meta.env.VITE_SESSION_CHECK_INTERVAL_MS ?? "120000"),
+      10,
+    );
+    const heartbeatMs = Number.isFinite(parsed) ? Math.max(parsed, 30000) : 120000;
+
+    const heartbeat = async () => {
+      if (heartbeatInFlightRef.current) return;
+      heartbeatInFlightRef.current = true;
+      try {
+        const res = await authApi.me();
+        const userData = res.data?.data ?? res.data;
+        if (userData) setUser(userData);
+      } catch {
+        logout();
+      } finally {
+        heartbeatInFlightRef.current = false;
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void heartbeat();
+    }, heartbeatMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isAuthenticated, requiresTwoFactor, logout, setUser]);
 
   if (!ready) {
     return (
