@@ -29,7 +29,7 @@ export function useDebounceValue(initialValue, delay = 500) {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [value, delay]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [value, delay]);
 
   const cancel = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);

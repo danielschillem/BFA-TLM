@@ -113,7 +113,7 @@ export function useWebSocket() {
       });
       channelsRef.current = [];
     };
-  }, [isAuthenticated, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]);
 }
 
 /**
@@ -161,7 +161,7 @@ export function useConsultationChannel(consultationId, callbacks = {}) {
     return () => {
       echo.leave(`consultation.${consultationId}`);
     };
-  }, [isAuthenticated, consultationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, consultationId]);
 }
 
 /**
@@ -221,7 +221,7 @@ export function useChatChannel(otherUserId, handlers = {}) {
       echo.leave(channelName);
       channelRef.current = null;
     };
-  }, [isAuthenticated, user?.id, otherUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id, otherUserId]);
 
   // Fonction pour envoyer un whisper de frappe
   const sendTyping = (isTyping = true) => {

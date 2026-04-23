@@ -878,7 +878,7 @@ export default function ConsultationRoom() {
         // Patient: afficher l'écran post-consultation
         setShowPostConsultation(true);
       }
-    }, []), // eslint-disable-line react-hooks/exhaustive-deps
+    }, []),
   });
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1134,7 +1134,7 @@ export default function ConsultationRoom() {
         navigate(`/consultations/${id}/report`, { replace: true });
       }
     }
-  }, [consultation?.statut, consultation?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [consultation?.statut, consultation?.status]);
 
   // ── Chrono ──────────────────────────────────────────────────────────────────
   useEffect(() => {
