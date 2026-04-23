@@ -34,6 +34,11 @@ class ConsultationController extends Controller
             } else {
                 $query->whereRaw('1 = 0');
             }
+        } elseif ($user->hasRole('structure_manager')) {
+            // Gestionnaire: consultations des patients de sa structure.
+            $query->whereHas('dossierPatient.patient', function ($q) use ($user) {
+                $q->where('structure_id', $user->structure_id);
+            });
         } else {
             // PS voit les consultations qu'il a menées
             $query->where('user_id', $user->id);
@@ -547,11 +552,25 @@ class ConsultationController extends Controller
 
     private function authorizeAccess(Consultation $consultation, $user): void
     {
-        if ($user->hasRole('admin')) return;
+        if ($user->hasRole('admin')) {
+            return;
+        }
+
+        $consultation->loadMissing('dossierPatient.patient');
         // Le médecin qui a mené la consultation
-        if ($consultation->user_id === $user->id) return;
+        if ($consultation->user_id === $user->id) {
+            return;
+        }
         // Le patient propriétaire du dossier
-        if ($user->hasRole('patient') && $consultation->dossierPatient?->patient?->user_id === $user->id) return;
+        if ($user->hasRole('patient') && $consultation->dossierPatient?->patient?->user_id === $user->id) {
+            return;
+        }
+        // Le gestionnaire de la structure du patient
+        if ($user->hasRole('structure_manager')
+            && $user->structure_id
+            && (int) $consultation->dossierPatient?->patient?->structure_id === (int) $user->structure_id) {
+            return;
+        }
         abort(403, 'Accès non autorisé à cette consultation.');
     }
 

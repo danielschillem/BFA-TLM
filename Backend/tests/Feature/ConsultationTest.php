@@ -6,6 +6,7 @@ use App\Models\Consultation;
 use App\Models\DossierPatient;
 use App\Models\Patient;
 use App\Models\RendezVous;
+use App\Models\Structure;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -187,6 +188,84 @@ class ConsultationTest extends TestCase
 
         $response = $this->actingAs($otherDoctor, 'api')
             ->getJson("/api/v1/consultations/{$consultation->id}");
+
+        $response->assertStatus(403);
+    }
+
+    public function test_structure_manager_can_list_consultations_in_own_structure_only(): void
+    {
+        $structureOne = Structure::factory()->create();
+        $structureTwo = Structure::factory()->create();
+
+        /** @var User $manager */
+        $manager = User::factory()->create([
+            'status' => 'actif',
+            'structure_id' => $structureOne->id,
+        ]);
+        $manager->assignRole('structure_manager');
+        $manager->givePermissionTo('consultations.view');
+
+        $doctorOne = User::factory()->doctor()->create([
+            'status' => 'actif',
+            'structure_id' => $structureOne->id,
+        ]);
+        $doctorOne->assignRole('doctor');
+
+        $doctorTwo = User::factory()->doctor()->create([
+            'status' => 'actif',
+            'structure_id' => $structureTwo->id,
+        ]);
+        $doctorTwo->assignRole('doctor');
+
+        $patientOne = Patient::factory()->create(['structure_id' => $structureOne->id]);
+        $dossierOne = DossierPatient::factory()->create(['patient_id' => $patientOne->id]);
+        Consultation::factory()->create([
+            'user_id' => $doctorOne->id,
+            'dossier_patient_id' => $dossierOne->id,
+        ]);
+
+        $patientTwo = Patient::factory()->create(['structure_id' => $structureTwo->id]);
+        $dossierTwo = DossierPatient::factory()->create(['patient_id' => $patientTwo->id]);
+        Consultation::factory()->create([
+            'user_id' => $doctorTwo->id,
+            'dossier_patient_id' => $dossierTwo->id,
+        ]);
+
+        $response = $this->actingAs($manager, 'api')->getJson('/api/v1/consultations');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_structure_manager_cannot_view_consultation_of_other_structure(): void
+    {
+        $structureOne = Structure::factory()->create();
+        $structureTwo = Structure::factory()->create();
+
+        /** @var User $manager */
+        $manager = User::factory()->create([
+            'status' => 'actif',
+            'structure_id' => $structureOne->id,
+        ]);
+        $manager->assignRole('structure_manager');
+        $manager->givePermissionTo('consultations.view');
+
+        $doctorTwo = User::factory()->doctor()->create([
+            'status' => 'actif',
+            'structure_id' => $structureTwo->id,
+        ]);
+        $doctorTwo->assignRole('doctor');
+
+        $patientTwo = Patient::factory()->create(['structure_id' => $structureTwo->id]);
+        $dossierTwo = DossierPatient::factory()->create(['patient_id' => $patientTwo->id]);
+        $consultationTwo = Consultation::factory()->create([
+            'user_id' => $doctorTwo->id,
+            'dossier_patient_id' => $dossierTwo->id,
+        ]);
+
+        $response = $this->actingAs($manager, 'api')
+            ->getJson("/api/v1/consultations/{$consultationTwo->id}");
 
         $response->assertStatus(403);
     }
