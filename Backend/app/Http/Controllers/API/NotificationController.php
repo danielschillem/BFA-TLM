@@ -10,8 +10,17 @@ class NotificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $notifications = $request->user()
-            ->notifications()
+        $request->validate([
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'unread_only' => 'nullable|boolean',
+        ]);
+
+        $query = $request->user()->notifications();
+        if ($request->boolean('unread_only')) {
+            $query->whereNull('read_at');
+        }
+
+        $notifications = $query
             ->orderByDesc('created_at')
             ->paginate(min((int) $request->input('per_page', 20), 100));
 
@@ -41,6 +50,13 @@ class NotificationController extends Controller
 
     public function markAsRead(string $notificationId, Request $request): JsonResponse
     {
+        if (!\Illuminate\Support\Str::isUuid($notificationId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Identifiant de notification invalide.',
+            ], 422);
+        }
+
         $notification = $request->user()
             ->notifications()
             ->where('id', $notificationId)
@@ -56,11 +72,14 @@ class NotificationController extends Controller
 
     public function markAllAsRead(Request $request): JsonResponse
     {
-        $request->user()->unreadNotifications->markAsRead();
+        $marked = $request->user()
+            ->unreadNotifications()
+            ->update(['read_at' => now()]);
 
         return response()->json([
             'success' => true,
             'message' => 'Toutes les notifications marquées comme lues',
+            'data' => ['marked_count' => $marked],
         ]);
     }
 }
