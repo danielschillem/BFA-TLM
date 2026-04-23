@@ -6,6 +6,7 @@ use App\Models\Consultation;
 use App\Models\DossierPatient;
 use App\Models\Patient;
 use App\Models\Prescription;
+use App\Models\Structure;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -115,5 +116,60 @@ class PrescriptionTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true);
+    }
+
+    public function test_structure_manager_sees_only_prescriptions_from_own_structure(): void
+    {
+        $structureOne = Structure::factory()->create();
+        $structureTwo = Structure::factory()->create();
+
+        /** @var User $manager */
+        $manager = User::factory()->create([
+            'status' => 'actif',
+            'structure_id' => $structureOne->id,
+        ]);
+        $manager->assignRole('structure_manager');
+        $manager->givePermissionTo('prescriptions.view');
+
+        $doctorSameStructure = User::factory()->doctor()->create([
+            'status' => 'actif',
+            'structure_id' => $structureOne->id,
+        ]);
+        $doctorSameStructure->assignRole('doctor');
+
+        $doctorOtherStructure = User::factory()->doctor()->create([
+            'status' => 'actif',
+            'structure_id' => $structureTwo->id,
+        ]);
+        $doctorOtherStructure->assignRole('doctor');
+
+        $patientSame = Patient::factory()->create(['structure_id' => $structureOne->id]);
+        $dossierSame = DossierPatient::factory()->create(['patient_id' => $patientSame->id]);
+        $consultSame = Consultation::factory()->create([
+            'user_id' => $doctorSameStructure->id,
+            'dossier_patient_id' => $dossierSame->id,
+        ]);
+        Prescription::factory()->create([
+            'consultation_id' => $consultSame->id,
+            'dossier_patient_id' => $dossierSame->id,
+        ]);
+
+        $patientOther = Patient::factory()->create(['structure_id' => $structureTwo->id]);
+        $dossierOther = DossierPatient::factory()->create(['patient_id' => $patientOther->id]);
+        $consultOther = Consultation::factory()->create([
+            'user_id' => $doctorOtherStructure->id,
+            'dossier_patient_id' => $dossierOther->id,
+        ]);
+        Prescription::factory()->create([
+            'consultation_id' => $consultOther->id,
+            'dossier_patient_id' => $dossierOther->id,
+        ]);
+
+        $response = $this->actingAs($manager, 'api')
+            ->getJson('/api/v1/prescriptions');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(1, 'data');
     }
 }

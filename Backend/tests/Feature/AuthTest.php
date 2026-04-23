@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -18,6 +19,7 @@ class AuthTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['session.driver' => 'database']);
         $this->seed(RolePermissionSeeder::class);
     }
 
@@ -27,8 +29,8 @@ class AuthTest extends TestCase
             'nom' => 'KABORE',
             'prenoms' => 'Aminata',
             'email' => 'aminata@test.bf',
-            'password' => 'Password1234!',
-            'password_confirmation' => 'Password1234!',
+            'password' => 'Tlm!Secure#2026$Alpha',
+            'password_confirmation' => 'Tlm!Secure#2026$Alpha',
             'telephone_1' => '+226 70 00 00 01',
             'sexe' => 'F',
         ]);
@@ -154,6 +156,7 @@ class AuthTest extends TestCase
 
     public function test_logout_revokes_token(): void
     {
+        /** @var User $user */
         $user = User::factory()->create(['status' => 'actif']);
         $user->assignRole('patient');
 
@@ -224,8 +227,8 @@ class AuthTest extends TestCase
         $response = $this->actingAs($user, 'api')
             ->putJson('/api/v1/auth/password', [
                 'current_password' => 'password',
-                'password' => 'NewPassword123!',
-                'password_confirmation' => 'NewPassword123!',
+                'password' => 'Tlm!NewSecure#2026$Beta',
+                'password_confirmation' => 'Tlm!NewSecure#2026$Beta',
             ]);
 
         $response->assertOk()
@@ -245,5 +248,77 @@ class AuthTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseHas('users', ['id' => $user->id, 'nom' => 'NOUVEAU']);
+    }
+
+    public function test_can_list_owned_active_sessions(): void
+    {
+        /** @var User $user */
+        $user = User::factory()->create(['status' => 'actif']);
+        $user->assignRole('patient');
+
+        /** @var User $other */
+        $other = User::factory()->create(['status' => 'actif']);
+        $other->assignRole('patient');
+
+        DB::table('sessions')->insert([
+            [
+                'id' => 'session-user-1',
+                'user_id' => $user->id,
+                'ip_address' => '127.0.0.1',
+                'user_agent' => 'phpunit',
+                'payload' => 'payload',
+                'last_activity' => now()->subMinute()->timestamp,
+            ],
+            [
+                'id' => 'session-user-2',
+                'user_id' => $user->id,
+                'ip_address' => '127.0.0.2',
+                'user_agent' => 'phpunit',
+                'payload' => 'payload',
+                'last_activity' => now()->timestamp,
+            ],
+            [
+                'id' => 'session-other-1',
+                'user_id' => $other->id,
+                'ip_address' => '127.0.0.3',
+                'user_agent' => 'phpunit',
+                'payload' => 'payload',
+                'last_activity' => now()->timestamp,
+            ],
+        ]);
+
+        $response = $this->actingAs($user, 'api')
+            ->getJson('/api/v1/auth/sessions');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(2, 'data');
+    }
+
+    public function test_can_revoke_single_owned_session(): void
+    {
+        /** @var User $user */
+        $user = User::factory()->create(['status' => 'actif']);
+        $user->assignRole('patient');
+
+        DB::table('sessions')->insert([
+            'id' => 'session-to-revoke',
+            'user_id' => $user->id,
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'phpunit',
+            'payload' => 'payload',
+            'last_activity' => now()->timestamp,
+        ]);
+
+        $response = $this->actingAs($user, 'api')
+            ->deleteJson('/api/v1/auth/sessions/session-to-revoke');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('sessions', [
+            'id' => 'session-to-revoke',
+            'user_id' => $user->id,
+        ]);
     }
 }
