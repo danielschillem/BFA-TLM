@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import {
   Activity, Users, Video, Calendar, TrendingUp,
   Heart, Stethoscope, MapPin, FileText, Pill,
   Share2, Building2, CheckCircle, XCircle, Clock, AlertTriangle, WifiOff
 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts'
 import { adminApi } from '@/api'
 import AppLayout from '@/components/layout/AppLayout'
 import { Card, CardContent, CardHeader, StatCard } from '@/components/ui/Card'
@@ -35,14 +36,15 @@ function IndicatorCard({ label, value, suffix = '', icon: Icon, color = 'primary
 }
 
 export default function AdminStats() {
+  const [visioPeriod, setVisioPeriod] = useState('24h')
   const { data: stats, isLoading } = useQuery({
     queryKey: ['admin', 'dashboard'],
     queryFn: () => adminApi.dashboard().then(r => r.data.data),
     refetchInterval: 120_000,
   })
   const { data: visioMetrics } = useQuery({
-    queryKey: ['admin', 'visio-metrics', '24h'],
-    queryFn: () => adminApi.visioMetrics('24h').then(r => r.data.data),
+    queryKey: ['admin', 'visio-metrics', visioPeriod],
+    queryFn: () => adminApi.visioMetrics(visioPeriod).then(r => r.data.data),
     refetchInterval: 120_000,
   })
 
@@ -176,11 +178,28 @@ export default function AdminStats() {
           </Card>
         </div>
 
-        {/* Section 3bis: Qualité visio (24h) */}
+        {/* Section 3bis: Qualité visio */}
         <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <Video className="w-5 h-5 text-indigo-500" /> Qualité visio (24h)
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Video className="w-5 h-5 text-indigo-500" /> Qualité visio
+            </h2>
+            <div className="inline-flex rounded-xl border border-gray-200 bg-white p-1">
+              {['24h', '7d'].map((period) => (
+                <button
+                  key={period}
+                  onClick={() => setVisioPeriod(period)}
+                  className={`px-3 py-1 text-xs rounded-lg transition ${
+                    visioPeriod === period
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {period}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <IndicatorCard
               icon={WifiOff}
@@ -210,8 +229,52 @@ export default function AdminStats() {
             />
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Basé sur {visioMetrics?.samples_count ?? 0} échantillon(s) de métriques visio.
+            Basé sur {visioMetrics?.samples_count ?? 0} échantillon(s) de métriques visio ({visioPeriod}).
           </p>
+          <Card className="mt-4">
+            <CardHeader><h3 className="section-title">Tendance visio</h3></CardHeader>
+            <CardContent>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={visioMetrics?.trend ?? []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <XAxis dataKey="label" fontSize={12} />
+                    <YAxis yAxisId="left" fontSize={12} />
+                    <YAxis yAxisId="right" orientation="right" fontSize={12} />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="session_quality_score"
+                      name="Score qualité"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="join_fail_count"
+                      name="Join fail"
+                      stroke="#ef4444"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="reconnect_events"
+                      name="Reconnect"
+                      stroke="#f59e0b"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Section 4: Détails numériques */}

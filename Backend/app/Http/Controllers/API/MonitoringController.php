@@ -85,11 +85,13 @@ class MonitoringController extends Controller
             'fallback_events' => 0,
             'fallback_rate_percent_avg' => 0,
             'session_quality_score_avg' => 0,
+            'trend' => [],
         ];
 
         $fallbackRates = [];
         $qualityScores = [];
         $maxReconnectCountByConsultation = [];
+        $trendBuckets = [];
 
         foreach ($lines as $line) {
             if (!str_contains($line, 'Visio session metric')) {
@@ -154,11 +156,45 @@ class MonitoringController extends Controller
                     $qualityScores[] = $qualityScore;
                 }
             }
+
+            $bucket = $period === '7d' ? $loggedAt->format('Y-m-d') : $loggedAt->format('Y-m-d H:00');
+            if (!isset($trendBuckets[$bucket])) {
+                $trendBuckets[$bucket] = [
+                    'label' => $period === '7d' ? $loggedAt->format('d/m') : $loggedAt->format('H:i'),
+                    'join_fail_count' => 0,
+                    'reconnect_events' => 0,
+                    'quality_scores' => [],
+                ];
+            }
+            if ($metric === 'join_fail') {
+                $trendBuckets[$bucket]['join_fail_count']++;
+            }
+            if ($metric === 'reconnect_count') {
+                $trendBuckets[$bucket]['reconnect_events'] = max(
+                    $trendBuckets[$bucket]['reconnect_events'],
+                    (int) ($data['reconnect_count'] ?? 0)
+                );
+            }
+            if (($metric === 'session_quality_score' || $metric === 'session_summary') && isset($qualityScore) && $qualityScore > 0) {
+                $trendBuckets[$bucket]['quality_scores'][] = $qualityScore;
+            }
         }
 
         $summary['reconnect_events'] = array_sum($maxReconnectCountByConsultation);
         $summary['fallback_rate_percent_avg'] = $this->roundAverage($fallbackRates);
         $summary['session_quality_score_avg'] = $this->roundAverage($qualityScores);
+        $summary['trend'] = collect($trendBuckets)
+            ->sortKeys()
+            ->map(function (array $bucketData) {
+                return [
+                    'label' => $bucketData['label'],
+                    'join_fail_count' => $bucketData['join_fail_count'],
+                    'reconnect_events' => $bucketData['reconnect_events'],
+                    'session_quality_score' => $this->roundAverage($bucketData['quality_scores']),
+                ];
+            })
+            ->values()
+            ->all();
 
         return response()->json([
             'success' => true,
@@ -187,6 +223,7 @@ class MonitoringController extends Controller
             'fallback_events' => 0,
             'fallback_rate_percent_avg' => 0,
             'session_quality_score_avg' => 0,
+            'trend' => [],
         ];
     }
 }
