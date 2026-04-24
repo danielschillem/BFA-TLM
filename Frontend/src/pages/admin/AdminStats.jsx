@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Activity, Users, Video, Calendar, TrendingUp,
   Heart, Stethoscope, MapPin, FileText, Pill,
-  Share2, Building2, CheckCircle, XCircle, Clock, AlertTriangle
+  Share2, Building2, CheckCircle, XCircle, Clock, AlertTriangle, WifiOff
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import { adminApi } from '@/api'
@@ -38,6 +38,11 @@ export default function AdminStats() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['admin', 'dashboard'],
     queryFn: () => adminApi.dashboard().then(r => r.data.data),
+    refetchInterval: 120_000,
+  })
+  const { data: visioMetrics } = useQuery({
+    queryKey: ['admin', 'visio-metrics', '24h'],
+    queryFn: () => adminApi.visioMetrics('24h').then(r => r.data.data),
     refetchInterval: 120_000,
   })
 
@@ -169,6 +174,44 @@ export default function AdminStats() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Section 3bis: Qualité visio (24h) */}
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <Video className="w-5 h-5 text-indigo-500" /> Qualité visio (24h)
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <IndicatorCard
+              icon={WifiOff}
+              label="Échecs de jonction"
+              value={visioMetrics?.join_fail_count ?? 0}
+              color="red"
+            />
+            <IndicatorCard
+              icon={TrendingUp}
+              label="Reconnexions cumulées"
+              value={visioMetrics?.reconnect_events ?? 0}
+              color="yellow"
+            />
+            <IndicatorCard
+              icon={AlertTriangle}
+              label="Fallback audio-only"
+              value={visioMetrics?.fallback_rate_percent_avg ?? 0}
+              suffix="%"
+              color="purple"
+            />
+            <IndicatorCard
+              icon={CheckCircle}
+              label="Score qualité session"
+              value={visioMetrics?.session_quality_score_avg ?? 0}
+              suffix="/100"
+              color="green"
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Basé sur {visioMetrics?.samples_count ?? 0} échantillon(s) de métriques visio.
+          </p>
         </div>
 
         {/* Section 4: Détails numériques */}

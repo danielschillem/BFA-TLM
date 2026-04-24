@@ -569,6 +569,10 @@ Route::middleware(['auth:api', 'active'])->group(function () {
             Route::put('/{key}', [PlatformSettingsController::class, 'update']);
             Route::put('/', [PlatformSettingsController::class, 'batchUpdate']);
         });
+
+        // Monitoring visio (agrégat des métriques frontend)
+        Route::get('/monitoring/visio-metrics', [MonitoringController::class, 'visioMetricsSummary'])
+            ->middleware('permission:admin.dashboard');
     });
 
     // Annonces publiées (tous utilisateurs authentifiés)

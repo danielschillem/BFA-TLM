@@ -398,6 +398,8 @@ export const adminApi = {
   updateSetting: (key, value) =>
     apiClient.put(`/admin/settings/${key}`, { value }),
   updateSettings: (settings) => apiClient.put("/admin/settings", { settings }),
+  visioMetrics: (period = "24h") =>
+    apiClient.get("/admin/monitoring/visio-metrics", { params: { period } }),
 };
 
 // ── Audit Logs ────────────────────────────────────────────────────────────────
