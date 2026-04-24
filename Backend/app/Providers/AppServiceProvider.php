@@ -98,6 +98,17 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(30)->by($request->user()?->id ?: $request->ip())
         );
 
+        // Monitoring frontend public: strict limits to reduce log noise/cost.
+        RateLimiter::for('frontend-monitoring', function (Request $request) {
+            $ua = substr((string) $request->userAgent(), 0, 120);
+            return Limit::perMinute(15)->by($request->ip() . '|' . $ua);
+        });
+
+        // Visio metrics are authenticated but we still rate-limit per user/IP.
+        RateLimiter::for('visio-monitoring', fn (Request $request) =>
+            Limit::perMinute(60)->by($request->user()?->id ?: $request->ip())
+        );
+
         Event::listen(AppointmentConfirmed::class, SendAppointmentConfirmedNotification::class);
         Event::listen(ConsultationStarted::class, LogConsultationStarted::class);
         Event::listen(ConsultationEnded::class, UpdateDossierOnConsultationEnd::class);

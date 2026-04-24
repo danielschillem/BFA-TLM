@@ -35,7 +35,7 @@
 ### Objectifs principaux
 
 - Digitaliser les dossiers médicaux des patients
-- Permettre les téléconsultations vidéo (Google Meet)
+- Permettre les téléconsultations vidéo (LiveKit WebRTC)
 - Gérer les rendez-vous, prescriptions, examens et diagnostics
 - Assurer la traçabilité et la conformité des accès aux données de santé
 - Intégrer les paiements mobiles (Orange Money)
@@ -77,17 +77,17 @@
 └──────────────────┘  └────────────┘  └──────────────────┘
 ```
 
-### Stack technologique
+### Stack technologique (état réel du code)
 
 | Composant           | Technologie                         |
 | ------------------- | ----------------------------------- |
 | Backend             | Laravel 11 (PHP 8.3)                |
-| Authentification    | Laravel Passport (OAuth2)           |
+| Authentification    | Laravel Sanctum (session + token)   |
 | Autorisation (RBAC) | Spatie Laravel Permission           |
 | Audit / Traçabilité | Spatie Activity Log                 |
-| Temps réel          | Pusher + Laravel Reverb (WebSocket) |
+| Temps réel          | Laravel Reverb + Pusher protocol    |
 | SMS                 | Twilio SDK                          |
-| Visioconférence     | Google Meet API                     |
+| Visioconférence     | LiveKit (WebRTC SFU)                |
 | Paiement            | Orange Money SDK                    |
 | Chiffrement         | AES-256 (champ par champ)           |
 | Frontend assets     | Vite + Bootstrap 5 + TailwindCSS    |

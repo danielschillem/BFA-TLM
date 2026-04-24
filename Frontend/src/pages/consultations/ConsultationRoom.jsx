@@ -93,6 +93,11 @@ import Modal from "@/components/ui/Modal";
 import Input, { Textarea, Select } from "@/components/ui/Input";
 import logoImg from "@/assets/logo.jpeg";
 import { reportVisioMetric } from "@/services/errorReporter";
+import {
+  computeFallbackRate,
+  computeSessionQualityScore,
+  pushBoundedScore,
+} from "@/pages/consultations/visioMetrics";
 
 // ── Indicateur de qualité réseau ─────────────────────────────────────────────
 function NetworkQualityBadge({ participant }) {
@@ -968,10 +973,10 @@ export default function ConsultationRoom() {
       disconnected: 0,
     };
     const nextScore = scoreByState[connectionState] ?? 50;
-    qualityScoreSamplesRef.current.push(nextScore);
-    if (qualityScoreSamplesRef.current.length > 600) {
-      qualityScoreSamplesRef.current.shift();
-    }
+    qualityScoreSamplesRef.current = pushBoundedScore(
+      qualityScoreSamplesRef.current,
+      nextScore,
+    );
   }, [connectionState]);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -1231,9 +1236,9 @@ export default function ConsultationRoom() {
 
   const handleAutoAudioFallback = useCallback(() => {
     fallbackCountRef.current += 1;
-    const weakSamples = Math.max(weakNetworkSampleCountRef.current, 1);
-    const fallbackRate = Number(
-      ((fallbackCountRef.current / weakSamples) * 100).toFixed(2),
+    const fallbackRate = computeFallbackRate(
+      fallbackCountRef.current,
+      weakNetworkSampleCountRef.current,
     );
     reportVisioMetric("fallback_rate", {
       consultation_id: consultation?.id ?? null,
@@ -1304,15 +1309,10 @@ export default function ConsultationRoom() {
   useEffect(() => {
     return () => {
       const qualitySamples = qualityScoreSamplesRef.current;
-      const sessionQualityScore = qualitySamples.length
-        ? Math.round(
-            qualitySamples.reduce((sum, score) => sum + score, 0) /
-              qualitySamples.length,
-          )
-        : 0;
-      const weakSamples = Math.max(weakNetworkSampleCountRef.current, 1);
-      const fallbackRate = Number(
-        ((fallbackCountRef.current / weakSamples) * 100).toFixed(2),
+      const sessionQualityScore = computeSessionQualityScore(qualitySamples);
+      const fallbackRate = computeFallbackRate(
+        fallbackCountRef.current,
+        weakNetworkSampleCountRef.current,
       );
 
       reportVisioMetric("session_summary", {
@@ -1563,13 +1563,9 @@ export default function ConsultationRoom() {
                 setConnectionState("connected");
                 setOverlayDismissed(true);
                 const joinDurationMs = Date.now() - joinAttemptStartedAtRef.current;
-                const qualitySamples = qualityScoreSamplesRef.current;
-                const sessionQualityScore = qualitySamples.length
-                  ? Math.round(
-                      qualitySamples.reduce((sum, score) => sum + score, 0) /
-                        qualitySamples.length,
-                    )
-                  : 100;
+                const sessionQualityScore = computeSessionQualityScore(
+                  qualityScoreSamplesRef.current,
+                );
                 reportVisioMetric("session_quality_score", {
                   consultation_id: consultation?.id ?? null,
                   join_duration_ms: joinDurationMs,

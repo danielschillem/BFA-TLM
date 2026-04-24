@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class MonitoringController extends Controller
 {
@@ -43,10 +44,24 @@ class MonitoringController extends Controller
         $payload = $request->validate([
             'metric' => 'required|string|in:join_fail,reconnect_count,fallback_rate,session_quality_score,session_summary',
             'data' => 'nullable|array',
+            'consultation_id' => 'nullable|integer|min:1',
             'url' => 'nullable|string|max:2000',
             'userAgent' => 'nullable|string|max:1000',
             'timestamp' => 'nullable|string|max:100',
         ]);
+
+        if (Schema::hasTable('visio_metrics')) {
+            DB::table('visio_metrics')->insert([
+                'metric' => $payload['metric'],
+                'consultation_id' => $payload['consultation_id'] ?? ($payload['data']['consultation_id'] ?? null),
+                'user_id' => optional($request->user())->id,
+                'data' => json_encode($payload['data'] ?? []),
+                'url' => $payload['url'] ?? null,
+                'user_agent' => $payload['userAgent'] ?? null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         Log::info('Visio session metric', [
             'visio_metric' => $payload,
@@ -65,16 +80,14 @@ class MonitoringController extends Controller
 
         $period = $validated['period'] ?? '24h';
         $windowStart = $period === '7d' ? now()->subDays(7) : now()->subDay();
-        $logPath = storage_path('logs/laravel.log');
 
-        if (!File::exists($logPath)) {
+        if (!Schema::hasTable('visio_metrics')) {
             return response()->json([
                 'success' => true,
                 'data' => $this->emptySummary($period, $windowStart),
             ]);
         }
 
-        $lines = preg_split("/\r\n|\n|\r/", (string) File::get($logPath)) ?: [];
         $summary = [
             'period' => $period,
             'window_start' => $windowStart->toIso8601String(),
@@ -93,39 +106,17 @@ class MonitoringController extends Controller
         $maxReconnectCountByConsultation = [];
         $trendBuckets = [];
 
-        foreach ($lines as $line) {
-            if (!str_contains($line, 'Visio session metric')) {
-                continue;
-            }
+        $rows = DB::table('visio_metrics')
+            ->where('created_at', '>=', $windowStart)
+            ->orderBy('created_at')
+            ->get(['metric', 'consultation_id', 'data', 'created_at']);
 
-            if (!preg_match('/^\[(.*?)\]/', $line, $dateMatches)) {
-                continue;
-            }
-
-            try {
-                $loggedAt = Carbon::parse($dateMatches[1]);
-            } catch (\Throwable) {
-                continue;
-            }
-
-            if ($loggedAt->lt($windowStart)) {
-                continue;
-            }
-
-            $jsonPos = strpos($line, '{');
-            if ($jsonPos === false) {
-                continue;
-            }
-
-            $payload = json_decode(substr($line, $jsonPos), true);
-            if (!is_array($payload)) {
-                continue;
-            }
-
-            $metric = $payload['visio_metric']['metric'] ?? null;
-            $data = $payload['visio_metric']['data'] ?? [];
-            if (!is_string($metric)) {
-                continue;
+        foreach ($rows as $row) {
+            $loggedAt = Carbon::parse((string) $row->created_at);
+            $metric = (string) $row->metric;
+            $data = is_string($row->data) ? json_decode($row->data, true) : (array) $row->data;
+            if (!is_array($data)) {
+                $data = [];
             }
 
             $summary['samples_count']++;
@@ -135,7 +126,7 @@ class MonitoringController extends Controller
             }
 
             if ($metric === 'reconnect_count') {
-                $consultationId = (string) ($data['consultation_id'] ?? 'global');
+                $consultationId = (string) ($row->consultation_id ?? ($data['consultation_id'] ?? 'global'));
                 $reconnectCount = (int) ($data['reconnect_count'] ?? 0);
                 if (
                     !isset($maxReconnectCountByConsultation[$consultationId]) ||

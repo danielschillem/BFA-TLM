@@ -56,9 +56,9 @@ Route::get('/health', function () {
 });
 
 Route::post('/monitoring/frontend-errors', [MonitoringController::class, 'frontendError'])
-    ->middleware('throttle:api');
+    ->middleware('throttle:frontend-monitoring');
 Route::post('/monitoring/visio-metrics', [MonitoringController::class, 'visioMetric'])
-    ->middleware('throttle:api');
+    ->middleware(['auth:api', 'active', 'throttle:visio-monitoring']);
 
 // ── Diagnostic endpoint (admin seulement — ne jamais exposer en public) ───────
 Route::get('/diag', function () {
