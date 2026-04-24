@@ -24,7 +24,8 @@ const schema = z
       .min(8, "Au moins 8 caractères")
       .regex(/[A-Z]/, "Une majuscule requise")
       .regex(/[a-z]/, "Une minuscule requise")
-      .regex(/[0-9]/, "Un chiffre requis"),
+      .regex(/[0-9]/, "Un chiffre requis")
+      .regex(/[^A-Za-z0-9]/, "Un caractère spécial requis"),
     password_confirmation: z.string(),
   })
   .refine((d) => d.password === d.password_confirmation, {
@@ -218,7 +219,7 @@ export default function Register() {
               <Input
                 label="Mot de passe"
                 type="password"
-                placeholder="Min. 8 car., 1 majuscule, 1 chiffre"
+                placeholder="Min. 8 car., maj/min/chiffre/caractère spécial"
                 icon={Lock}
                 error={errors.password?.message}
                 {...register("password")}

@@ -26,8 +26,8 @@ export default function ResetPassword() {
       return;
     }
 
-    if (password.length < 12) {
-      toast.error("Le mot de passe doit contenir au moins 12 caractères.");
+    if (password.length < 8) {
+      toast.error("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password)) {
@@ -129,7 +129,7 @@ export default function ResetPassword() {
               <Input
                 label="Nouveau mot de passe"
                 type="password"
-                placeholder="Min. 12 car., 1 majuscule, 1 minuscule, 1 chiffre, 1 symbole"
+                placeholder="Min. 8 car., 1 majuscule, 1 minuscule, 1 chiffre, 1 symbole"
                 icon={Lock}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

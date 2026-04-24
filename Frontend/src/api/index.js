@@ -459,3 +459,5 @@ export const dhis2Api = {
   endosSyncOrgUnits: () => apiClient.post("/dhis2/endos/sync-org-units", {}),
   endosPush: (data) => apiClient.post("/dhis2/endos/push", data || {}),
 };
+
+export { authApi, appointmentsApi, adminApi };

@@ -47,6 +47,8 @@ class SecurityHeaders
             "'self'",
             'wss://liptakocare.com',
             'https://id.who.int',
+            'https://*.livekit.cloud',
+            'wss://*.livekit.cloud',
         ];
 
         // Autoriser explicitement les endpoints locaux en développement
@@ -55,8 +57,18 @@ class SecurityHeaders
             $connectSrc = array_merge($connectSrc, [
                 'http://127.0.0.1:8000',
                 'http://localhost:8000',
+                'http://127.0.0.1',
+                'http://localhost',
                 'ws://127.0.0.1:8080',
                 'ws://localhost:8080',
+                'ws://127.0.0.1',
+                'ws://localhost',
+                'wss://127.0.0.1',
+                'wss://localhost',
+                'ws://127.0.0.1:*',
+                'ws://localhost:*',
+                'wss://127.0.0.1:*',
+                'wss://localhost:*',
                 'http://127.0.0.1:5173',
                 'http://localhost:5173',
             ]);

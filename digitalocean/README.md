@@ -107,6 +107,9 @@ php artisan key:generate --show
 | `APP_KEY`         | ✅     | Clé Laravel (base64:...)                      |
 | `APP_URL`         | ✅     | URL publique (https://domaine.com)            |
 | `DB_PASSWORD`     | ✅     | Mot de passe PostgreSQL                       |
+| `LIVEKIT_WS_URL`  | ✅     | URL WebSocket LiveKit (ex: wss://xxx.livekit.cloud) |
+| `LIVEKIT_API_KEY` | ✅     | Clé API LiveKit pour générer les tokens       |
+| `LIVEKIT_API_SECRET` | ✅  | Secret API LiveKit                            |
 | `REDIS_PASSWORD`  | ❌     | Mot de passe Redis (optionnel)                |
 | `MAIL_HOST`       | ❌     | Serveur SMTP                                  |
 | `MAIL_USERNAME`   | ❌     | Identifiant SMTP                              |

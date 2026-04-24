@@ -22,7 +22,7 @@ class RegisterRequest extends FormRequest
                 'required',
                 'string',
                 'confirmed',
-                Password::min(12)->mixedCase()->numbers()->symbols()->uncompromised(),
+                Password::min(8)->mixedCase()->numbers()->symbols()->uncompromised(),
             ],
             'telephone_1' => ['nullable', 'string', 'max:20'],
             'sexe' => ['nullable', 'in:M,F'],

@@ -40,8 +40,9 @@ const pwdSchema = z
     current_password: z.string().min(1, "Mot de passe actuel requis"),
     password: z
       .string()
-      .min(12, "Min. 12 caractères")
+      .min(8, "Min. 8 caractères")
       .regex(/[A-Z]/, "1 majuscule")
+      .regex(/[a-z]/, "1 minuscule")
       .regex(/[0-9]/, "1 chiffre")
       .regex(/[^A-Za-z0-9]/, "1 symbole"),
     password_confirmation: z.string(),

@@ -7,13 +7,28 @@ const visioMetricsEndpoint =
   import.meta.env.VITE_VISIO_METRICS_ENDPOINT ||
   "/api/v1/monitoring/visio-metrics";
 
+function getCookieValue(name) {
+  const escaped = name.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&");
+  const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function buildMonitoringHeaders() {
+  const headers = { "Content-Type": "application/json" };
+  const csrfToken = getCookieValue("XSRF-TOKEN");
+  if (csrfToken) {
+    headers["X-XSRF-TOKEN"] = csrfToken;
+  }
+  return headers;
+}
+
 async function sendError(payload) {
   if (!reportingEnabled) return;
 
   try {
     await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildMonitoringHeaders(),
       credentials: "include",
       body: JSON.stringify(payload),
     });
@@ -27,7 +42,7 @@ async function sendMonitoringPayload(targetEndpoint, payload) {
   try {
     await fetch(targetEndpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildMonitoringHeaders(),
       credentials: "include",
       body: JSON.stringify(payload),
     });

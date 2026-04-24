@@ -4,10 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Phone,
   FileText,
-  Maximize2,
-  Minimize2,
   WifiOff,
-  Clock,
   Video,
   Activity,
   ClipboardList,
@@ -17,7 +14,6 @@ import {
   Stethoscope,
   Star,
   MessageSquare,
-  Shield,
   Share2,
   Plus,
   FlaskConical,
@@ -64,7 +60,6 @@ import {
   ConnectionQuality,
 } from "livekit-client";
 import {
-  LiveKitRoom,
   VideoTrack,
   AudioTrack,
   useLocalParticipant,
@@ -89,7 +84,6 @@ import { LoadingPage } from "@/components/common/LoadingSpinner";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input, { Textarea, Select } from "@/components/ui/Input";
-import logoImg from "@/assets/logo.jpeg";
 import { reportVisioMetric } from "@/services/errorReporter";
 import {
   computeFallbackRate,
@@ -101,6 +95,13 @@ import {
   NetworkQualityBadge,
   SpeakingIndicator,
 } from "@/pages/consultations/ConsultationRoomAtoms";
+import {
+  ConsultationConnectionOverlays,
+  ConsultationRoomTopBar,
+} from "@/pages/consultations/ConsultationRoomStatus";
+import ConsultationVideoShell from "@/pages/consultations/ConsultationVideoShell";
+import ConsultationPatientSidebar from "@/pages/consultations/ConsultationPatientSidebar";
+import ConsultationFormSidebar from "@/pages/consultations/ConsultationFormSidebar";
 
 // ── Composant interne LiveKit : affiche la vidéo + gère les événements ──────
 function LiveKitVideoUI({
@@ -134,11 +135,15 @@ function LiveKitVideoUI({
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [pipActive, setPipActive] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [stableRemoteIdentity, setStableRemoteIdentity] = useState(null);
+  const [showRemoteReconnectPlaceholder, setShowRemoteReconnectPlaceholder] =
+    useState(false);
   const controlsTimerRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const moreMenuRef = useRef(null);
   const weakNetworkStreakRef = useRef(0);
   const autoFallbackTriggeredRef = useRef(false);
+  const remoteTrackGraceTimerRef = useRef(null);
 
   // ── Auto-hide controls after 4s of inactivity ──
   const resetControlsTimer = useCallback(() => {
@@ -469,6 +474,39 @@ function LiveKitVideoUI({
     (t) => t.participant?.sid === localParticipant?.sid,
   );
 
+  // ── Stabilisation visuelle: garder une identité distante pendant micro-coupures ──
+  useEffect(() => {
+    if (remoteCameraTrack?.participant) {
+      setStableRemoteIdentity({
+        name: remoteCameraTrack.participant?.name || "Participant",
+        initial: remoteCameraTrack.participant?.name?.[0]?.toUpperCase() || "?",
+      });
+      setShowRemoteReconnectPlaceholder(false);
+      if (remoteTrackGraceTimerRef.current) {
+        clearTimeout(remoteTrackGraceTimerRef.current);
+        remoteTrackGraceTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (stableRemoteIdentity && !remoteTrackGraceTimerRef.current) {
+      setShowRemoteReconnectPlaceholder(true);
+      remoteTrackGraceTimerRef.current = setTimeout(() => {
+        setShowRemoteReconnectPlaceholder(false);
+        remoteTrackGraceTimerRef.current = null;
+      }, 8000);
+    }
+  }, [remoteCameraTrack, stableRemoteIdentity]);
+
+  useEffect(
+    () => () => {
+      if (remoteTrackGraceTimerRef.current) {
+        clearTimeout(remoteTrackGraceTimerRef.current);
+      }
+    },
+    [],
+  );
+
   // ── Video tile wrapper with speaking indicator ──
   const VideoTile = ({ trackRef, mirror, className, children }) => (
     <div className={`relative ${className || ""}`}>
@@ -617,6 +655,23 @@ function LiveKitVideoUI({
                         participant={remoteCameraTrack.participant}
                       />
                     )}
+                  </div>
+                </div>
+              ) : showRemoteReconnectPlaceholder && stableRemoteIdentity ? (
+                <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-28 h-28 rounded-full bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center ring-4 ring-white/10 shadow-2xl">
+                      <span className="text-4xl text-white font-bold">
+                        {stableRemoteIdentity.initial}
+                      </span>
+                    </div>
+                    <span className="text-base text-gray-300 font-medium">
+                      {stableRemoteIdentity.name}
+                    </span>
+                    <div className="flex items-center gap-2 text-amber-300 text-xs">
+                      <WifiOff className="w-3.5 h-3.5 animate-pulse" />
+                      <span>Connexion instable, tentative de reconnexion…</span>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -835,17 +890,6 @@ export default function ConsultationRoom() {
   const { user, isDoctor } = useAuthStore();
   const videoContainerRef = useRef(null);
 
-  // WebSocket: écouter les events temps réel de la consultation
-  // Quand le médecin termine, le patient voit l'écran post-consultation
-  useConsultationChannel(id ? Number(id) : null, {
-    onEnded: useCallback(() => {
-      if (!isDoctor()) {
-        // Patient: afficher l'écran post-consultation
-        setShowPostConsultation(true);
-      }
-    }, []),
-  });
-
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [duration, setDuration] = useState(0);
   const [connectionState, setConnectionState] = useState("connecting");
@@ -894,6 +938,20 @@ export default function ConsultationRoom() {
   const [rating, setRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
   const [participantCount, setParticipantCount] = useState(0);
+
+  // WebSocket: écouter les events temps réel de la consultation
+  // Quand le médecin termine, le patient voit l'écran post-consultation
+  useConsultationChannel(id ? Number(id) : null, {
+    onEnded: useCallback(() => {
+      if (!isDoctor()) {
+        // Patient: redirection immédiate vers le récapitulatif
+        navigate(`/consultations/${id}/detail`, {
+          replace: true,
+          state: { fromConsultationEnd: true },
+        });
+      }
+    }, [id, isDoctor, navigate]),
+  });
 
   const [vitals, setVitals] = useState({
     weight: "",
@@ -1112,13 +1170,23 @@ export default function ConsultationRoom() {
       !showPostConsultation
     ) {
       if (!isDoctor()) {
-        setShowPostConsultation(true);
+        navigate(`/consultations/${id}/detail`, {
+          replace: true,
+          state: { fromConsultationEnd: true },
+        });
       } else {
         // Médecin: si la consultation est déjà terminée, rediriger vers le rapport
         navigate(`/consultations/${id}/report`, { replace: true });
       }
     }
-  }, [consultation?.statut, consultation?.status]);
+  }, [
+    consultation?.statut,
+    consultation?.status,
+    id,
+    isDoctor,
+    navigate,
+    showPostConsultation,
+  ]);
 
   // ── Chrono ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1137,6 +1205,88 @@ export default function ConsultationRoom() {
       return { token: null, wsUrl: null };
     }
   }, []);
+
+  const recoverFromFatalConnection = useCallback(async () => {
+    livekitErrorCountRef.current = 0;
+    reconnectAttemptRef.current = 0;
+    setLivekitFatalError(null);
+    setAutoReconnecting(true);
+    if (consultation?.id) {
+      const { token, wsUrl } = await fetchFreshToken(consultation.id);
+      if (token && wsUrl) {
+        setLivekitToken(token);
+        setLivekitWsUrl(wsUrl);
+        setConnectionState("connecting");
+      } else {
+        setAutoReconnecting(false);
+        toast.error("La consultation est peut-être terminée");
+      }
+    }
+  }, [consultation?.id, fetchFreshToken]);
+
+  const retryUnavailableVideo = useCallback(async () => {
+    livekitErrorCountRef.current = 0;
+    setLivekitFatalError(null);
+    if (consultation?.id) {
+      const { token, wsUrl } = await fetchFreshToken(consultation.id);
+      if (token && wsUrl) {
+        setLivekitToken(token);
+        setLivekitWsUrl(wsUrl);
+      }
+    }
+  }, [consultation?.id, fetchFreshToken]);
+
+  const handleLiveKitConnected = useCallback(() => {
+    livekitErrorCountRef.current = 0;
+    reconnectAttemptRef.current = 0;
+    setAutoReconnecting(false);
+    setConnectionState("connected");
+    setOverlayDismissed(true);
+    const joinDurationMs = Date.now() - joinAttemptStartedAtRef.current;
+    const sessionQualityScore = computeSessionQualityScore(
+      qualityScoreSamplesRef.current,
+    );
+    reportVisioMetric("session_quality_score", {
+      consultation_id: consultation?.id ?? null,
+      join_duration_ms: joinDurationMs,
+      reconnect_count: reconnectMetricCountRef.current,
+      session_quality_score: sessionQualityScore,
+      context: "connected",
+    });
+  }, [consultation?.id]);
+
+  const handleLiveKitError = useCallback(
+    (err) => {
+      console.error("[LiveKit] Connection error:", err);
+      livekitErrorCountRef.current += 1;
+      if (livekitErrorCountRef.current <= 3 && consultation?.id) {
+        console.info("[LiveKit] Refreshing token from backend...");
+        toast.loading("Récupération d'un nouveau jeton vidéo…", {
+          id: "lk-token-refresh",
+          duration: 8000,
+        });
+        fetchFreshToken(consultation.id).then(({ token, wsUrl }) => {
+          toast.dismiss("lk-token-refresh");
+          if (token && wsUrl) {
+            setLivekitToken(token);
+            setLivekitWsUrl(wsUrl);
+          }
+        });
+      } else if (livekitErrorCountRef.current >= 15) {
+        reportVisioMetric("join_fail", {
+          consultation_id: consultation?.id ?? null,
+          reason: "livekit_error_threshold",
+          livekit_error_count: livekitErrorCountRef.current,
+        });
+        setLivekitFatalError(err?.message || "Impossible de se connecter à LiveKit");
+        setConnectionState("disconnected");
+        setOverlayDismissed(true);
+        setAutoReconnecting(false);
+        toast.error("Connexion vidéo échouée après plusieurs tentatives");
+      }
+    },
+    [consultation?.id, fetchFreshToken],
+  );
 
   const handleAutoAudioFallback = useCallback(() => {
     fallbackCountRef.current += 1;
@@ -1204,6 +1354,13 @@ export default function ConsultationRoom() {
     consultation?.status,
     fetchFreshToken,
   ]);
+
+  const handleLiveKitDisconnected = useCallback(() => {
+    setConnectionState("disconnected");
+    if (!showPostConsultation) {
+      triggerAutoReconnect();
+    }
+  }, [showPostConsultation, triggerAutoReconnect]);
 
   // Nettoyage du timer de reconnexion
   useEffect(() => {
@@ -1359,394 +1516,49 @@ export default function ConsultationRoom() {
         isFullscreen ? "fixed inset-0 z-50" : "min-h-screen"
       } bg-gray-900 flex flex-col`}
     >
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-800/80 backdrop-blur-sm border-b border-gray-700 flex-shrink-0">
-        {/* HTTPS warning banner */}
-        {!navigator.mediaDevices && (
-          <div className="absolute top-0 left-0 right-0 bg-amber-600/90 text-white text-xs text-center py-1 z-50">
-            <AlertTriangle className="w-3 h-3 inline mr-1" />
-            Caméra/micro désactivés — connexion HTTPS requise pour la
-            visioconférence
-          </div>
-        )}
-        <div className="flex items-center gap-3">
-          {/* Branding */}
-          <img
-            src={logoImg}
-            alt="LiptakoCare"
-            className="h-7 w-7 rounded-md object-cover"
-          />
-          <span className="text-sm font-semibold text-white hidden md:inline">
-            LiptakoCare
-          </span>
-          <span className="text-gray-600 hidden md:inline">|</span>
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                connectionState === "connected"
-                  ? "bg-green-400 animate-pulse"
-                  : connectionState === "poor"
-                  ? "bg-orange-400 animate-pulse"
-                  : connectionState === "disconnected"
-                  ? "bg-red-400"
-                  : "bg-yellow-400 animate-pulse"
-              }`}
-            />
-            <span className="text-xs text-gray-300">
-              {connectionState === "connected"
-                ? "Connecté"
-                : connectionState === "poor"
-                ? "Connexion instable"
-                : connectionState === "disconnected"
-                ? "Déconnecté"
-                : "Connexion en cours…"}
-            </span>
-          </div>
-          <span className="text-gray-600">|</span>
-          <div className="flex items-center gap-1 text-gray-300">
-            <Clock className="w-3.5 h-3.5" />
-            <span className="text-xs font-mono">{fmt(duration)}</span>
-          </div>
-          {participantCount > 0 && (
-            <>
-              <span className="text-gray-600">|</span>
-              <div className="flex items-center gap-1 text-gray-300">
-                <Video className="w-3.5 h-3.5" />
-                <span className="text-xs">
-                  {participantCount} participant
-                  {participantCount > 1 ? "s" : ""}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="items-center gap-1 text-gray-400 text-xs hidden lg:flex">
-            <Shield className="w-3 h-3" />
-            <span>Chiffré</span>
-          </div>
-          <button
-            onClick={() => setIsFullscreen((f) => !f)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition"
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-4 h-4" />
-            ) : (
-              <Maximize2 className="w-4 h-4" />
-            )}
-          </button>
-        </div>
-      </div>
+      <ConsultationRoomTopBar
+        connectionState={connectionState}
+        durationLabel={fmt(duration)}
+        participantCount={participantCount}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={() => setIsFullscreen((f) => !f)}
+      />
 
       {/* LiveKit video container */}
       <div className="flex-1 relative overflow-hidden">
-        <div
-          ref={videoContainerRef}
-          className="absolute inset-0"
-          style={{
-            width:
-              showPatientRecord || showConsultForm || showVitals
-                ? "calc(100% - 400px)"
-                : "100%",
-            height: "100%",
-            transition: "width 0.3s",
+        <ConsultationVideoShell
+          containerRef={videoContainerRef}
+          hasSidebarOpen={showPatientRecord || showConsultForm || showVitals}
+          tokenReady={tokenReady}
+          livekitToken={livekitToken}
+          livekitWsUrl={livekitWsUrl}
+          livekitFatalError={livekitFatalError}
+          livekitRoomOptions={livekitRoomOptions}
+          onConnected={handleLiveKitConnected}
+          onDisconnected={handleLiveKitDisconnected}
+          onError={handleLiveKitError}
+          onRetryUnavailable={retryUnavailableVideo}
+          VideoUiComponent={LiveKitVideoUI}
+          videoUiProps={{
+            setConnectionState,
+            setParticipantCount,
+            setOverlayDismissed,
+            onAutoAudioFallback: handleAutoAudioFallback,
+            onWeakNetworkSample: handleWeakNetworkSample,
           }}
-        >
-          {tokenReady && livekitToken && livekitWsUrl && !livekitFatalError ? (
-            <LiveKitRoom
-              serverUrl={livekitWsUrl}
-              token={livekitToken}
-              connect={true}
-              audio={!!navigator.mediaDevices}
-              video={!!navigator.mediaDevices}
-              options={livekitRoomOptions}
-              onConnected={() => {
-                livekitErrorCountRef.current = 0;
-                reconnectAttemptRef.current = 0;
-                setAutoReconnecting(false);
-                setConnectionState("connected");
-                setOverlayDismissed(true);
-                const joinDurationMs = Date.now() - joinAttemptStartedAtRef.current;
-                const sessionQualityScore = computeSessionQualityScore(
-                  qualityScoreSamplesRef.current,
-                );
-                reportVisioMetric("session_quality_score", {
-                  consultation_id: consultation?.id ?? null,
-                  join_duration_ms: joinDurationMs,
-                  reconnect_count: reconnectMetricCountRef.current,
-                  session_quality_score: sessionQualityScore,
-                  context: "connected",
-                });
-              }}
-              onDisconnected={() => {
-                // Ne pas bloquer — lancer la reconnexion automatique
-                setConnectionState("disconnected");
-                if (!showPostConsultation) {
-                  triggerAutoReconnect();
-                }
-              }}
-              onError={(err) => {
-                console.error("[LiveKit] Connection error:", err);
-                livekitErrorCountRef.current += 1;
-                if (livekitErrorCountRef.current <= 3 && consultation?.id) {
-                  // Premières erreurs: rafraîchir le token
-                  console.info("[LiveKit] Refreshing token from backend...");
-                  toast.loading("Récupération d'un nouveau jeton vidéo…", {
-                    id: "lk-token-refresh",
-                    duration: 8000,
-                  });
-                  fetchFreshToken(consultation.id).then(({ token, wsUrl }) => {
-                    toast.dismiss("lk-token-refresh");
-                    if (token && wsUrl) {
-                      setLivekitToken(token);
-                      setLivekitWsUrl(wsUrl);
-                    }
-                  });
-                } else if (livekitErrorCountRef.current >= 15) {
-                  // Abandon après 15 tentatives
-                  reportVisioMetric("join_fail", {
-                    consultation_id: consultation?.id ?? null,
-                    reason: "livekit_error_threshold",
-                    livekit_error_count: livekitErrorCountRef.current,
-                  });
-                  setLivekitFatalError(
-                    err?.message || "Impossible de se connecter à LiveKit",
-                  );
-                  setConnectionState("disconnected");
-                  setOverlayDismissed(true);
-                  setAutoReconnecting(false);
-                  toast.error(
-                    "Connexion vidéo échouée après plusieurs tentatives",
-                  );
-                }
-              }}
-              style={{ height: "100%", width: "100%" }}
-            >
-              <LiveKitVideoUI
-                setConnectionState={setConnectionState}
-                setParticipantCount={setParticipantCount}
-                setOverlayDismissed={setOverlayDismissed}
-                onAutoAudioFallback={handleAutoAudioFallback}
-                onWeakNetworkSample={handleWeakNetworkSample}
-              />
-            </LiveKitRoom>
-          ) : tokenReady && (livekitFatalError || !livekitToken) ? (
-            <div className="h-full flex flex-col items-center justify-center bg-gray-900 text-white gap-4">
-              <VideoOff className="w-12 h-12 text-red-400" />
-              <p className="text-lg font-semibold">
-                {livekitFatalError
-                  ? "Erreur de connexion vidéo"
-                  : "Visioconférence non disponible"}
-              </p>
-              <p className="text-sm text-gray-400 text-center max-w-md">
-                {livekitFatalError ||
-                  "Le serveur vidéo n'est pas configuré. Contactez l'administrateur."}
-              </p>
-              {livekitFatalError && (
-                <button
-                  onClick={async () => {
-                    livekitErrorCountRef.current = 0;
-                    setLivekitFatalError(null);
-                    if (consultation?.id) {
-                      const { token, wsUrl } = await fetchFreshToken(
-                        consultation.id,
-                      );
-                      if (token && wsUrl) {
-                        setLivekitToken(token);
-                        setLivekitWsUrl(wsUrl);
-                      }
-                    }
-                  }}
-                  className="mt-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-sm"
-                >
-                  Réessayer la connexion
-                </button>
-              )}
-            </div>
-          ) : null}
-        </div>
-        {/* Patient record sidebar */}
-        {showPatientRecord && (
-          <div className="absolute top-0 right-0 w-[400px] h-full bg-gray-800 border-l border-gray-700 overflow-y-auto">
-            <div className="flex items-center justify-between p-3 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
-              <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-cyan-400" /> Dossier
-                patient
-              </h3>
-              <button
-                onClick={() => setShowPatientRecord(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            {!patientRecord ? (
-              <div className="p-4 text-gray-400 text-sm text-center">
-                Chargement…
-              </div>
-            ) : (
-              <div className="p-3 space-y-4 text-sm">
-                {/* Allergies */}
-                <SidebarSection
-                  title="Allergies"
-                  icon={<AlertTriangle className="w-3.5 h-3.5 text-red-400" />}
-                  items={patientRecord.allergies}
-                  empty="Aucune allergie connue"
-                  render={(a) => (
-                    <div
-                      key={a.id}
-                      className="p-2 bg-red-900/20 rounded border border-red-900/30"
-                    >
-                      <span className="text-red-300 font-medium">
-                        {a.allergen || a.allergenes}
-                      </span>
-                      {a.severity && (
-                        <span className="ml-2 text-xs text-red-400">
-                          {a.severity || a.severite}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                />
-                {/* Antécédents */}
-                <SidebarSection
-                  title="Antécédents"
-                  icon={<Stethoscope className="w-3.5 h-3.5 text-yellow-400" />}
-                  items={patientRecord.antecedents}
-                  empty="Aucun antécédent"
-                  render={(a) => (
-                    <div key={a.id} className="p-2 bg-gray-700/50 rounded">
-                      <span className="text-gray-200">
-                        {a.title || a.libelle}
-                      </span>
-                      {a.type && (
-                        <span className="ml-2 text-xs text-gray-400">
-                          {a.type}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                />
-                {/* Traitements en cours */}
-                <SidebarSection
-                  title="Traitements en cours"
-                  icon={<Pill className="w-3.5 h-3.5 text-green-400" />}
-                  items={patientRecord.prescriptions?.filter(
-                    (p) => p.status === "en_cours" || p.statut === "en_cours",
-                  )}
-                  empty="Aucun traitement en cours"
-                  render={(p) => (
-                    <div
-                      key={p.id}
-                      className="p-2 bg-green-900/20 rounded border border-green-900/30"
-                    >
-                      <span className="text-green-300">
-                        {p.name || p.denomination}
-                      </span>
-                      {p.dosage && (
-                        <span className="ml-2 text-xs text-green-400">
-                          {p.dosage}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                />
-                {/* Constantes récentes */}
-                {patientRecord.constantes?.length > 0 && (
-                  <div>
-                    <h4 className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 flex items-center gap-1">
-                      <Activity className="w-3.5 h-3.5 text-blue-400" />{" "}
-                      Dernières constantes
-                    </h4>
-                    {(() => {
-                      const last = patientRecord.constantes[0];
-                      return (
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {last.poids && (
-                            <div className="bg-gray-700/50 rounded p-1.5 text-center">
-                              <p className="text-xs text-gray-400">Poids</p>
-                              <p className="text-white font-mono">
-                                {last.poids} kg
-                              </p>
-                            </div>
-                          )}
-                          {last.taille && (
-                            <div className="bg-gray-700/50 rounded p-1.5 text-center">
-                              <p className="text-xs text-gray-400">Taille</p>
-                              <p className="text-white font-mono">
-                                {last.taille} cm
-                              </p>
-                            </div>
-                          )}
-                          {last.tension_systolique && (
-                            <div className="bg-gray-700/50 rounded p-1.5 text-center">
-                              <p className="text-xs text-gray-400">TA</p>
-                              <p className="text-white font-mono">
-                                {last.tension_systolique}/
-                                {last.tension_diastolique}
-                              </p>
-                            </div>
-                          )}
-                          {last.frequence_cardiaque && (
-                            <div className="bg-gray-700/50 rounded p-1.5 text-center">
-                              <p className="text-xs text-gray-400">FC</p>
-                              <p className="text-white font-mono">
-                                {last.frequence_cardiaque} bpm
-                              </p>
-                            </div>
-                          )}
-                          {last.temperature && (
-                            <div className="bg-gray-700/50 rounded p-1.5 text-center">
-                              <p className="text-xs text-gray-400">T°</p>
-                              <p className="text-white font-mono">
-                                {last.temperature}°C
-                              </p>
-                            </div>
-                          )}
-                          {last.saturation_o2 && (
-                            <div className="bg-gray-700/50 rounded p-1.5 text-center">
-                              <p className="text-xs text-gray-400">SpO2</p>
-                              <p className="text-white font-mono">
-                                {last.saturation_o2}%
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-                {/* Lien vers dossier complet */}
-                {patientId && (
-                  <button
-                    onClick={() =>
-                      window.open(`/patients/${patientId}/record`, "_blank")
-                    }
-                    className="w-full text-center text-xs text-cyan-400 hover:text-cyan-300 underline"
-                  >
-                    Voir le dossier complet{" "}
-                    <ExternalLink className="w-3 h-3 inline ml-1" />
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        />
+        <ConsultationPatientSidebar
+          show={showPatientRecord}
+          onClose={() => setShowPatientRecord(false)}
+          patientRecord={patientRecord}
+          patientId={patientId}
+        />
         {/* ── Consultation form sidebar (unified) ── */}
         {showConsultForm && !showPatientRecord && (
-          <div className="absolute top-0 right-0 w-[400px] h-full bg-gray-800 border-l border-gray-700 overflow-y-auto">
-            <div className="flex items-center justify-between p-3 border-b border-gray-700 sticky top-0 bg-gray-800 z-10">
-              <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-                <FileText className="w-4 h-4 text-cyan-400" /> Consultation
-              </h3>
-              <button
-                onClick={() => setShowConsultForm(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-3 space-y-3">
+          <ConsultationFormSidebar
+            show={showConsultForm}
+            onClose={() => setShowConsultForm(false)}
+          >
               {/* ─── 1. Motif de consultation ─── */}
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">
@@ -2067,8 +1879,7 @@ export default function ConsultationRoom() {
                 Ouvrir le rapport complet{" "}
                 <ExternalLink className="w-3 h-3 inline ml-1" />
               </button>
-            </div>
-          </div>
+          </ConsultationFormSidebar>
         )}
         {/* ── Vital signs sidebar ── */}
         {showVitals && !showPatientRecord && !showConsultForm && (
@@ -2239,113 +2050,15 @@ export default function ConsultationRoom() {
             </form>
           </div>
         )}
-        {connectionState === "connecting" && !overlayDismissed && (
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col items-center justify-center gap-6 z-10 transition-opacity duration-700">
-            <img
-              src={logoImg}
-              alt="LiptakoCare"
-              className="h-16 w-16 rounded-2xl object-cover mb-2"
-            />
-            <div className="w-16 h-16 rounded-2xl bg-primary-500/20 flex items-center justify-center">
-              <Video className="w-8 h-8 text-primary-400 animate-pulse" />
-            </div>
-            <div className="text-center space-y-2">
-              <p className="text-white font-semibold text-lg">
-                Connexion en cours…
-              </p>
-              <p className="text-gray-400 text-sm">
-                Préparation de votre salle de téléconsultation sécurisée
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-gray-500 text-xs">
-              <Shield className="w-3.5 h-3.5" />
-              <span>Communication chiffrée de bout en bout</span>
-            </div>
-          </div>
-        )}
-        {/* Bannière de reconnexion non-bloquante */}
-        {connectionState === "disconnected" &&
-          overlayDismissed &&
-          !livekitFatalError && (
-            <div className="absolute top-0 left-0 right-0 z-20 bg-amber-600/95 backdrop-blur-sm px-4 py-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <WifiOff className="w-5 h-5 text-white animate-pulse" />
-                <div>
-                  <p className="text-white font-medium text-sm">
-                    Connexion perdue
-                  </p>
-                  <p className="text-amber-100 text-xs">
-                    {autoReconnecting
-                      ? `Reconnexion automatique en cours… (tentative ${reconnectAttemptRef.current})`
-                      : "La consultation n'est pas terminée — reconnexion en cours…"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => triggerAutoReconnect()}
-                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-medium rounded-lg transition"
-                >
-                  Réessayer
-                </button>
-              </div>
-            </div>
-          )}
-        {/* Écran d'erreur fatale — uniquement après épuisement des tentatives */}
-        {connectionState === "disconnected" &&
-          overlayDismissed &&
-          livekitFatalError && (
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col items-center justify-center gap-6 z-20">
-              <div className="w-16 h-16 rounded-2xl bg-red-500/20 flex items-center justify-center">
-                <WifiOff className="w-8 h-8 text-red-400" />
-              </div>
-              <div className="text-center space-y-2">
-                <p className="text-white font-semibold text-lg">
-                  Connexion vidéo perdue
-                </p>
-                <p className="text-gray-400 text-sm">
-                  Les tentatives de reconnexion automatique ont échoué.
-                </p>
-                <p className="text-gray-500 text-xs">
-                  La consultation n'est pas terminée — le médecin peut toujours
-                  la terminer.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={async () => {
-                    livekitErrorCountRef.current = 0;
-                    reconnectAttemptRef.current = 0;
-                    setLivekitFatalError(null);
-                    setAutoReconnecting(true);
-                    if (consultation?.id) {
-                      const { token, wsUrl } = await fetchFreshToken(
-                        consultation.id,
-                      );
-                      if (token && wsUrl) {
-                        setLivekitToken(token);
-                        setLivekitWsUrl(wsUrl);
-                        setConnectionState("connecting");
-                      } else {
-                        setAutoReconnecting(false);
-                        toast.error("La consultation est peut-être terminée");
-                      }
-                    }
-                  }}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-sm font-medium"
-                >
-                  Réessayer la connexion
-                </button>
-                <Button
-                  onClick={() => window.location.reload()}
-                  variant="outline"
-                  className="text-white border-white/30 hover:bg-white/10"
-                >
-                  Recharger la page
-                </Button>
-              </div>
-            </div>
-          )}
+        <ConsultationConnectionOverlays
+          connectionState={connectionState}
+          overlayDismissed={overlayDismissed}
+          livekitFatalError={livekitFatalError}
+          autoReconnecting={autoReconnecting}
+          reconnectAttempt={reconnectAttemptRef.current}
+          onRetryReconnect={triggerAutoReconnect}
+          onRecoverFatal={recoverFromFatalConnection}
+        />
       </div>
 
       {/* Bottom bar */}
@@ -3167,27 +2880,3 @@ function TraitementFormModal({
   );
 }
 
-function SidebarSection({ title, icon, items, empty, render }) {
-  if (!items || items.length === 0)
-    return (
-      <div>
-        <h4 className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
-          {icon} {title}
-        </h4>
-        <p className="text-gray-500 text-xs italic">{empty}</p>
-      </div>
-    );
-  return (
-    <div>
-      <h4 className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 flex items-center gap-1">
-        {icon} {title} ({items.length})
-      </h4>
-      <div className="space-y-1.5">{items.slice(0, 5).map(render)}</div>
-      {items.length > 5 && (
-        <p className="text-xs text-gray-500 mt-1">
-          +{items.length - 5} autres…
-        </p>
-      )}
-    </div>
-  );
-}

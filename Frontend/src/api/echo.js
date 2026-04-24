@@ -15,6 +15,12 @@ window.Pusher = Pusher;
 
 let echoInstance = null;
 const isGatewayMode = /\/index\.php$/i.test(apiUrl);
+const parsedReverbPort = Number.parseInt(String(reverbPort || ""), 10);
+const resolvedPort = Number.isFinite(parsedReverbPort)
+  ? parsedReverbPort
+  : reverbScheme === "https"
+    ? 443
+    : 8080;
 
 function resolveAuthEndpoint() {
   if (isGatewayMode) return apiUrl;
@@ -49,9 +55,9 @@ export function getEcho() {
   echoInstance = new Echo({
     broadcaster: "reverb",
     key,
-    wsHost: reverbHost,
-    wsPort: reverbPort || 8080,
-    wssPort: reverbPort || 443,
+    wsHost: reverbHost || window.location.hostname || "localhost",
+    wsPort: resolvedPort,
+    wssPort: resolvedPort,
     forceTLS: reverbScheme === "https",
     enabledTransports: ["ws", "wss"],
     authEndpoint: resolveAuthEndpoint(),

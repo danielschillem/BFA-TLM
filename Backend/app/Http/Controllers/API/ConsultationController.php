@@ -15,6 +15,7 @@ use App\Services\LiveKitService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 
 class ConsultationController extends Controller
@@ -726,10 +727,15 @@ class ConsultationController extends Controller
             ? trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? '')) ?: 'Patient'
             : 'Dr. ' . trim(($user->prenoms ?? '') . ' ' . ($user->nom ?? ''));
 
+        $sessionFragment = $request->hasSession()
+            ? substr((string) $request->session()->getId(), 0, 16)
+            : Str::random(8);
+        $participantId = sprintf('%s-%s', (string) $user->id, $sessionFragment);
+
         $token = $livekit->generateToken(
             roomName: $roomName,
             participantName: $displayName,
-            participantId: (string) $user->id,
+            participantId: $participantId,
         );
 
         return response()->json([
