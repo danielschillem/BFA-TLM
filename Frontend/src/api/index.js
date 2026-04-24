@@ -1,4 +1,7 @@
 import apiClient from "./client";
+import { authApi } from "@/api/domains/authApi";
+import { appointmentsApi } from "@/api/domains/appointmentsApi";
+import { adminApi } from "@/api/domains/adminApi";
 
 const defaultSharePayload = { share_with: ["patient"] };
 
@@ -47,30 +50,7 @@ const toSharePayload = (payload) => {
   if (Array.isArray(payload.share_with)) return payload;
   return { ...defaultSharePayload, ...payload };
 };
-// ── Auth ─────────────────────────────────────────────────────────────────────
-import { fetchCsrfCookie } from "./client";
-
-export const authApi = {
-  register: async (data) => {
-    await fetchCsrfCookie();
-    return apiClient.post("/auth/register", data);
-  },
-  login: async (data) => {
-    await fetchCsrfCookie();
-    return apiClient.post("/auth/login", data);
-  },
-  verifyTwoFactor: (data) => apiClient.post("/auth/two-factor/verify", data),
-  resendTwoFactor: () => apiClient.post("/auth/two-factor/resend", {}),
-  logout: () => apiClient.post("/auth/logout", {}),
-  sessions: () => apiClient.get("/auth/sessions"),
-  revokeSession: (sessionId) => apiClient.delete(`/auth/sessions/${sessionId}`),
-  revokeOtherSessions: () => apiClient.delete("/auth/sessions/others"),
-  me: () => apiClient.get("/auth/me"),
-  updateProfile: (data) => apiClient.put("/auth/profile", data),
-  changePassword: (data) => apiClient.put("/auth/password", data),
-  forgotPassword: (data) => apiClient.post("/auth/password/forgot", data),
-  resetPassword: (data) => apiClient.post("/auth/password/reset", data),
-};
+// ── Auth (split by domain) ───────────────────────────────────────────────────
 
 // ── Annuaire médecins ─────────────────────────────────────────────────────────
 export const directoryApi = {
@@ -87,24 +67,7 @@ export const directoryApi = {
   mySchedule: () => apiClient.get("/directory/schedule"),
 };
 
-// ── Rendez-vous ───────────────────────────────────────────────────────────────
-export const appointmentsApi = {
-  list: (params) => apiClient.get("/appointments", { params }),
-  create: (data) => apiClient.post("/appointments", data),
-  get: (id) => apiClient.get(`/appointments/${id}`),
-  confirm: (id) => apiClient.post(`/appointments/${id}/confirm`, {}),
-  cancel: (id, data) => apiClient.post(`/appointments/${id}/cancel`, data),
-  reject: (id, data) => apiClient.post(`/appointments/${id}/reject`, data),
-  reschedule: (id, data) =>
-    apiClient.post(`/appointments/${id}/reschedule`, data),
-  delegate: (id, data) => apiClient.post(`/appointments/${id}/delegate`, data),
-  recordConsent: (id, data) =>
-    apiClient.post(`/appointments/${id}/consent`, data),
-  downloadPdf: (id) =>
-    apiClient.get(`/appointments/${id}/pdf`, { responseType: "blob" }),
-  availableSlots: (params) =>
-    apiClient.get("/directory/appointments/slots", { params }),
-};
+// ── Rendez-vous (split by domain) ────────────────────────────────────────────
 
 // ── Consultations ─────────────────────────────────────────────────────────────
 export const consultationsApi = {
@@ -329,78 +292,7 @@ export const gestionnaireApi = {
   deleteSalle: (id) => apiClient.delete(`/gestionnaire/salles/${id}`),
 };
 
-// ── Administration ────────────────────────────────────────────────────────────
-export const adminApi = {
-  dashboard: () => apiClient.get("/admin/dashboard"),
-  listUsers: (params) => apiClient.get("/admin/users", { params }),
-  showUser: (id) => apiClient.get(`/admin/users/${id}`),
-  createUser: (data) => apiClient.post("/admin/users", data),
-  updateUser: (id, data) => apiClient.put(`/admin/users/${id}`, data),
-  deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
-  updateUserStatus: (id, data) =>
-    apiClient.patch(`/admin/users/${id}/status`, data),
-  verifyDoctor: (id) => apiClient.post(`/admin/users/${id}/verify`),
-  createAnnouncement: (data) => apiClient.post("/admin/announcements", data),
-  announcements: (params) => apiClient.get("/admin/announcements", { params }),
-  getAnnouncement: (id) => apiClient.get(`/admin/announcements/${id}`),
-  updateAnnouncement: (id, data) =>
-    apiClient.put(`/admin/announcements/${id}`, data),
-  deleteAnnouncement: (id) => apiClient.delete(`/admin/announcements/${id}`),
-  publicAnnouncements: () => apiClient.get("/announcements"),
-
-  // Structures
-  listStructures: (params) => apiClient.get("/admin/structures", { params }),
-  createStructure: (data) => apiClient.post("/admin/structures", data),
-  getStructure: (id) => apiClient.get(`/admin/structures/${id}`),
-  updateStructure: (id, data) => apiClient.put(`/admin/structures/${id}`, data),
-  deleteStructure: (id) => apiClient.delete(`/admin/structures/${id}`),
-
-  // Services d'une structure
-  listServices: (structureId) =>
-    apiClient.get(`/admin/structures/${structureId}/services`),
-  createService: (structureId, data) =>
-    apiClient.post(`/admin/structures/${structureId}/services`, data),
-  updateService: (structureId, serviceId, data) =>
-    apiClient.put(
-      `/admin/structures/${structureId}/services/${serviceId}`,
-      data,
-    ),
-  deleteService: (structureId, serviceId) =>
-    apiClient.delete(`/admin/structures/${structureId}/services/${serviceId}`),
-
-  // Types de structures
-  listTypeStructures: (params) =>
-    apiClient.get("/admin/type-structures", { params }),
-  createTypeStructure: (data) => apiClient.post("/admin/type-structures", data),
-  updateTypeStructure: (id, data) =>
-    apiClient.put(`/admin/type-structures/${id}`, data),
-  deleteTypeStructure: (id) => apiClient.delete(`/admin/type-structures/${id}`),
-
-  // Gestionnaires
-  listGestionnaires: (params) =>
-    apiClient.get("/admin/gestionnaires", { params }),
-  createGestionnaire: (data) => apiClient.post("/admin/gestionnaires", data),
-
-  // Rôles & Permissions
-  listRoles: () => apiClient.get("/admin/roles"),
-  getRole: (id) => apiClient.get(`/admin/roles/${id}`),
-  createRole: (data) => apiClient.post("/admin/roles", data),
-  updateRole: (id, data) => apiClient.put(`/admin/roles/${id}`, data),
-  deleteRole: (id) => apiClient.delete(`/admin/roles/${id}`),
-  listPermissions: () => apiClient.get("/admin/permissions"),
-  rolesMatrix: () => apiClient.get("/admin/roles-matrix"),
-  getUserRoles: (userId) => apiClient.get(`/admin/users/${userId}/roles`),
-  assignUserRoles: (userId, data) =>
-    apiClient.post(`/admin/users/${userId}/roles`, data),
-
-  // Paramètres de la plateforme
-  getSettings: () => apiClient.get("/admin/settings"),
-  updateSetting: (key, value) =>
-    apiClient.put(`/admin/settings/${key}`, { value }),
-  updateSettings: (settings) => apiClient.put("/admin/settings", { settings }),
-  visioMetrics: (period = "24h") =>
-    apiClient.get("/admin/monitoring/visio-metrics", { params: { period } }),
-};
+// ── Administration (split by domain) ─────────────────────────────────────────
 
 // ── Audit Logs ────────────────────────────────────────────────────────────────
 export const auditApi = {
