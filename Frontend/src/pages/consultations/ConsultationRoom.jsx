@@ -92,6 +92,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input, { Textarea, Select } from "@/components/ui/Input";
 import logoImg from "@/assets/logo.jpeg";
+import { reportVisioMetric } from "@/services/errorReporter";
 
 // ── Indicateur de qualité réseau ─────────────────────────────────────────────
 function NetworkQualityBadge({ participant }) {
@@ -197,6 +198,8 @@ function LiveKitVideoUI({
   setConnectionState,
   setParticipantCount,
   setOverlayDismissed,
+  onAutoAudioFallback,
+  onWeakNetworkSample,
 }) {
   const room = useRoomContext();
   const lkConnectionState = useConnectionState();
@@ -225,6 +228,8 @@ function LiveKitVideoUI({
   const controlsTimerRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const moreMenuRef = useRef(null);
+  const weakNetworkStreakRef = useRef(0);
+  const autoFallbackTriggeredRef = useRef(false);
 
   // ── Auto-hide controls after 4s of inactivity ──
   const resetControlsTimer = useCallback(() => {
@@ -284,6 +289,57 @@ function LiveKitVideoUI({
       room.off(RoomEvent.ParticipantDisconnected, onLeave);
     };
   }, [room]);
+
+  // ── Auto fallback: weak network => audio-only ──
+  useEffect(() => {
+    if (!room || !localParticipant) return;
+
+    const evaluateNetwork = () => {
+      const participants = [localParticipant, ...remoteParticipants];
+      const hasWeakQuality = participants.some((p) =>
+        [ConnectionQuality.Poor, ConnectionQuality.Lost].includes(
+          p.connectionQuality,
+        ),
+      );
+      const weakNow =
+        lkConnectionState === ConnectionState.Reconnecting || hasWeakQuality;
+
+      onWeakNetworkSample?.(weakNow);
+      weakNetworkStreakRef.current = weakNow ? weakNetworkStreakRef.current + 1 : 0;
+
+      if (
+        weakNetworkStreakRef.current >= 3 &&
+        isCameraEnabled &&
+        !autoFallbackTriggeredRef.current
+      ) {
+        autoFallbackTriggeredRef.current = true;
+        localParticipant
+          .setCameraEnabled(false)
+          .then(() => {
+            toast.warning(
+              "Réseau faible détecté : passage automatique en mode audio-only.",
+              { duration: 5000 },
+            );
+            onAutoAudioFallback?.();
+          })
+          .catch(() => {
+            autoFallbackTriggeredRef.current = false;
+          });
+      }
+    };
+
+    const timer = setInterval(evaluateNetwork, 6000);
+    evaluateNetwork();
+    return () => clearInterval(timer);
+  }, [
+    room,
+    localParticipant,
+    remoteParticipants,
+    lkConnectionState,
+    isCameraEnabled,
+    onAutoAudioFallback,
+    onWeakNetworkSample,
+  ]);
 
   // ── Reconnexion réseau — toast informatif ──
   useEffect(() => {
@@ -893,10 +949,29 @@ export default function ConsultationRoom() {
   const [tokenReady, setTokenReady] = useState(false);
   const [livekitFatalError, setLivekitFatalError] = useState(null);
   const livekitErrorCountRef = useRef(0);
+  const joinAttemptStartedAtRef = useRef(Date.now());
+  const reconnectMetricCountRef = useRef(0);
+  const weakNetworkSampleCountRef = useRef(0);
+  const fallbackCountRef = useRef(0);
+  const qualityScoreSamplesRef = useRef([]);
 
   // Keep ref in sync for closures
   useEffect(() => {
     connectionStateRef.current = connectionState;
+  }, [connectionState]);
+
+  useEffect(() => {
+    const scoreByState = {
+      connected: 100,
+      poor: 55,
+      connecting: 40,
+      disconnected: 0,
+    };
+    const nextScore = scoreByState[connectionState] ?? 50;
+    qualityScoreSamplesRef.current.push(nextScore);
+    if (qualityScoreSamplesRef.current.length > 600) {
+      qualityScoreSamplesRef.current.shift();
+    }
   }, [connectionState]);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -1154,6 +1229,25 @@ export default function ConsultationRoom() {
     }
   }, []);
 
+  const handleAutoAudioFallback = useCallback(() => {
+    fallbackCountRef.current += 1;
+    const weakSamples = Math.max(weakNetworkSampleCountRef.current, 1);
+    const fallbackRate = Number(
+      ((fallbackCountRef.current / weakSamples) * 100).toFixed(2),
+    );
+    reportVisioMetric("fallback_rate", {
+      consultation_id: consultation?.id ?? null,
+      fallback_count: fallbackCountRef.current,
+      weak_network_samples: weakNetworkSampleCountRef.current,
+      fallback_rate_percent: fallbackRate,
+      mode: "auto_audio_only",
+    });
+  }, [consultation?.id]);
+
+  const handleWeakNetworkSample = useCallback((isWeak) => {
+    if (isWeak) weakNetworkSampleCountRef.current += 1;
+  }, []);
+
   // ── Reconnexion automatique ────────────────────────────────────────────────
   const triggerAutoReconnect = useCallback(() => {
     if (!consultation?.id) return;
@@ -1166,7 +1260,13 @@ export default function ConsultationRoom() {
 
     clearTimeout(reconnectTimerRef.current);
     reconnectAttemptRef.current += 1;
+    reconnectMetricCountRef.current += 1;
     const attempt = reconnectAttemptRef.current;
+    reportVisioMetric("reconnect_count", {
+      consultation_id: consultation?.id ?? null,
+      reconnect_count: reconnectMetricCountRef.current,
+      attempt,
+    });
     setAutoReconnecting(true);
 
     // Backoff exponentiel : 2s, 4s, 8s, 16s, plafonné à 30s
@@ -1201,6 +1301,31 @@ export default function ConsultationRoom() {
     return () => clearTimeout(reconnectTimerRef.current);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      const qualitySamples = qualityScoreSamplesRef.current;
+      const sessionQualityScore = qualitySamples.length
+        ? Math.round(
+            qualitySamples.reduce((sum, score) => sum + score, 0) /
+              qualitySamples.length,
+          )
+        : 0;
+      const weakSamples = Math.max(weakNetworkSampleCountRef.current, 1);
+      const fallbackRate = Number(
+        ((fallbackCountRef.current / weakSamples) * 100).toFixed(2),
+      );
+
+      reportVisioMetric("session_summary", {
+        consultation_id: consultation?.id ?? null,
+        reconnect_count: reconnectMetricCountRef.current,
+        weak_network_samples: weakNetworkSampleCountRef.current,
+        fallback_count: fallbackCountRef.current,
+        fallback_rate_percent: fallbackRate,
+        session_quality_score: sessionQualityScore,
+      });
+    };
+  }, [consultation?.id]);
+
   // Arrêter la reconnexion auto quand on est reconnecté ou consultation terminée
   useEffect(() => {
     if (connectionState === "connected") {
@@ -1218,6 +1343,7 @@ export default function ConsultationRoom() {
       const stateToken = location.state?.livekitToken;
       const stateWsUrl = location.state?.livekitWsUrl;
       if (stateToken && stateWsUrl) {
+        joinAttemptStartedAtRef.current = Date.now();
         setLivekitToken(stateToken);
         setLivekitWsUrl(stateWsUrl);
         setTokenReady(true);
@@ -1228,10 +1354,15 @@ export default function ConsultationRoom() {
       if (!consultation?.id) return;
       const { token, wsUrl } = await fetchFreshToken(consultation.id);
       if (cancelled) return;
+      joinAttemptStartedAtRef.current = Date.now();
       setLivekitToken(token);
       setLivekitWsUrl(wsUrl);
       setTokenReady(true);
       if (!token) {
+        reportVisioMetric("join_fail", {
+          consultation_id: consultation.id,
+          reason: "token_unavailable",
+        });
         setOverlayDismissed(true);
         setConnectionState("disconnected");
       }
@@ -1252,7 +1383,8 @@ export default function ConsultationRoom() {
 
       // ── Contraintes de capture vidéo ──
       videoCaptureDefaults: {
-        resolution: VideoPresets.h720.resolution, // 1280x720 max
+        // Mode light par défaut: 640x360 @ 15fps
+        resolution: VideoPresets.h360.resolution,
         facingMode: "user",
       },
 
@@ -1267,6 +1399,10 @@ export default function ConsultationRoom() {
       publishDefaults: {
         simulcast: true,
         videoCodec: "vp8",
+        videoEncoding: {
+          maxBitrate: 350000,
+          maxFramerate: 15,
+        },
       },
 
       // ── Reconnexion tolérante aux réseaux africains ──
@@ -1426,6 +1562,21 @@ export default function ConsultationRoom() {
                 setAutoReconnecting(false);
                 setConnectionState("connected");
                 setOverlayDismissed(true);
+                const joinDurationMs = Date.now() - joinAttemptStartedAtRef.current;
+                const qualitySamples = qualityScoreSamplesRef.current;
+                const sessionQualityScore = qualitySamples.length
+                  ? Math.round(
+                      qualitySamples.reduce((sum, score) => sum + score, 0) /
+                        qualitySamples.length,
+                    )
+                  : 100;
+                reportVisioMetric("session_quality_score", {
+                  consultation_id: consultation?.id ?? null,
+                  join_duration_ms: joinDurationMs,
+                  reconnect_count: reconnectMetricCountRef.current,
+                  session_quality_score: sessionQualityScore,
+                  context: "connected",
+                });
               }}
               onDisconnected={() => {
                 // Ne pas bloquer — lancer la reconnexion automatique
@@ -1453,6 +1604,11 @@ export default function ConsultationRoom() {
                   });
                 } else if (livekitErrorCountRef.current >= 15) {
                   // Abandon après 15 tentatives
+                  reportVisioMetric("join_fail", {
+                    consultation_id: consultation?.id ?? null,
+                    reason: "livekit_error_threshold",
+                    livekit_error_count: livekitErrorCountRef.current,
+                  });
                   setLivekitFatalError(
                     err?.message || "Impossible de se connecter à LiveKit",
                   );
@@ -1470,6 +1626,8 @@ export default function ConsultationRoom() {
                 setConnectionState={setConnectionState}
                 setParticipantCount={setParticipantCount}
                 setOverlayDismissed={setOverlayDismissed}
+                onAutoAudioFallback={handleAutoAudioFallback}
+                onWeakNetworkSample={handleWeakNetworkSample}
               />
             </LiveKitRoom>
           ) : tokenReady && (livekitFatalError || !livekitToken) ? (

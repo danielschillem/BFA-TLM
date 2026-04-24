@@ -31,4 +31,27 @@ class MonitoringController extends Controller
 
         return response()->json(['success' => true], 202);
     }
+
+    public function visioMetric(Request $request): JsonResponse
+    {
+        if (!filter_var(env('FRONTEND_VISIO_METRICS_ENABLED', true), FILTER_VALIDATE_BOOL)) {
+            return response()->json(['success' => true, 'message' => 'disabled']);
+        }
+
+        $payload = $request->validate([
+            'metric' => 'required|string|in:join_fail,reconnect_count,fallback_rate,session_quality_score,session_summary',
+            'data' => 'nullable|array',
+            'url' => 'nullable|string|max:2000',
+            'userAgent' => 'nullable|string|max:1000',
+            'timestamp' => 'nullable|string|max:100',
+        ]);
+
+        Log::info('Visio session metric', [
+            'visio_metric' => $payload,
+            'ip' => $request->ip(),
+            'user_id' => optional($request->user())->id,
+        ]);
+
+        return response()->json(['success' => true], 202);
+    }
 }

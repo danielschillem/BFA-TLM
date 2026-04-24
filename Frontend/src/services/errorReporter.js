@@ -3,12 +3,29 @@ const reportingEnabled =
 const endpoint =
   import.meta.env.VITE_ERROR_REPORTING_ENDPOINT ||
   "/api/v1/monitoring/frontend-errors";
+const visioMetricsEndpoint =
+  import.meta.env.VITE_VISIO_METRICS_ENDPOINT ||
+  "/api/v1/monitoring/visio-metrics";
 
 async function sendError(payload) {
   if (!reportingEnabled) return;
 
   try {
     await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+  } catch (_e) {
+    // Never throw from client-side monitoring.
+  }
+}
+
+async function sendMonitoringPayload(targetEndpoint, payload) {
+  if (!reportingEnabled) return;
+  try {
+    await fetch(targetEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -51,5 +68,15 @@ export function reportReactError(error, errorInfo) {
     stack: `${error?.stack || ""}\n${errorInfo?.componentStack || ""}`,
     url: window.location.href,
     userAgent: navigator.userAgent,
+  });
+}
+
+export function reportVisioMetric(metric, data = {}) {
+  void sendMonitoringPayload(visioMetricsEndpoint, {
+    metric,
+    data,
+    url: window.location.href,
+    userAgent: navigator.userAgent,
+    timestamp: new Date().toISOString(),
   });
 }
