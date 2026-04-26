@@ -50,3 +50,5 @@ Frontend/public/app-config.runtime.js
 *.jpg
 *.png
 !Frontend/src/assets/**
+!Frontend/public/favicon.png
+!Frontend/public/icons/*.png

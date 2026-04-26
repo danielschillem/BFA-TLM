@@ -74,6 +74,10 @@ bash digitalocean/deploy.sh
 
 # OU déployer avec SSL automatique
 bash digitalocean/deploy.sh votre-domaine.com
+
+# Rebuild complet (plus lent, sans cache)
+bash digitalocean/deploy.sh --full-rebuild
+bash digitalocean/deploy.sh --full-rebuild votre-domaine.com
 ```
 
 ### 3. Générer la APP_KEY
@@ -146,9 +150,9 @@ docker compose -f $CD/digitalocean/docker-compose.yml exec app \
 # Redémarrer
 docker compose -f $CD/digitalocean/docker-compose.yml restart
 
-# Rebuild après mise à jour du code
+# Rebuild rapide après mise à jour du code (cache activé)
 cd $CD && git pull origin main
-docker compose -f digitalocean/docker-compose.yml --env-file digitalocean/.env build --no-cache
+docker compose -f digitalocean/docker-compose.yml --env-file digitalocean/.env build
 docker compose -f digitalocean/docker-compose.yml --env-file digitalocean/.env up -d
 ```
 

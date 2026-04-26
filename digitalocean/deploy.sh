@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ############################################################
 # BFA TLM — Script de déploiement DigitalOcean Droplet
-# Usage : bash digitalocean/deploy.sh [domaine]
+# Usage : bash digitalocean/deploy.sh [--full-rebuild] [domaine]
 #
 # Prérequis sur le Droplet :
 #   - Ubuntu 22.04+ / Debian 12+
@@ -11,7 +11,24 @@
 ############################################################
 set -euo pipefail
 
-DOMAIN="${1:-}"
+DOMAIN=""
+FULL_REBUILD="false"
+
+for arg in "$@"; do
+  case "$arg" in
+    --full-rebuild)
+      FULL_REBUILD="true"
+      ;;
+    *)
+      if [ -z "$DOMAIN" ]; then
+        DOMAIN="$arg"
+      else
+        echo "Usage: bash digitalocean/deploy.sh [--full-rebuild] [domaine]"
+        exit 1
+      fi
+      ;;
+  esac
+done
 REPO_URL="https://github.com/danielschillem/BFA-TLM.git"
 APP_DIR="/opt/bfa-tlm"
 BASE_ENV_FILE="$APP_DIR/digitalocean/.env"
@@ -109,7 +126,13 @@ systemctl disable bfa-tlm-worker.service 2>/dev/null || true
 
 # ── 5. Build & Lancement ──
 echo "🔨 Build de l'image Docker (frontend + backend)..."
-docker_compose build --pull --no-cache
+if [ "$FULL_REBUILD" = "true" ]; then
+  echo "   Mode: full rebuild (sans cache)"
+  docker_compose build --pull --no-cache
+else
+  echo "   Mode: build rapide (cache Docker activé)"
+  docker_compose build
+fi
 
 echo "🚀 Lancement des services..."
 docker_compose up -d --remove-orphans

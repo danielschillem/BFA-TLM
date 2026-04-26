@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { authApi } from "@/api";
-import bfaLogo from "@/assets/bfa-tlm-logo.png";
+import bfaLogo from "@/assets/bfa-tlm-logo.svg";
+import africanDoctorBg from "@/assets/african-doctor-bg.jpg";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
@@ -82,7 +83,7 @@ export default function Login() {
       <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden">
         {/* Image de fond */}
         <img
-          src="/african-doctor-bg.jpg"
+          src={africanDoctorBg}
           alt="Médecin africain"
           className="absolute inset-0 w-full h-full object-cover"
         />

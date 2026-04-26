@@ -10,13 +10,19 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const ICONS_DIR = resolve(ROOT, "public/icons");
-const SOURCE = resolve(ROOT, "src/assets/logo.jpeg");
+const SOURCE = resolve(ROOT, "src/assets/bfa-tlm-mark.svg");
 
 if (!existsSync(ICONS_DIR)) mkdirSync(ICONS_DIR, { recursive: true });
 
 const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
 
 async function generate() {
+  await sharp(SOURCE)
+    .resize(32, 32, { fit: "cover" })
+    .png()
+    .toFile(resolve(ROOT, "public/favicon.png"));
+  console.log("✓ favicon.png");
+
   for (const size of sizes) {
     await sharp(SOURCE)
       .resize(size, size, { fit: "cover" })

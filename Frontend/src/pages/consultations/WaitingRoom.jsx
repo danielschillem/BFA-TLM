@@ -25,7 +25,7 @@ import EmptyState from "@/components/common/EmptyState";
 import Button from "@/components/ui/Button";
 import ConsentModal from "@/components/consultation/ConsentModal";
 import { formatDateTime, CONSULTATION_TYPES } from "@/utils/helpers";
-import logoImg from "@/assets/bfa-tlm-logo.png";
+import logoImg from "@/assets/bfa-tlm-mark.svg";
 
 const CHECKS = [
   { id: "camera", label: "Caméra", icon: Camera },
@@ -70,9 +70,9 @@ export default function WaitingRoom() {
     }
   }, [apt, isDoctor, isTeleconsultation, navigate]);
 
-  // Run device checks (only for teleconsultation)
+  // Run device checks (only once appointment is known and is téléconsultation)
   useEffect(() => {
-    if (!isTeleconsultation) return;
+    if (!apt || !isTeleconsultation) return;
     const runChecks = async () => {
       setChecks((c) => ({ ...c, network: navigator.onLine ? "ok" : "fail" }));
       try {
@@ -91,7 +91,7 @@ export default function WaitingRoom() {
       }
     };
     runChecks();
-  }, [isTeleconsultation]);
+  }, [apt, isTeleconsultation]);
 
   // Elapsed timer
   useEffect(() => {

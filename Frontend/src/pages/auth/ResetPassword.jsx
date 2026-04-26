@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Check, ChevronLeft, KeyRound, Lock, Mail } from "lucide-react";
 import { authApi } from "@/api";
-import bfaLogo from "@/assets/bfa-tlm-logo.png";
+import bfaLogo from "@/assets/bfa-tlm-logo.svg";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 

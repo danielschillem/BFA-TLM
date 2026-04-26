@@ -6,7 +6,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { User, Mail, Lock, Phone, Heart, Shield } from "lucide-react";
 import { authApi } from "@/api";
-import bfaLogo from "@/assets/bfa-tlm-logo.png";
+import bfaLogo from "@/assets/bfa-tlm-logo.svg";
+import registerBg from "@/assets/register-bg.jpg";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Select } from "@/components/ui/Input";
@@ -86,7 +87,7 @@ export default function Register() {
       {/* ── Panneau Gauche : Image ────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden">
         <img
-          src="/register-bg.jpg"
+          src={registerBg}
           alt="Médecin et patient"
           className="absolute inset-0 w-full h-full object-cover"
         />

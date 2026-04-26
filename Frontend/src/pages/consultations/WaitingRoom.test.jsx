@@ -145,7 +145,9 @@ describe('WaitingRoom', () => {
 
       await waitFor(() => {
         expect(consultationsApi.start).toHaveBeenCalledWith({ appointment_id: '5' })
-        expect(mockNavigate).toHaveBeenCalledWith('/consultations/42/room')
+        expect(mockNavigate).toHaveBeenCalledWith('/consultations/42/room', {
+          state: { livekitToken: null, livekitWsUrl: null },
+        })
       })
     })
 

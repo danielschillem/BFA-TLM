@@ -8,16 +8,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: [
-        "icons/*.png",
-        "african-doctor-bg.jpg",
-        "register-bg.jpg",
-      ],
+      includeAssets: ["icons/*.png"],
       manifest: false, // on utilise public/manifest.json
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,jpg,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
-        globIgnores: ["**/african-doctor-bg.jpg", "**/register-bg.jpg"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
