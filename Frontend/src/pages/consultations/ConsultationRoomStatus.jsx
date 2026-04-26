@@ -7,7 +7,7 @@ import {
   Video,
   WifiOff,
 } from "lucide-react";
-import logoImg from "@/assets/logo.jpeg";
+import logoImg from "@/assets/bfa-tlm-logo.png";
 
 export function ConsultationRoomTopBar({
   connectionState,
@@ -29,7 +29,7 @@ export function ConsultationRoomTopBar({
         <img
           src={logoImg}
           alt="BFA TLM"
-          className="h-7 w-7 rounded-md object-cover"
+          className="h-7 w-7 sm:h-8 sm:w-8 rounded-md object-contain bg-white p-1"
         />
         <span className="text-sm font-semibold text-white hidden md:inline">
           BFA TLM
@@ -110,7 +110,7 @@ export function ConsultationConnectionOverlays({
           <img
             src={logoImg}
             alt="BFA TLM"
-            className="h-16 w-16 rounded-2xl object-cover mb-2"
+            className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl object-contain bg-white p-2 mb-2"
           />
           <div className="w-16 h-16 rounded-2xl bg-primary-500/20 flex items-center justify-center">
             <Video className="w-8 h-8 text-primary-400 animate-pulse" />

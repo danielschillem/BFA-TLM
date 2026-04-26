@@ -29,7 +29,7 @@ import {
   Cog,
   X,
 } from "lucide-react";
-import logoImg from "@/assets/liptako-icon.jpeg";
+import logoImg from "@/assets/bfa-tlm-logo.png";
 
 const navItemsByRole = {
   patient: [
@@ -168,7 +168,7 @@ export default function Sidebar() {
               <img
                 src={logoImg}
                 alt="BFA TLM"
-                className="w-8 h-8 rounded-lg object-cover"
+                className="w-9 h-9 rounded-lg object-contain bg-white p-1"
               />
               <div>
                 <span className="text-sm font-semibold text-white block">
@@ -181,7 +181,7 @@ export default function Sidebar() {
             <img
               src={logoImg}
               alt="BFA TLM"
-              className="w-8 h-8 rounded-lg object-cover mx-auto"
+              className="w-9 h-9 rounded-lg object-contain bg-white p-1 mx-auto"
             />
           )}
           {isMobile ? (
@@ -282,7 +282,7 @@ export default function Sidebar() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen flex-col transition-all duration-300 z-40 shadow-sidebar hidden lg:flex bg-slate-800",
+          "fixed left-0 top-0 h-screen flex-col transition-all duration-300 z-40 shadow-sidebar hidden lg:flex bg-gradient-to-b from-slate-900 via-slate-800 to-primary-950",
           sidebarOpen ? "w-60" : "w-16",
         )}
       >
@@ -300,7 +300,7 @@ export default function Sidebar() {
       {/* Mobile drawer */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen w-72 flex flex-col z-50 shadow-xl lg:hidden transition-transform duration-300 ease-out bg-slate-800",
+          "fixed left-0 top-0 h-screen w-72 flex flex-col z-50 shadow-xl lg:hidden transition-transform duration-300 ease-out bg-gradient-to-b from-slate-900 via-slate-800 to-primary-950",
           mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

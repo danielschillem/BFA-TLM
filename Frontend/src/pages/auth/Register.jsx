@@ -6,7 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { User, Mail, Lock, Phone, Heart, Shield } from "lucide-react";
 import { authApi } from "@/api";
-import liptakoIcon from "@/assets/liptako-icon.jpeg";
+import bfaLogo from "@/assets/bfa-tlm-logo.png";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Select } from "@/components/ui/Input";
@@ -94,13 +94,13 @@ export default function Register() {
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div className="flex items-center gap-3">
             <img
-              src={liptakoIcon}
+              src={bfaLogo}
               alt="BFA TLM"
-              className="w-12 h-12 rounded-2xl object-cover border border-white/20 shadow-lg"
+              className="w-14 h-14 rounded-2xl object-contain bg-white/95 p-2 border border-white/20 shadow-lg"
             />
             <div>
               <h2 className="text-white font-bold text-xl tracking-tight">
-                Plateforme TLM
+                BFA TLM
               </h2>
               <p className="text-white/60 text-xs">e-Santé & Télémédecine</p>
             </div>
@@ -143,15 +143,15 @@ export default function Register() {
         <div className="w-full max-w-lg relative z-10 animate-fade-in">
           <div className="lg:hidden text-center mb-6">
             <img
-              src={liptakoIcon}
+              src={bfaLogo}
               alt="BFA TLM"
-              className="w-14 h-14 rounded-2xl object-cover shadow-lg shadow-primary-500/25 mb-3 mx-auto"
+              className="w-16 h-16 rounded-2xl object-contain bg-white p-2 shadow-lg shadow-primary-500/25 mb-3 mx-auto"
             />
             <h1 className="text-2xl font-bold text-gray-900">
               Créer un compte
             </h1>
             <p className="text-gray-500 text-sm">
-              Plateforme TLM — Burkina Faso
+              BFA TLM — Burkina Faso
             </p>
           </div>
 

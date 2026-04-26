@@ -61,7 +61,7 @@ export default function Navbar({ title }) {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-gray-200 h-14 px-3 sm:px-5 flex items-center justify-between">
+    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-primary-100 h-14 px-3 sm:px-5 flex items-center justify-between">
       {/* Gauche */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Mobile: ouvrir le drawer */}

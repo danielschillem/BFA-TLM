@@ -25,7 +25,7 @@ import EmptyState from "@/components/common/EmptyState";
 import Button from "@/components/ui/Button";
 import ConsentModal from "@/components/consultation/ConsentModal";
 import { formatDateTime, CONSULTATION_TYPES } from "@/utils/helpers";
-import logoImg from "@/assets/logo.jpeg";
+import logoImg from "@/assets/bfa-tlm-logo.png";
 
 const CHECKS = [
   { id: "camera", label: "Caméra", icon: Camera },
@@ -183,7 +183,7 @@ export default function WaitingRoom() {
             <img
               src={logoImg}
               alt="BFA TLM"
-              className="w-20 h-20 rounded-full object-cover border-2 border-white/30"
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-2.5 sm:p-3 border-2 border-white/30"
             />
             {isTeleconsultation && (
               <span className="absolute -top-1 -right-1 flex h-4 w-4">

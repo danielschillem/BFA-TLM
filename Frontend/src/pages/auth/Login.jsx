@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { authApi } from "@/api";
-import liptakoIcon from "@/assets/liptako-icon.jpeg";
+import bfaLogo from "@/assets/bfa-tlm-logo.png";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
@@ -94,13 +94,13 @@ export default function Login() {
           {/* Logo en haut */}
           <div className="flex items-center gap-3">
             <img
-              src={liptakoIcon}
+              src={bfaLogo}
               alt="BFA TLM"
-              className="w-12 h-12 rounded-lg object-cover border border-white/20"
+              className="w-14 h-14 rounded-xl object-contain bg-white/95 p-2 border border-white/20"
             />
             <div>
               <h2 className="text-white font-bold text-xl tracking-tight">
-                Plateforme TLM
+                BFA TLM
               </h2>
               <p className="text-white/60 text-xs">e-Santé & Télémédecine</p>
             </div>
@@ -149,11 +149,11 @@ export default function Login() {
           {/* Logo mobile uniquement */}
           <div className="lg:hidden text-center mb-8">
             <img
-              src={liptakoIcon}
+              src={bfaLogo}
               alt="BFA TLM"
-              className="w-14 h-14 rounded-lg object-cover shadow-md mb-4 mx-auto"
+              className="w-16 h-16 rounded-xl object-contain bg-white p-2 shadow-md mb-4 mx-auto"
             />
-            <h1 className="text-2xl font-bold text-gray-900">Plateforme TLM</h1>
+            <h1 className="text-2xl font-bold text-gray-900">BFA TLM</h1>
             <p className="text-gray-500 text-sm mt-1">
               e-Santé & Télémédecine — Burkina Faso
             </p>

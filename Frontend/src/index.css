@@ -6,23 +6,23 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
+    --background: 210 33% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --primary: 221 83% 53%;
+    --primary: 214 90% 43%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 142 64% 40%;
+    --secondary: 163 74% 34%;
     --secondary-foreground: 0 0% 100%;
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
-    --accent: 221 83% 53%;
+    --accent: 43 92% 50%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --ring: 221 83% 53%;
+    --ring: 214 90% 43%;
     --radius: 0.5rem;
   }
 
@@ -34,6 +34,16 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-image: radial-gradient(
+        circle at 10% -10%,
+        rgba(37, 99, 235, 0.12),
+        transparent 38%
+      ),
+      radial-gradient(
+        circle at 100% 0%,
+        rgba(13, 148, 136, 0.1),
+        transparent 34%
+      );
   }
 }
 
@@ -56,7 +66,7 @@
   .input-field {
     @apply w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white
            focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
-           transition-colors duration-150 placeholder:text-gray-400;
+           transition-colors duration-150 placeholder:text-gray-400 shadow-sm;
   }
   .status-badge {
     @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium;
@@ -66,6 +76,10 @@
   }
   .section-title {
     @apply text-xs font-semibold text-gray-500 uppercase tracking-wider;
+  }
+
+  .surface-card {
+    @apply bg-white/90 backdrop-blur border border-primary-100 rounded-2xl shadow-sm;
   }
 
   /* ── Table Médicale ─────────────────────────────────────────── */

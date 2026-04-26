@@ -7,7 +7,7 @@ export default function AppLayout({ title, children }) {
   const { sidebarOpen } = useUIStore();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary-50/40 flex">
       <Sidebar />
       <div
         className={cn(
