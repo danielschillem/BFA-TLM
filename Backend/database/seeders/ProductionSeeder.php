@@ -31,8 +31,8 @@ class ProductionSeeder extends Seeder
 
             $admin = User::create([
                 'nom'         => 'Administrateur',
-                'prenoms'     => 'LiptakoCare',
-                'email'       => 'admin@liptakocare.bf',
+                'prenoms'     => 'BFA TLM',
+                'email'       => 'admin@bfa-tlm.bf',
                 'password'    => $password,
                 'telephone_1' => '',
                 'sexe'        => 'M',
@@ -43,7 +43,7 @@ class ProductionSeeder extends Seeder
             $this->command->warn('╔══════════════════════════════════════════════╗');
             $this->command->warn('║  COMPTE ADMINISTRATEUR INITIAL CRÉÉ         ║');
             $this->command->warn('╠══════════════════════════════════════════════╣');
-            $this->command->info("  Email    : admin@liptakocare.bf");
+            $this->command->info("  Email    : admin@bfa-tlm.bf");
             $this->command->info("  Mot de passe : {$password}");
             $this->command->warn('╠══════════════════════════════════════════════╣');
             $this->command->warn('║  CHANGEZ CE MOT DE PASSE IMMÉDIATEMENT !    ║');

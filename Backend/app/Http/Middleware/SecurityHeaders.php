@@ -45,7 +45,7 @@ class SecurityHeaders
         // Content-Security-Policy — protection XSS, injection, exfiltration (OWASP A03:2021)
         $connectSrc = [
             "'self'",
-            'wss://liptakocare.com',
+            'wss://bfa-tlm.com',
             'https://id.who.int',
             'https://*.livekit.cloud',
             'wss://*.livekit.cloud',

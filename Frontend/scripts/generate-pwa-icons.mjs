@@ -1,5 +1,5 @@
 /**
- * Génère les icônes PWA à partir du logo LiptakoCare.
+ * Génère les icônes PWA à partir du logo BFA TLM.
  * Usage : node scripts/generate-pwa-icons.mjs
  */
 import sharp from "sharp";

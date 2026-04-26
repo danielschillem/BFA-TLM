@@ -1,4 +1,4 @@
-# TLM_APP-BFA (LiptakoCare) — Backend API
+# TLM_APP-BFA (BFA TLM) — Backend API
 
 **Plateforme de Télémédecine du Burkina Faso**
 

@@ -4,7 +4,7 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 
 const CONSENT_ITEMS = [
-  "J'accepte la réalisation de cette consultation à distance via la plateforme LiptakoCare TLM-BFA.",
+  "J'accepte la réalisation de cette consultation à distance via la plateforme BFA TLM TLM-BFA.",
   "Je comprends que mes données médicales seront traitées de manière confidentielle conformément à la réglementation en vigueur.",
   "J'ai été informé(e) que je peux interrompre la consultation à tout moment.",
   "Je consens au stockage sécurisé de mon dossier médical et des données issues de cette consultation.",

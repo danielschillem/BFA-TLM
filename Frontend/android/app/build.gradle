@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "bf.liptakocare.app"
+    namespace = "bf.bfatlm.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "bf.liptakocare.app"
+        applicationId "bf.bfatlm.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

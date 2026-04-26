@@ -182,7 +182,7 @@ export default function WaitingRoom() {
           <div className="relative inline-flex mb-4">
             <img
               src={logoImg}
-              alt="LiptakoCare"
+              alt="BFA TLM"
               className="w-20 h-20 rounded-full object-cover border-2 border-white/30"
             />
             {isTeleconsultation && (
@@ -207,7 +207,7 @@ export default function WaitingRoom() {
           {isTeleconsultation && (
             <div className="flex items-center justify-center gap-1.5 mt-3 text-white/60 text-xs">
               <Shield className="w-3 h-3" />
-              <span>Transmission sécurisée · LiptakoCare Live</span>
+              <span>Transmission sécurisée · BFA TLM Live</span>
             </div>
           )}
         </div>

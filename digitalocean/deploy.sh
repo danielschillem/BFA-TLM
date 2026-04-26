@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ############################################################
-# LiptakoCare — Script de déploiement DigitalOcean Droplet
+# BFA TLM — Script de déploiement DigitalOcean Droplet
 # Usage : bash digitalocean/deploy.sh [domaine]
 #
 # Prérequis sur le Droplet :
@@ -12,11 +12,41 @@
 set -euo pipefail
 
 DOMAIN="${1:-}"
-REPO_URL="https://gitlab.com/Schillem/esante_liptako.git"
-APP_DIR="/opt/liptakocare"
+REPO_URL="https://github.com/danielschillem/BFA-TLM.git"
+APP_DIR="/opt/bfa-tlm"
+BASE_ENV_FILE="$APP_DIR/digitalocean/.env"
+RUNTIME_ENV_FILE="/tmp/bfa-tlm.deploy.env"
+
+docker_compose() {
+  docker compose -f "$APP_DIR/digitalocean/docker-compose.yml" --env-file "$RUNTIME_ENV_FILE" "$@"
+}
+
+render_runtime_env() {
+  cp "$BASE_ENV_FILE" "$RUNTIME_ENV_FILE"
+  if [ -n "$DOMAIN" ]; then
+    {
+      echo "APP_BIND=127.0.0.1"
+      echo "APP_PORT=8080"
+      echo "APP_URL=https://$DOMAIN"
+      echo "FRONTEND_URL=https://$DOMAIN"
+      echo "REVERB_HOST=$DOMAIN"
+      echo "REVERB_PORT=443"
+      echo "REVERB_SCHEME=https"
+    } >> "$RUNTIME_ENV_FILE"
+  fi
+}
+
+sanitize_env_file() {
+  # Avoid inline comments being interpreted as secrets/URLs.
+  sed -i 's|^APP_KEY=.*|APP_KEY='"${APP_KEY_VALUE}"'|' "$BASE_ENV_FILE"
+  sed -i 's|^APP_URL=.*|APP_URL=https://'"${DOMAIN:-$(grep '^APP_URL=' "$BASE_ENV_FILE" | cut -d= -f2 | sed 's#^https\?://##; s#/.*$##; s/[[:space:]#].*$//')}"'|' "$BASE_ENV_FILE"
+  sed -i 's|^REDIS_PASSWORD=.*|REDIS_PASSWORD=|' "$BASE_ENV_FILE"
+  sed -i 's|^REVERB_APP_KEY=.*|REVERB_APP_KEY=|' "$BASE_ENV_FILE"
+  sed -i 's|^REVERB_APP_SECRET=.*|REVERB_APP_SECRET=|' "$BASE_ENV_FILE"
+}
 
 echo "═══════════════════════════════════════════════════════"
-echo "  LiptakoCare v3.0.0 — Déploiement DigitalOcean"
+echo "  BFA TLM v3.0.0 — Déploiement DigitalOcean"
 echo "═══════════════════════════════════════════════════════"
 
 # ── 1. Installation Docker ──
@@ -41,7 +71,10 @@ fi
 if [ -d "$APP_DIR/.git" ]; then
   echo "📥 Mise à jour du code..."
   cd "$APP_DIR"
-  git pull origin main
+  if ! git pull origin main; then
+    echo "⚠️  git pull impossible (repo privé / credentials)."
+    echo "    Poursuite avec le code déjà présent sur le serveur."
+  fi
 else
   echo "📥 Clonage du repo..."
   git clone "$REPO_URL" "$APP_DIR"
@@ -49,7 +82,7 @@ else
 fi
 
 # ── 3. Vérifier le fichier .env ──
-if [ ! -f "$APP_DIR/digitalocean/.env" ]; then
+if [ ! -f "$BASE_ENV_FILE" ]; then
   echo ""
   echo "⚠️  Fichier .env manquant !"
   echo "   Copiez et éditez le fichier d'exemple :"
@@ -61,15 +94,27 @@ if [ ! -f "$APP_DIR/digitalocean/.env" ]; then
   exit 1
 fi
 
-# ── 4. Build & Lancement ──
+APP_KEY_VALUE="$(grep '^APP_KEY=' "$BASE_ENV_FILE" | cut -d= -f2- | sed 's/[[:space:]]*$//' || true)"
+if [ -z "${APP_KEY_VALUE}" ] || [[ "$APP_KEY_VALUE" == *"#"* ]]; then
+  APP_KEY_VALUE="base64:$(openssl rand -base64 32)"
+fi
+sanitize_env_file
+
+# ── 4. Générer env runtime + désactiver anciens services host ──
+render_runtime_env
+systemctl stop bfa-tlm-reverb.service 2>/dev/null || true
+systemctl disable bfa-tlm-reverb.service 2>/dev/null || true
+systemctl stop bfa-tlm-worker.service 2>/dev/null || true
+systemctl disable bfa-tlm-worker.service 2>/dev/null || true
+
+# ── 5. Build & Lancement ──
 echo "🔨 Build de l'image Docker (frontend + backend)..."
-cd "$APP_DIR"
-docker compose -f digitalocean/docker-compose.yml --env-file digitalocean/.env build --no-cache
+docker_compose build --pull --no-cache
 
 echo "🚀 Lancement des services..."
-docker compose -f digitalocean/docker-compose.yml --env-file digitalocean/.env up -d
+docker_compose up -d --remove-orphans
 
-# ── 5. SSL avec Certbot (si domaine fourni) ──
+# ── 6. SSL avec Certbot (si domaine fourni) ──
 if [ -n "$DOMAIN" ]; then
   echo "🔒 Configuration SSL pour $DOMAIN..."
 
@@ -80,13 +125,13 @@ if [ -n "$DOMAIN" ]; then
   # Installer Nginx sur l'hôte comme reverse proxy SSL → Docker :80
   apt-get install -y -qq nginx
 
-  cat > /etc/nginx/sites-available/liptakocare <<NGINX
+  cat > /etc/nginx/sites-available/bfa-tlm <<NGINX
 server {
     listen 80;
     server_name $DOMAIN;
 
     location / {
-        proxy_pass http://127.0.0.1:80;
+        proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -100,16 +145,8 @@ server {
 }
 NGINX
 
-  ln -sf /etc/nginx/sites-available/liptakocare /etc/nginx/sites-enabled/
+  ln -sf /etc/nginx/sites-available/bfa-tlm /etc/nginx/sites-enabled/
   rm -f /etc/nginx/sites-enabled/default
-  nginx -t && systemctl reload nginx
-
-  # Docker écoute sur 8080 pour ne pas conflictuler avec Nginx hôte
-  # Mettre à jour le port Docker
-  sed -i 's|"${APP_PORT:-80}:80"|"127.0.0.1:8080:80"|' "$APP_DIR/digitalocean/docker-compose.yml"
-  sed -i 's|proxy_pass http://127.0.0.1:80|proxy_pass http://127.0.0.1:8080|' /etc/nginx/sites-available/liptakocare
-
-  docker compose -f digitalocean/docker-compose.yml --env-file digitalocean/.env up -d
 
   nginx -t && systemctl reload nginx
 
@@ -119,14 +156,14 @@ NGINX
   }
 fi
 
-# ── 6. Vérification ──
+# ── 7. Vérification ──
 echo ""
 echo "═══════════════════════════════════════════════════════"
 echo "  ✅ Déploiement terminé !"
 echo "═══════════════════════════════════════════════════════"
 echo ""
 echo "  Services :"
-docker compose -f "$APP_DIR/digitalocean/docker-compose.yml" ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+docker_compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 echo ""
 
 if [ -n "$DOMAIN" ]; then
@@ -144,6 +181,6 @@ else
 fi
 echo ""
 echo "  Commandes utiles :"
-echo "  docker compose -f $APP_DIR/digitalocean/docker-compose.yml logs -f"
-echo "  docker compose -f $APP_DIR/digitalocean/docker-compose.yml exec app php /var/www/html/backend/artisan tinker"
-echo "  docker compose -f $APP_DIR/digitalocean/docker-compose.yml restart"
+echo "  docker compose -f $APP_DIR/digitalocean/docker-compose.yml --env-file $RUNTIME_ENV_FILE logs -f"
+echo "  docker compose -f $APP_DIR/digitalocean/docker-compose.yml --env-file $RUNTIME_ENV_FILE exec app php /var/www/html/backend/artisan tinker"
+echo "  docker compose -f $APP_DIR/digitalocean/docker-compose.yml --env-file $RUNTIME_ENV_FILE restart"

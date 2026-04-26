@@ -28,7 +28,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>TLM-BFA / LiptakoCare</h1>
+        <h1>TLM-BFA / BFA TLM</h1>
         <p>Plateforme de Télémédecine du Burkina Faso</p>
     </div>
 
@@ -111,7 +111,7 @@
     @endif
 
     <div class="footer">
-        Généré le {{ now()->format('d/m/Y à H:i') }} — TLM-BFA / LiptakoCare
+        Généré le {{ now()->format('d/m/Y à H:i') }} — TLM-BFA / BFA TLM
     </div>
 </body>
 </html>

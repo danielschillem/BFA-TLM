@@ -358,7 +358,7 @@ export default function BookAppointment() {
                   <Video className="w-6 h-6 text-primary-600 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-primary-800">
-                      LiptakoCare Live
+                      BFA TLM Live
                     </p>
                     <p className="text-xs text-primary-600">
                       Le lien de visioconférence sera disponible au moment du
@@ -734,7 +734,7 @@ export default function BookAppointment() {
                     label: "Type",
                     value:
                       consultationType === "teleconsultation"
-                        ? "En ligne (LiptakoCare Live)"
+                        ? "En ligne (BFA TLM Live)"
                         : "Présentiel",
                   },
                   {

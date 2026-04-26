@@ -26,7 +26,7 @@ export default function PWAUpdater() {
   useEffect(() => {
     if (needRefresh) {
       toast("Mise à jour disponible", {
-        description: "Une nouvelle version de LiptakoCare est disponible.",
+        description: "Une nouvelle version de BFA TLM est disponible.",
         duration: Infinity,
         action: {
           label: "Mettre à jour",

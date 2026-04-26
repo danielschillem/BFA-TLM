@@ -217,7 +217,18 @@ class GestionnaireController extends Controller
             ->where('structure_id', $structureId);
         $healthPros = User::role('health_professional')
             ->where('structure_id', $structureId);
+        $allProfessionals = User::role(['doctor', 'specialist', 'health_professional'])
+            ->where('structure_id', $structureId);
         $patients = \App\Models\Patient::where('structure_id', $structureId);
+        $servicesCount = \App\Models\Service::where('structure_id', $structureId)->count();
+
+        $totalDoctors = (clone $doctors)->count();
+        $activeDoctors = (clone $doctors)->where('status', 'actif')->count();
+        $totalHealthProfessionals = (clone $healthPros)->count();
+        $activeHealthProfessionals = (clone $healthPros)->where('status', 'actif')->count();
+        $totalProfessionals = (clone $allProfessionals)->count();
+        $activeProfessionals = (clone $allProfessionals)->where('status', 'actif')->count();
+        $inactiveProfessionals = max($totalProfessionals - $activeProfessionals, 0);
 
         return response()->json([
             'success' => true,
@@ -226,13 +237,19 @@ class GestionnaireController extends Controller
                     'id' => $manager->structure->id,
                     'name' => $manager->structure->libelle,
                 ] : null,
-                'total_doctors' => (clone $doctors)->count(),
-                'active_doctors' => (clone $doctors)->where('status', 'actif')->count(),
-                'total_health_professionals' => (clone $healthPros)->count(),
+                'total_doctors' => $totalDoctors,
+                'active_doctors' => $activeDoctors,
+                'total_health_professionals' => $totalHealthProfessionals,
+                'active_health_professionals' => $activeHealthProfessionals,
                 'total_patients' => (clone $patients)->count(),
-                'services_count' => \App\Models\Service::where('structure_id', $structureId)->count(),
+                'services_count' => $servicesCount,
                 'appointments_month' => \App\Models\RendezVous::where('structure_id', $structureId)
                     ->where('date', '>=', now()->startOfMonth())->count(),
+                // Alias pour compatibilité frontend (dashboard cards)
+                'total_professionals' => $totalProfessionals,
+                'active_professionals' => $activeProfessionals,
+                'inactive_professionals' => $inactiveProfessionals,
+                'total_services' => $servicesCount,
             ],
         ]);
     }

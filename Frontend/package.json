@@ -2,7 +2,7 @@
   "name": "@alternatives-it/tlm-bfa-frontend",
   "private": true,
   "version": "3.0.0",
-  "description": "LiptakoCare — Plateforme de Télémédecine du Burkina Faso (Frontend)",
+  "description": "BFA TLM — Plateforme de Télémédecine du Burkina Faso (Frontend)",
   "license": "UNLICENSED",
   "author": "Alternatives-IT (AIT) — Financé par ANABASE INC",
   "type": "module",

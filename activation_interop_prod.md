@@ -70,14 +70,14 @@ ENDOS_ORG_UNIT_MAPPING=__A_DEFINIR__
 ## 3) Recharger la config Laravel apres MAJ .env
 Executer sur le serveur:
 
-cd /var/www/liptakocare/Backend
+cd /var/www/bfa-tlm/Backend
 php artisan optimize:clear
 php artisan config:cache
 php artisan route:cache
 
 ## 4) Build frontend en mode production
 
-cd /var/www/liptakocare/Frontend
+cd /var/www/bfa-tlm/Frontend
 npm ci
 npx vite build --mode production
 
@@ -233,7 +233,7 @@ Le endpoint backend CDA /validate attend le champ document. En cas d'erreur depu
 
 ## 17) Commandes utiles de diagnostic
 
-cd /var/www/liptakocare/Backend
+cd /var/www/bfa-tlm/Backend
 php artisan optimize:clear
 php artisan config:cache
 php artisan route:cache

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Users,
   Plus,
@@ -32,8 +32,9 @@ const TABS = [
 
 export default function TeleexpertiseList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isDoctor, isPatient } = useAuthStore();
-  const [activeTab, setActiveTab] = useState("");
+  const [activeTab, setActiveTab] = useState(searchParams.get("status") ?? "");
 
   const { data, isLoading } = useQuery({
     queryKey: ["teleexpertise", activeTab],

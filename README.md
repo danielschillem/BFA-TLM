@@ -1,4 +1,4 @@
-# TLM APP-BFA (LiptakoCare)
+# TLM APP-BFA (BFA TLM)
 
 Plateforme de telesante pour le Burkina Faso.
 

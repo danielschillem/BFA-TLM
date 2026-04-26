@@ -1,6 +1,6 @@
 {
-  "name": "LiptakoCare - Télémédecine",
-  "short_name": "LiptakoCare",
+  "name": "BFA TLM - Télémédecine",
+  "short_name": "BFA TLM",
   "description": "Plateforme de Télémédecine du Burkina Faso — Consultations, rendez-vous, dossiers médicaux",
   "start_url": "/",
   "display": "standalone",

@@ -1,5 +1,5 @@
 ##############################################################
-# LiptakoCare v3.0.0 — Docker Compose DigitalOcean
+# BFA TLM v3.0.0 — Docker Compose DigitalOcean
 # Déploiement unifié : Frontend + Backend + DB + Redis
 #
 # Usage :
@@ -12,10 +12,10 @@ services:
     build:
       context: ..
       dockerfile: digitalocean/Dockerfile
-    container_name: liptakocare-app
+    container_name: bfa-tlm-app
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-80}:80"
+      - "${APP_BIND:-0.0.0.0}:${APP_PORT:-80}:80"
     environment:
       # ── Laravel ──
       APP_ENV: production
@@ -28,9 +28,10 @@ services:
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_DATABASE: "${DB_DATABASE:-liptakocare}"
-      DB_USERNAME: "${DB_USERNAME:-liptakocare}"
+      DB_DATABASE: "${DB_DATABASE:-bfatlm}"
+      DB_USERNAME: "${DB_USERNAME:-bfatlm}"
       DB_PASSWORD: "${DB_PASSWORD}"
+      DB_SSLMODE: "${DB_SSLMODE:-disable}"
 
       # ── Redis ──
       REDIS_HOST: redis
@@ -79,8 +80,8 @@ services:
       MAIL_USERNAME: "${MAIL_USERNAME:-}"
       MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
       MAIL_ENCRYPTION: "${MAIL_ENCRYPTION:-tls}"
-      MAIL_FROM_ADDRESS: "${MAIL_FROM_ADDRESS:-noreply@liptakocare.bf}"
-      MAIL_FROM_NAME: "LiptakoCare"
+      MAIL_FROM_ADDRESS: "${MAIL_FROM_ADDRESS:-noreply@bfa-tlm.bf}"
+      MAIL_FROM_NAME: "BFA TLM"
 
       # ── Seeding ──
       RUN_SEED: "${RUN_SEED:-false}"
@@ -97,31 +98,31 @@ services:
     volumes:
       - app-storage:/var/www/html/backend/storage/app
     networks:
-      - liptakocare
+      - bfatlm
 
   # ── PostgreSQL ──
   postgres:
     image: postgres:16-alpine
-    container_name: liptakocare-db
+    container_name: bfa-tlm-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: "${DB_DATABASE:-liptakocare}"
-      POSTGRES_USER: "${DB_USERNAME:-liptakocare}"
+      POSTGRES_DB: "${DB_DATABASE:-bfatlm}"
+      POSTGRES_USER: "${DB_USERNAME:-bfatlm}"
       POSTGRES_PASSWORD: "${DB_PASSWORD}"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-liptakocare}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-bfatlm}"]
       interval: 5s
       timeout: 3s
       retries: 5
     networks:
-      - liptakocare
+      - bfatlm
 
   # ── Redis ──
   redis:
     image: redis:7-alpine
-    container_name: liptakocare-redis
+    container_name: bfa-tlm-redis
     restart: unless-stopped
     command: >
       redis-server
@@ -132,12 +133,16 @@ services:
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" ping; else redis-cli ping; fi",
+        ]
       interval: 5s
       timeout: 3s
       retries: 5
     networks:
-      - liptakocare
+      - bfatlm
 
 volumes:
   pgdata:
@@ -148,5 +153,5 @@ volumes:
     driver: local
 
 networks:
-  liptakocare:
+  bfatlm:
     driver: bridge

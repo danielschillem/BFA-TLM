@@ -34,6 +34,13 @@ const TABS = [
   { value: "salles", label: "Salles", icon: DoorOpen },
 ];
 
+const extractCollection = (response) => {
+  const payload = response?.data?.data ?? response?.data ?? response;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
+
 export default function GestionnaireManagement() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -85,20 +92,20 @@ export default function GestionnaireManagement() {
     queryFn: () =>
       gestionnaireApi
         .listProfessionnels({ search: search || undefined })
-        .then((r) => r.data.data ?? r.data ?? []),
+        .then((r) => extractCollection(r)),
     enabled: activeTab === "professionnels",
   });
 
   const { data: services = [], isLoading: loadingServices } = useQuery({
     queryKey: ["gestionnaire-services"],
     queryFn: () =>
-      gestionnaireApi.listServices().then((r) => r.data.data ?? r.data ?? []),
+      gestionnaireApi.listServices().then((r) => extractCollection(r)),
   });
 
   const { data: salles = [], isLoading: loadingSalles } = useQuery({
     queryKey: ["gestionnaire-salles"],
     queryFn: () =>
-      gestionnaireApi.listSalles().then((r) => r.data.data ?? r.data ?? []),
+      gestionnaireApi.listSalles().then((r) => extractCollection(r)),
     enabled: activeTab === "salles",
   });
 
@@ -346,29 +353,47 @@ export default function GestionnaireManagement() {
   const renderDashboard = () => {
     if (loadingDash) return <LoadingPage />;
     const stats = dashboard ?? {};
+    const totalProfessionals =
+      stats.total_professionals ??
+      stats.professionnels ??
+      (Number(stats.total_doctors ?? 0) +
+        Number(stats.total_health_professionals ?? 0));
+    const activeProfessionals =
+      stats.active ??
+      stats.actifs ??
+      stats.active_professionals ??
+      (Number(stats.active_doctors ?? 0) +
+        Number(stats.active_health_professionals ?? 0));
+    const inactiveProfessionals =
+      stats.inactive ??
+      stats.inactifs ??
+      stats.inactive_professionals ??
+      Math.max(Number(totalProfessionals) - Number(activeProfessionals), 0);
+    const totalServices =
+      stats.total_services ?? stats.services ?? stats.services_count ?? 0;
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Professionnels"
-          value={stats.total_professionals ?? stats.professionnels ?? 0}
+          value={totalProfessionals}
           icon={Users}
           color="primary"
         />
         <StatCard
           label="Actifs"
-          value={stats.active ?? stats.actifs ?? 0}
+          value={activeProfessionals}
           icon={CheckCircle}
           color="green"
         />
         <StatCard
           label="Inactifs"
-          value={stats.inactive ?? stats.inactifs ?? 0}
+          value={inactiveProfessionals}
           icon={XCircle}
           color="red"
         />
         <StatCard
           label="Services"
-          value={stats.total_services ?? stats.services ?? 0}
+          value={totalServices}
           icon={Building2}
           color="blue"
         />

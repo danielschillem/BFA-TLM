@@ -18,8 +18,6 @@ import { useAuthStore } from "@/stores/authStore";
 import {
   appointmentsApi,
   consultationsApi,
-  documentsApi,
-  prescriptionsApi,
   messagesApi,
 } from "@/api";
 import AppLayout from "@/components/layout/AppLayout";
@@ -33,11 +31,23 @@ import {
   CONSULTATION_TYPES,
 } from "@/utils/helpers";
 
+const extractCollection = (response) => {
+  const payload = response?.data?.data ?? response?.data ?? response;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
+
 export default function DashboardPatient() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  const { data: upcoming = [], isLoading } = useQuery({
+  const { data: dashboardData, isLoading } = useQuery({
+    queryKey: ["consultations", "dashboard", "patient"],
+    queryFn: () => consultationsApi.dashboard().then((r) => r.data?.data ?? {}),
+  });
+
+  const { data: upcoming = [] } = useQuery({
     queryKey: ["appointments", "upcoming"],
     queryFn: () =>
       appointmentsApi
@@ -45,28 +55,7 @@ export default function DashboardPatient() {
           status: "confirmed",
           date_from: new Date().toISOString().split("T")[0],
         })
-        .then((r) => r.data.data ?? []),
-  });
-
-  // Stats patient pour les indicateurs de suivi
-  const { data: allAppointments } = useQuery({
-    queryKey: ["appointments", "all-patient"],
-    queryFn: () => appointmentsApi.list({ per_page: 100 }).then((r) => r.data),
-  });
-
-  const { data: consultationsList } = useQuery({
-    queryKey: ["consultations", "all-patient"],
-    queryFn: () => consultationsApi.list({ per_page: 100 }).then((r) => r.data),
-  });
-
-  const { data: documentsData } = useQuery({
-    queryKey: ["documents", "patient"],
-    queryFn: () => documentsApi.list().then((r) => r.data),
-  });
-
-  const { data: prescriptionsData } = useQuery({
-    queryKey: ["prescriptions", "patient"],
-    queryFn: () => prescriptionsApi.list().then((r) => r.data),
+        .then((r) => extractCollection(r)),
   });
 
   const { data: unreadData } = useQuery({
@@ -75,21 +64,13 @@ export default function DashboardPatient() {
       messagesApi.unreadCount().then((r) => r.data?.data ?? r.data),
   });
 
-  // Dériver les indicateurs
-  const totalRdv =
-    allAppointments?.data?.length ??
-    allAppointments?.meta?.pagination?.total ??
-    0;
-  const totalConsultations =
-    consultationsList?.data?.length ??
-    consultationsList?.meta?.pagination?.total ??
-    0;
-  const totalDocs =
-    documentsData?.data?.length ?? documentsData?.meta?.pagination?.total ?? 0;
-  const totalPrescriptions =
-    prescriptionsData?.data?.length ??
-    prescriptionsData?.meta?.pagination?.total ??
-    0;
+  const stats = dashboardData?.stats ?? {};
+
+  // Dériver les indicateurs depuis le dashboard API (source unique, non tronquée)
+  const totalRdv = stats.total_appointments ?? 0;
+  const totalConsultations = stats.total_consultations ?? 0;
+  const totalDocs = stats.documents_count ?? 0;
+  const totalPrescriptions = stats.prescriptions_count ?? 0;
   const unreadMessages = unreadData?.unread_count ?? unreadData?.count ?? 0;
 
   return (

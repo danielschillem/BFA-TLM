@@ -4,7 +4,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | LiptakoCare (TLM_APP-BFA) — Plateforme de Télémédecine
+    | BFA TLM (TLM_APP-BFA) — Plateforme de Télémédecine
     |--------------------------------------------------------------------------
     | © 2025-2026 Alternatives-IT (AIT) & ANABASE INC
     | Développeur : Alternatives-IT (AIT)
@@ -22,7 +22,7 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'name' => env('APP_NAME', 'LiptakoCare'),
+    'name' => env('APP_NAME', 'BFA TLM'),
 
     /*
     |--------------------------------------------------------------------------

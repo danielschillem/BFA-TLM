@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import {
   Users,
   Search,
@@ -73,8 +74,12 @@ const emptyForm = {
 
 export default function UserManagement() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
+  const [searchParams] = useSearchParams();
+  const initialStatus = searchParams.get("status") ?? "";
+  const highlightedUserId = searchParams.get("userId");
+  const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const [roleFilter, setRoleFilter] = useState(searchParams.get("role") ?? "");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
 
   // Modals
   const [showModal, setShowModal] = useState(false);
@@ -88,11 +93,16 @@ export default function UserManagement() {
   const [form, setForm] = useState(emptyForm);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "users", roleFilter, search],
+    queryKey: ["admin", "users", roleFilter, statusFilter, search],
     queryFn: () =>
       adminApi
-        .listUsers({ role: roleFilter, search })
-        .then((r) => r.data.data?.data ?? []),
+        .listUsers({ role: roleFilter, status: statusFilter, search })
+        .then((r) => {
+          const payload = r.data?.data;
+          if (Array.isArray(payload)) return payload;
+          if (Array.isArray(payload?.data)) return payload.data;
+          return [];
+        }),
   });
 
   const statusMutation = useMutation({
@@ -156,6 +166,17 @@ export default function UserManagement() {
   });
 
   const users = data ?? [];
+
+  useEffect(() => {
+    if (!highlightedUserId || showDetail || selectedUser) return;
+    const userToOpen = users.find(
+      (u) => String(u.id) === String(highlightedUserId),
+    );
+    if (userToOpen) {
+      setSelectedUser(userToOpen);
+      setShowDetail(true);
+    }
+  }, [highlightedUserId, users, showDetail, selectedUser]);
 
   const openCreate = () => {
     setIsEditing(false);
@@ -234,6 +255,17 @@ export default function UserManagement() {
                 {label}
               </option>
             ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="input-field min-w-40"
+          >
+            <option value="">Tous les statuts</option>
+            <option value="active">Actif</option>
+            <option value="inactive">Inactif</option>
+            <option value="suspended">Suspendu</option>
+            <option value="pending">En attente vérification</option>
           </select>
           <Button icon={Plus} onClick={openCreate}>
             Créer un utilisateur

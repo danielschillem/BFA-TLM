@@ -167,12 +167,12 @@ export default function Sidebar() {
             <div className="flex items-center gap-2.5">
               <img
                 src={logoImg}
-                alt="LiptakoCare"
+                alt="BFA TLM"
                 className="w-8 h-8 rounded-lg object-cover"
               />
               <div>
                 <span className="text-sm font-semibold text-white block">
-                  LiptakoCare
+                  BFA TLM
                 </span>
                 <span className="text-2xs text-slate-400">e-Santé BFA</span>
               </div>
@@ -180,7 +180,7 @@ export default function Sidebar() {
           ) : (
             <img
               src={logoImg}
-              alt="LiptakoCare"
+              alt="BFA TLM"
               className="w-8 h-8 rounded-lg object-cover mx-auto"
             />
           )}
@@ -266,7 +266,7 @@ export default function Sidebar() {
         {isOpen && (
           <div className="px-4 py-2 border-t border-white/10 text-center">
             <p className="text-[10px] text-slate-500">
-              &copy; {new Date().getFullYear()} LiptakoCare
+              &copy; {new Date().getFullYear()} BFA TLM
             </p>
             <p className="text-[10px] text-slate-600">
               v3.0.0 — Plateforme TLM BFA

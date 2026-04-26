@@ -1,6 +1,6 @@
 #!/bin/bash
 ############################################################
-# LiptakoCare (TLM_APP-BFA) — Script de déploiement
+# BFA TLM (TLM_APP-BFA) — Script de déploiement
 # © 2025-2026 Alternatives-IT (AIT) & ANABASE INC
 # Licence : Propriétaire — Tous droits réservés
 # Version : 3.0.0
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 echo "========================================="
-echo "  LiptakoCare v3.0.0 — Déploiement"
+echo "  BFA TLM v3.0.0 — Déploiement"
 echo "  © Alternatives-IT & ANABASE INC"
 echo "========================================="
 

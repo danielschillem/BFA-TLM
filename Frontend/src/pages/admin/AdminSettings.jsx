@@ -34,7 +34,7 @@ const SECTIONS = [
 
 const DEFAULT_SETTINGS = {
   general: {
-    app_name: "LiptakoCare",
+    app_name: "BFA TLM",
     app_locale: "fr",
     timezone: "Africa/Ouagadougou",
     pagination_size: 15,
@@ -63,8 +63,8 @@ const DEFAULT_SETTINGS = {
   },
   email: {
     mail_driver: "smtp",
-    mail_from_name: "LiptakoCare",
-    mail_from_address: "noreply@liptakocare.bf",
+    mail_from_name: "BFA TLM",
+    mail_from_address: "noreply@bfa-tlm.bf",
   },
   maintenance: {
     maintenance_mode: false,
@@ -74,7 +74,7 @@ const DEFAULT_SETTINGS = {
   },
   appearance: {
     primary_color: "#2563eb",
-    logo_text: "LiptakoCare",
+    logo_text: "BFA TLM",
     footer_text: "e-Santé & Télémédecine — Burkina Faso",
   },
 };

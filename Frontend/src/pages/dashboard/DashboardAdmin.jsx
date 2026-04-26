@@ -106,30 +106,58 @@ export default function DashboardAdmin() {
           <LoadingPage />
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              icon={Users}
-              label="Utilisateurs total"
-              value={stats?.total_users ?? 0}
-              color="blue"
-            />
-            <StatCard
-              icon={Activity}
-              label="Médecins actifs"
-              value={stats?.active_doctors ?? 0}
-              color="teal"
-            />
-            <StatCard
-              icon={Video}
-              label="Consultations (mois)"
-              value={stats?.consultations_month ?? 0}
-              color="purple"
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="RDV ce mois"
-              value={stats?.appointments_month ?? 0}
-              color="green"
-            />
+            <button
+              type="button"
+              onClick={() => navigate("/admin/users")}
+              className="text-left"
+            >
+              <StatCard
+                icon={Users}
+                label="Utilisateurs total"
+                value={stats?.total_users ?? 0}
+                color="blue"
+                className="hover:shadow-md transition-shadow cursor-pointer"
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/admin/users?role=doctor&status=active")}
+              className="text-left"
+            >
+              <StatCard
+                icon={Activity}
+                label="Médecins actifs"
+                value={stats?.active_doctors ?? 0}
+                color="teal"
+                className="hover:shadow-md transition-shadow cursor-pointer"
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/consultations")}
+              className="text-left"
+            >
+              <StatCard
+                icon={Video}
+                label="Consultations (mois)"
+                value={stats?.consultations_month ?? 0}
+                color="purple"
+                className="hover:shadow-md transition-shadow cursor-pointer"
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/appointments")}
+              className="text-left"
+            >
+              <StatCard
+                icon={TrendingUp}
+                label="RDV ce mois"
+                value={stats?.appointments_month ?? 0}
+                color="green"
+                className="hover:shadow-md transition-shadow cursor-pointer"
+              />
+            </button>
           </div>
         )}
 
@@ -206,7 +234,7 @@ export default function DashboardAdmin() {
                     Médecins en attente de vérification
                   </h3>
                   <Button
-                    onClick={() => navigate("/admin/users?filter=pending")}
+                    onClick={() => navigate("/admin/users?status=pending")}
                     variant="ghost"
                     size="sm"
                     className="text-primary-600"
@@ -251,9 +279,7 @@ export default function DashboardAdmin() {
                               </p>
                             </div>
                             <Button
-                              onClick={() =>
-                                navigate(`/admin/users/${doctor.id}`)
-                              }
+                              onClick={() => navigate(`/admin/users?userId=${doctor.id}`)}
                               size="xs"
                               variant="outline"
                             >
@@ -583,7 +609,7 @@ export default function DashboardAdmin() {
                   Annonces récentes
                 </h3>
                 <Button
-                  onClick={() => navigate("/admin/announce")}
+                  onClick={() => navigate("/admin/announcements")}
                   variant="ghost"
                   size="sm"
                   className="text-primary-600"

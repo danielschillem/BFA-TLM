@@ -74,7 +74,7 @@ export default function InstallPWA() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-gray-900">
-            Installer LiptakoCare
+            Installer BFA TLM
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
             Accédez rapidement à la plateforme depuis votre écran d'accueil

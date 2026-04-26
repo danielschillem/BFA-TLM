@@ -26,7 +26,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>TLM-BFA / LiptakoCare</h1>
+        <h1>TLM-BFA / BFA TLM</h1>
         <p>Plateforme de Télémédecine du Burkina Faso</p>
     </div>
 

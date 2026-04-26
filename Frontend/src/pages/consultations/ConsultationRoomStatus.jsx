@@ -28,11 +28,11 @@ export function ConsultationRoomTopBar({
       <div className="flex items-center gap-3">
         <img
           src={logoImg}
-          alt="LiptakoCare"
+          alt="BFA TLM"
           className="h-7 w-7 rounded-md object-cover"
         />
         <span className="text-sm font-semibold text-white hidden md:inline">
-          LiptakoCare
+          BFA TLM
         </span>
         <span className="text-gray-600 hidden md:inline">|</span>
         <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ export function ConsultationConnectionOverlays({
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col items-center justify-center gap-6 z-10 transition-opacity duration-700">
           <img
             src={logoImg}
-            alt="LiptakoCare"
+            alt="BFA TLM"
             className="h-16 w-16 rounded-2xl object-cover mb-2"
           />
           <div className="w-16 h-16 rounded-2xl bg-primary-500/20 flex items-center justify-center">

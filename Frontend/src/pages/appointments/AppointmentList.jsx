@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Calendar,
   Clock,
@@ -30,8 +30,9 @@ import { formatDate, downloadBlob } from "@/utils/helpers";
 
 export default function AppointmentList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isPatient, isDoctor } = useAuthStore();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") ?? "");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [selectedIds, setSelectedIds] = useState([]);

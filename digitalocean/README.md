@@ -1,4 +1,4 @@
-# LiptakoCare — Déploiement DigitalOcean
+# BFA TLM — Déploiement DigitalOcean
 
 > **Version** : 3.0.0 — 22 avril 2026  
 > **Architecture** : Frontend (React) + Backend (Laravel) unifiés dans un seul conteneur Docker
@@ -19,7 +19,7 @@
 │  │          Docker Compose                       │  │
 │  │                                               │  │
 │  │  ┌─────────────────────────────────────────┐  │  │
-│  │  │  app (liptakocare-app) — port 80        │  │  │
+│  │  │  app (bfa-tlm-app) — port 80        │  │  │
 │  │  │  ┌─────────────────────────────────┐    │  │  │
 │  │  │  │  Nginx interne (port 80)        │    │  │  │
 │  │  │  │  /         → SPA React (dist/)  │    │  │  │
@@ -62,8 +62,8 @@ ssh root@VOTRE_IP_DROPLET
 
 ```bash
 # Cloner et déployer (sans SSL)
-git clone https://gitlab.com/Schillem/esante_liptako.git /opt/liptakocare
-cd /opt/liptakocare
+git clone https://github.com/danielschillem/BFA-TLM.git /opt/bfa-tlm
+cd /opt/bfa-tlm
 
 # Configurer l'environnement
 cp digitalocean/.env.example digitalocean/.env
@@ -123,7 +123,7 @@ php artisan key:generate --show
 ## Commandes utiles
 
 ```bash
-CD=/opt/liptakocare
+CD=/opt/bfa-tlm
 
 # Logs en temps réel
 docker compose -f $CD/digitalocean/docker-compose.yml logs -f
@@ -157,7 +157,7 @@ docker compose -f digitalocean/docker-compose.yml --env-file digitalocean/.env u
 ## Mise à jour (CI/CD ou manuelle)
 
 ```bash
-cd /opt/liptakocare
+cd /opt/bfa-tlm
 git pull origin main
 docker compose -f digitalocean/docker-compose.yml --env-file digitalocean/.env build
 docker compose -f digitalocean/docker-compose.yml --env-file digitalocean/.env up -d
@@ -185,19 +185,19 @@ Le renouvellement automatique est configuré par Certbot via un cron/systemd tim
 
 ```bash
 # Dump
-docker compose -f /opt/liptakocare/digitalocean/docker-compose.yml \
-  exec postgres pg_dump -U liptakocare liptakocare > backup_$(date +%Y%m%d).sql
+docker compose -f /opt/bfa-tlm/digitalocean/docker-compose.yml \
+  exec postgres pg_dump -U bfatlm bfatlm > backup_$(date +%Y%m%d).sql
 
 # Restore
-cat backup.sql | docker compose -f /opt/liptakocare/digitalocean/docker-compose.yml \
-  exec -T postgres psql -U liptakocare liptakocare
+cat backup.sql | docker compose -f /opt/bfa-tlm/digitalocean/docker-compose.yml \
+  exec -T postgres psql -U bfatlm bfatlm
 ```
 
 ### Fichiers uploadés
 
 ```bash
 # Si FILESYSTEM_DISK=local
-docker compose -f /opt/liptakocare/digitalocean/docker-compose.yml \
+docker compose -f /opt/bfa-tlm/digitalocean/docker-compose.yml \
   cp app:/var/www/html/backend/storage/app ./backup-storage/
 ```
 
@@ -216,7 +216,7 @@ FILESYSTEM_DISK=s3
 AWS_ACCESS_KEY_ID=DO_SPACES_KEY
 AWS_SECRET_ACCESS_KEY=DO_SPACES_SECRET
 AWS_DEFAULT_REGION=fra1
-AWS_BUCKET=liptakocare-docs
+AWS_BUCKET=bfa-tlm-docs
 AWS_ENDPOINT=https://fra1.digitaloceanspaces.com
 ```
 

@@ -95,7 +95,7 @@ export default function Register() {
           <div className="flex items-center gap-3">
             <img
               src={liptakoIcon}
-              alt="LiptakoCare"
+              alt="BFA TLM"
               className="w-12 h-12 rounded-2xl object-cover border border-white/20 shadow-lg"
             />
             <div>
@@ -144,7 +144,7 @@ export default function Register() {
           <div className="lg:hidden text-center mb-6">
             <img
               src={liptakoIcon}
-              alt="LiptakoCare"
+              alt="BFA TLM"
               className="w-14 h-14 rounded-2xl object-cover shadow-lg shadow-primary-500/25 mb-3 mx-auto"
             />
             <h1 className="text-2xl font-bold text-gray-900">

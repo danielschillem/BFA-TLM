@@ -26,9 +26,9 @@ if [ $? -eq 0 ]; then
   echo "$(date): SSL installed successfully!" >> "$LOGFILE"
   systemctl reload nginx
   # Update .env to use https
-  sed -i 's|APP_URL=http://|APP_URL=https://|' /var/www/liptakocare/Backend/.env
-  sed -i 's|FRONTEND_URL=http://|FRONTEND_URL=https://|' /var/www/liptakocare/Backend/.env
-  cd /var/www/liptakocare/Backend && php artisan config:clear && php artisan optimize
+  sed -i 's|APP_URL=http://|APP_URL=https://|' /var/www/bfa-tlm/Backend/.env
+  sed -i 's|FRONTEND_URL=http://|FRONTEND_URL=https://|' /var/www/bfa-tlm/Backend/.env
+  cd /var/www/bfa-tlm/Backend && php artisan config:clear && php artisan optimize
   # Remove this cron job
   rm -f /etc/cron.d/auto-ssl
   echo "$(date): All done. Platform live at https://$DOMAIN" >> "$LOGFILE"

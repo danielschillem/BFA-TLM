@@ -2357,7 +2357,7 @@ export default function ConsultationRoom() {
               </div>
 
               <p className="text-center text-xs text-gray-400">
-                Merci d'avoir utilisé LiptakoCare. Prenez soin de vous !
+                Merci d'avoir utilisé BFA TLM. Prenez soin de vous !
               </p>
             </div>
           </div>

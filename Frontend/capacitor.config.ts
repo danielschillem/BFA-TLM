@@ -1,11 +1,11 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "bf.liptakocare.app",
-  appName: "LiptakoCare",
+  appId: "bf.bfatlm.app",
+  appName: "BFA TLM",
   webDir: "dist",
   server: {
-    url: "https://liptakocare.com",
+    url: "https://bfa-tlm.com",
     cleartext: false,
   },
   android: {
@@ -15,7 +15,7 @@ const config: CapacitorConfig = {
   ios: {
     backgroundColor: "#1e40af",
     contentInset: "automatic",
-    scheme: "LiptakoCare",
+    scheme: "bfatlm",
   },
   plugins: {
     SplashScreen: {

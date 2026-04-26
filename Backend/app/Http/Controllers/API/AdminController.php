@@ -116,6 +116,21 @@ class AdminController extends Controller
             $query->role($role);
         }
 
+        if ($status = $request->input('status')) {
+            if ($status === 'pending') {
+                $query->role(['doctor', 'specialist'])
+                    ->where('status', '!=', 'actif');
+            } else {
+                $statusFr = match ($status) {
+                    'active' => 'actif',
+                    'inactive' => 'inactif',
+                    'suspended', 'banned' => 'suspendu',
+                    default => $status,
+                };
+                $query->where('status', $statusFr);
+            }
+        }
+
         $users = $query->orderBy('created_at', 'desc')
             ->paginate(min((int) $request->input('per_page', 15), 100));
 

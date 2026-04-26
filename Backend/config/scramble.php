@@ -30,7 +30,7 @@ return [
          * Description rendered on the home page of the API documentation (`/docs/api`).
          */
         'description' => <<<'MD'
-# LiptakoCare — API de Télémédecine du Burkina Faso
+# BFA TLM — API de Télémédecine du Burkina Faso
 
 Plateforme nationale de télémédecine conforme aux standards internationaux (HL7 FHIR R4, CDA R2, ICD-11, SNOMED CT, DICOM).
 
@@ -70,7 +70,7 @@ MD,
         /*
          * Define the title of the documentation's website. App name is used when this config is `null`.
          */
-        'title' => 'LiptakoCare API — Télémédecine BFA',
+        'title' => 'BFA TLM API — Télémédecine BFA',
 
         /*
          * Define the theme of the documentation. Available options are `light`, `dark`, and `system`.

@@ -30,7 +30,7 @@
 <body>
     <div class="header">
         <div class="header-left">
-            <h1>TLM-BFA / LiptakoCare</h1>
+            <h1>TLM-BFA / BFA TLM</h1>
             <p>Plateforme de Télémédecine du Burkina Faso</p>
         </div>
         <div class="header-right">
@@ -96,7 +96,7 @@
     </div>
 
     <div class="disclaimer">
-        <p>Ordonnance générée par la plateforme TLM-BFA / LiptakoCare.</p>
+        <p>Ordonnance générée par la plateforme TLM-BFA / BFA TLM.</p>
         <p>Ce document est confidentiel et couvert par le secret médical.</p>
     </div>
 </body>

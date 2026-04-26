@@ -1,4 +1,4 @@
-# TLM_APP-BFA (LiptakoCare) — Plateforme de Télémédecine du Burkina Faso
+# TLM_APP-BFA (BFA TLM) — Plateforme de Télémédecine du Burkina Faso
 
 **Version :** 3.0.0 — 26 mars 2026  
 **Développeur :** Alternatives-IT (AIT)  

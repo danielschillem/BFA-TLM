@@ -41,7 +41,7 @@ export default function ForgotPassword() {
         <div className="text-center mb-8">
           <img
             src={liptakoIcon}
-            alt="LiptakoCare"
+            alt="BFA TLM"
             className="w-14 h-14 rounded-lg object-cover shadow-md mb-4 mx-auto"
           />
           <h1 className="text-2xl font-bold text-gray-900">

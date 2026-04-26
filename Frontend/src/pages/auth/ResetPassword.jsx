@@ -80,7 +80,7 @@ export default function ResetPassword() {
         <div className="text-center mb-8">
           <img
             src={liptakoIcon}
-            alt="LiptakoCare"
+            alt="BFA TLM"
             className="w-14 h-14 rounded-2xl object-cover shadow-lg mb-4 mx-auto"
           />
           <h1 className="text-2xl font-bold text-gray-900">

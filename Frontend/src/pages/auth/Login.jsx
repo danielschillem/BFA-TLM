@@ -95,7 +95,7 @@ export default function Login() {
           <div className="flex items-center gap-3">
             <img
               src={liptakoIcon}
-              alt="LiptakoCare"
+              alt="BFA TLM"
               className="w-12 h-12 rounded-lg object-cover border border-white/20"
             />
             <div>
@@ -150,7 +150,7 @@ export default function Login() {
           <div className="lg:hidden text-center mb-8">
             <img
               src={liptakoIcon}
-              alt="LiptakoCare"
+              alt="BFA TLM"
               className="w-14 h-14 rounded-lg object-cover shadow-md mb-4 mx-auto"
             />
             <h1 className="text-2xl font-bold text-gray-900">Plateforme TLM</h1>

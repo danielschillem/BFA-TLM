@@ -31,6 +31,13 @@ import {
   CONSULTATION_TYPES,
 } from "@/utils/helpers";
 
+const extractCollection = (response) => {
+  const payload = response?.data?.data ?? response?.data ?? response;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
+
 export default function DashboardDoctor() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
@@ -52,7 +59,7 @@ export default function DashboardDoctor() {
           date_from: todayDate,
           date_to: todayDate,
         })
-        .then((r) => r.data.data ?? []);
+        .then((r) => extractCollection(r));
     },
   });
 
@@ -61,7 +68,7 @@ export default function DashboardDoctor() {
     queryFn: () =>
       consultationsApi
         .list({ status: "completed" })
-        .then((r) => r.data.data ?? []),
+        .then((r) => extractCollection(r)),
   });
 
   const health = dashData?.health_indicators;

@@ -31,7 +31,7 @@ class CheckLicense
         if (!$license) {
             return response()->json([
                 'success' => false,
-                'message' => 'Licence expirée ou absente. Veuillez renouveler votre licence pour continuer à utiliser LiptakoCare.',
+                'message' => 'Licence expirée ou absente. Veuillez renouveler votre licence pour continuer à utiliser BFA TLM.',
                 'error'   => 'license_expired',
                 'action'  => 'contact_commercial',
             ], 403);

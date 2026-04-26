@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "alternatives-it/tlm-bfa",
     "type": "project",
-    "description": "LiptakoCare — Plateforme de Télémédecine du Burkina Faso",
+    "description": "BFA TLM — Plateforme de Télémédecine du Burkina Faso",
     "keywords": [
         "telemedecine",
         "burkina-faso",

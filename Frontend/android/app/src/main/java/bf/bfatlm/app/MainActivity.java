@@ -1,4 +1,4 @@
-package bf.liptakocare.app;
+package bf.bfatlm.app;
 
 import com.getcapacitor.BridgeActivity;
 

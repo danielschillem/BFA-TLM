@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Video, Clock, CheckCircle, XCircle, Search, Users, Calendar, Filter, MapPin } from 'lucide-react'
 import { consultationsApi } from '@/api'
 import { useAuthStore } from '@/stores/authStore'
@@ -37,9 +37,10 @@ const TABS = [
 
 export default function ConsultationList() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { isDoctor } = useAuthStore()
-  const [activeTab, setActiveTab] = useState('')
-  const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState(searchParams.get('status') ?? '')
+  const [search, setSearch] = useState(searchParams.get('search') ?? '')
 
   const { data, isLoading } = useQuery({
     queryKey: ['consultations', 'list', activeTab, search],

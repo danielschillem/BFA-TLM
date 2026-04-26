@@ -21,23 +21,13 @@ COPY Backend/ .
 RUN composer dump-autoload --optimize --no-dev
 
 ## ── Stage 3: Runtime ─────────────────────────────────────
-FROM php:8.3-fpm@sha256:4dbf10b182cfdacd3041ef5e0e6a3684ba5649b50aafbe34bd9b7e9b51cff54b
+FROM php:8.4-fpm
 
-# ── Dépendances système (runtime) ──
+# ── Dépendances système + Extensions PHP ──
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \
     gosu \
     supervisor \
-    libpq5 \
-    libzip4 \
-    libicu72 \
-    libpng16-16 \
-    libjpeg62-turbo \
-    libfreetype6 \
-    && rm -rf /var/lib/apt/lists/*
-
-# ── Extensions PHP ──
-RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libzip-dev \
     libicu-dev \
@@ -57,7 +47,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         zip \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    && apt-get purge -y --auto-remove libpq-dev libzip-dev libicu-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ── PHP-FPM : écouter sur 127.0.0.1:9000 ──
@@ -94,7 +83,7 @@ RUN rm -f /etc/nginx/sites-enabled/default \
     && ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
 
 # ── Supervisor pour PHP-FPM + Nginx + Reverb (optionnel) ──
-COPY digitalocean/supervisord.conf /etc/supervisor/conf.d/liptakocare.conf
+COPY digitalocean/supervisord.conf /etc/supervisor/conf.d/bfa-tlm.conf
 
 # ── Entrypoint ──
 COPY digitalocean/entrypoint.sh /usr/local/bin/entrypoint.sh
