@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Check, ChevronLeft, KeyRound, Lock, Mail } from "lucide-react";
 import { authApi } from "@/api";
-import bfaLogo from "@/assets/bfa-tlm-logo.svg";
+import bfaLogo from "@/assets/bfa-tlm-logo.png";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
@@ -80,8 +80,8 @@ export default function ResetPassword() {
         <div className="text-center mb-8">
           <img
             src={bfaLogo}
-            alt="BFA TLM"
-            className="w-16 h-16 rounded-2xl object-contain bg-white p-2 shadow-lg mb-4 mx-auto"
+            alt="BFA TLM Plateforme"
+            className="h-12 sm:h-14 w-auto max-w-[260px] object-contain rounded-xl shadow-lg mb-4 mx-auto"
           />
           <h1 className="text-2xl font-bold text-gray-900">
             Réinitialiser le mot de passe

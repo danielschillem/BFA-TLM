@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Mail, ChevronLeft, Check } from "lucide-react";
 import { authApi } from "@/api";
-import bfaLogo from "@/assets/bfa-tlm-logo.svg";
+import bfaLogo from "@/assets/bfa-tlm-logo.png";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
@@ -41,8 +41,8 @@ export default function ForgotPassword() {
         <div className="text-center mb-8">
           <img
             src={bfaLogo}
-            alt="BFA TLM"
-            className="w-16 h-16 rounded-xl object-contain bg-white p-2 shadow-md mb-4 mx-auto"
+            alt="BFA TLM Plateforme"
+            className="h-12 sm:h-14 w-auto max-w-[260px] object-contain rounded-xl shadow-md mb-4 mx-auto"
           />
           <h1 className="text-2xl font-bold text-gray-900">
             Mot de passe oublié

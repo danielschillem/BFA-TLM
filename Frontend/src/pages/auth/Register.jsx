@@ -6,7 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { User, Mail, Lock, Phone, Heart, Shield } from "lucide-react";
 import { authApi } from "@/api";
-import bfaLogo from "@/assets/bfa-tlm-logo.svg";
+import bfaLogo from "@/assets/bfa-tlm-logo.png";
 import registerBg from "@/assets/register-bg.jpg";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -93,18 +93,15 @@ export default function Register() {
         />
         <div className="absolute inset-0 bg-gradient-to-br from-secondary-900/80 via-primary-800/60 to-primary-900/70" />
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2">
             <img
               src={bfaLogo}
-              alt="BFA TLM"
-              className="w-14 h-14 rounded-2xl object-contain bg-white/95 p-2 border border-white/20 shadow-lg"
+              alt="BFA TLM Plateforme"
+              className="h-11 sm:h-12 w-auto max-w-[min(100%,280px)] object-left object-contain drop-shadow-lg rounded-xl"
             />
-            <div>
-              <h2 className="text-white font-bold text-xl tracking-tight">
-                BFA TLM
-              </h2>
-              <p className="text-white/60 text-xs">e-Santé & Télémédecine</p>
-            </div>
+            <p className="text-white/60 text-xs tracking-wide">
+              e-Santé & Télémédecine
+            </p>
           </div>
 
           <div className="max-w-sm">
@@ -145,15 +142,13 @@ export default function Register() {
           <div className="lg:hidden text-center mb-6">
             <img
               src={bfaLogo}
-              alt="BFA TLM"
-              className="w-16 h-16 rounded-2xl object-contain bg-white p-2 shadow-lg shadow-primary-500/25 mb-3 mx-auto"
+              alt="BFA TLM Plateforme"
+              className="h-12 w-auto max-w-[280px] object-contain mx-auto mb-3 rounded-xl shadow-md"
             />
             <h1 className="text-2xl font-bold text-gray-900">
               Créer un compte
             </h1>
-            <p className="text-gray-500 text-sm">
-              BFA TLM — Burkina Faso
-            </p>
+            <p className="text-gray-500 text-sm">Burkina Faso</p>
           </div>
 
           <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-gray-200/60 border border-white/60 p-8 lg:p-10">

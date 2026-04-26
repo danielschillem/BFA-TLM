@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { authApi } from "@/api";
-import bfaLogo from "@/assets/bfa-tlm-logo.svg";
+import bfaLogo from "@/assets/bfa-tlm-logo.png";
 import africanDoctorBg from "@/assets/african-doctor-bg.jpg";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -93,18 +93,15 @@ export default function Login() {
         {/* Contenu superposé */}
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           {/* Logo en haut */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2">
             <img
               src={bfaLogo}
-              alt="BFA TLM"
-              className="w-14 h-14 rounded-xl object-contain bg-white/95 p-2 border border-white/20"
+              alt="BFA TLM Plateforme"
+              className="h-11 sm:h-12 w-auto max-w-[min(100%,280px)] object-left object-contain drop-shadow-md rounded-lg"
             />
-            <div>
-              <h2 className="text-white font-bold text-xl tracking-tight">
-                BFA TLM
-              </h2>
-              <p className="text-white/60 text-xs">e-Santé & Télémédecine</p>
-            </div>
+            <p className="text-white/60 text-xs tracking-wide">
+              e-Santé & Télémédecine
+            </p>
           </div>
 
           {/* Message central */}
@@ -151,11 +148,10 @@ export default function Login() {
           <div className="lg:hidden text-center mb-8">
             <img
               src={bfaLogo}
-              alt="BFA TLM"
-              className="w-16 h-16 rounded-xl object-contain bg-white p-2 shadow-md mb-4 mx-auto"
+              alt="BFA TLM Plateforme"
+              className="h-12 w-auto max-w-[280px] object-contain mx-auto mb-3 rounded-lg shadow-sm"
             />
-            <h1 className="text-2xl font-bold text-gray-900">BFA TLM</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-gray-500 text-sm">
               e-Santé & Télémédecine — Burkina Faso
             </p>
           </div>

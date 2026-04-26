@@ -25,7 +25,7 @@ import EmptyState from "@/components/common/EmptyState";
 import Button from "@/components/ui/Button";
 import ConsentModal from "@/components/consultation/ConsentModal";
 import { formatDateTime, CONSULTATION_TYPES } from "@/utils/helpers";
-import logoImg from "@/assets/bfa-tlm-mark.svg";
+import logoImg from "@/assets/bfa-tlm-mark.png";
 
 const CHECKS = [
   { id: "camera", label: "Caméra", icon: Camera },

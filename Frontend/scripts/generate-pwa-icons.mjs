@@ -10,7 +10,7 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const ICONS_DIR = resolve(ROOT, "public/icons");
-const SOURCE = resolve(ROOT, "src/assets/bfa-tlm-mark.svg");
+const SOURCE = resolve(ROOT, "src/assets/bfa-tlm-mark.png");
 
 if (!existsSync(ICONS_DIR)) mkdirSync(ICONS_DIR, { recursive: true });
 

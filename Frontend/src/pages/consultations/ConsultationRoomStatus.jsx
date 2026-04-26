@@ -7,7 +7,7 @@ import {
   Video,
   WifiOff,
 } from "lucide-react";
-import logoImg from "@/assets/bfa-tlm-mark.svg";
+import logoImg from "@/assets/bfa-tlm-mark.png";
 
 export function ConsultationRoomTopBar({
   connectionState,
