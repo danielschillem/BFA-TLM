@@ -1,11 +1,13 @@
 # Dependencies
 node_modules/
+node_modules.bak*/
 vendor/
 
 # Environment
 .env
 .env.*
 !.env.example
+docker/.env
 
 # Build outputs
 dist/

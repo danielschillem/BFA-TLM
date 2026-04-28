@@ -1,0 +1,11 @@
+# Normalisation fin de ligne & diffs
+* text=auto eol=lf
+
+*.php text diff=php
+*.{js,jsx,mjs,cjs,ts,tsx,vue} text
+*.{json,yml,yaml,md,sh} text
+*.{css,scss} text
+
+# Binaires
+*.{png,jpg,jpeg,gif,webp,ico,svg,woff,woff2,ttf,eot} binary
+*.{pdf,zip,gz} binary

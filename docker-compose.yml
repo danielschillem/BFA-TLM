@@ -1,0 +1,168 @@
+# BFA TLM — Docker Desktop (développement / test local)
+#
+# Prérequis : Docker Desktop (Windows/macOS) ou Docker Engine + Compose v2
+#
+# 1. cp docker/.env.example docker/.env
+# 2. Renseigner APP_KEY (voir docker/.env.example)
+# 3. Préparer l’hôte (évite npm/github dans Docker) :
+#    cd Backend && composer install --no-dev --no-interaction
+#    cd Frontend && node scripts/generate-runtime-config.mjs production.digitalocean && npx vite build --mode production.digitalocean
+# 4. docker compose --env-file docker/.env up -d --build
+# 5. Ouvrir http://localhost:8080
+#
+# Données : volumes *_desktop_* (séparés du déploiement digitalocean/)
+# Prod : utiliser digitalocean/docker-compose.yml sur le serveur.
+
+name: bfatlm-desktop
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: digitalocean/Dockerfile
+      args:
+        # Desktop : deps PHP depuis l’hôte (composer install --no-dev) ; frontend = dist pré-buildé
+        # (npm ci + vite build sur l’hôte) pour réduire le contexte Docker et éviter npm/github dans l’image.
+        USE_LOCAL_PHP_VENDOR: "${DOCKER_USE_LOCAL_PHP_VENDOR:-1}"
+        USE_PREBUILT_FRONTEND: "${DOCKER_USE_PREBUILT_FRONTEND:-1}"
+    container_name: bfatlm-desktop-app
+    restart: unless-stopped
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:80"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: "${APP_KEY}"
+      APP_URL: "${APP_URL:-http://localhost:8080}"
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:8080}"
+
+      SESSION_DOMAIN: "${SESSION_DOMAIN:-}"
+      SESSION_SECURE_COOKIE: "${SESSION_SECURE_COOKIE:-false}"
+      SESSION_SAME_SITE: "${SESSION_SAME_SITE:-lax}"
+      SANCTUM_STATEFUL_DOMAINS: "${SANCTUM_STATEFUL_DOMAINS:-}"
+      SANCTUM_EXTRA_STATEFUL_DOMAINS: "${SANCTUM_EXTRA_STATEFUL_DOMAINS:-localhost:8080,127.0.0.1:8080}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-}"
+
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: "${DB_DATABASE:-bfatlm}"
+      DB_USERNAME: "${DB_USERNAME:-bfatlm}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      DB_SSLMODE: disable
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      SESSION_ENCRYPT: "true"
+      QUEUE_CONNECTION: redis
+
+      BROADCAST_CONNECTION: reverb
+      REVERB_APP_ID: "${REVERB_APP_ID:-tlm-bfa-local}"
+      REVERB_APP_KEY: "${REVERB_APP_KEY:-}"
+      REVERB_APP_SECRET: "${REVERB_APP_SECRET:-}"
+      REVERB_SERVER_HOST: "0.0.0.0"
+      REVERB_SERVER_PORT: 8080
+      REVERB_HOST: "${REVERB_HOST:-localhost}"
+      REVERB_PORT: "${REVERB_PORT:-8080}"
+      REVERB_SCHEME: "${REVERB_SCHEME:-http}"
+
+      LIVEKIT_WS_URL: "${LIVEKIT_WS_URL:-}"
+      LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-}"
+      LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-}"
+      LIVEKIT_TOKEN_TTL: "${LIVEKIT_TOKEN_TTL:-120}"
+
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: debug
+
+      FILESYSTEM_DISK: local
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-}"
+      AWS_BUCKET: "${AWS_BUCKET:-}"
+      AWS_ENDPOINT: "${AWS_ENDPOINT:-}"
+
+      MAIL_MAILER: "${MAIL_MAILER:-log}"
+      MAIL_HOST: "${MAIL_HOST:-}"
+      MAIL_PORT: "${MAIL_PORT:-587}"
+      MAIL_USERNAME: "${MAIL_USERNAME:-}"
+      MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
+      MAIL_ENCRYPTION: "${MAIL_ENCRYPTION:-tls}"
+      MAIL_FROM_ADDRESS: "${MAIL_FROM_ADDRESS:-noreply@localhost}"
+      MAIL_FROM_NAME: "BFA TLM (local)"
+
+      RUN_SEED: "${RUN_SEED:-false}"
+      SEED_DEMO_DATA: "${SEED_DEMO_DATA:-false}"
+      SEED_ROLE_ACCOUNTS: "${SEED_ROLE_ACCOUNTS:-false}"
+      INITIAL_ROLE_ACCOUNTS_PASSWORD: "${INITIAL_ROLE_ACCOUNTS_PASSWORD:-}"
+      INITIAL_ADMIN_EMAIL: "${INITIAL_ADMIN_EMAIL:-}"
+      INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:-}"
+
+      ENABLE_REVERB: "${ENABLE_REVERB:-false}"
+      ENABLE_QUEUE: "${ENABLE_QUEUE:-false}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - bfatlm_desktop_app_storage:/var/www/html/backend/storage/app
+    networks:
+      - bfatlm_desktop
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: bfatlm-desktop-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${DB_DATABASE:-bfatlm}"
+      POSTGRES_USER: "${DB_USERNAME:-bfatlm}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+    ports:
+      - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - bfatlm_desktop_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-bfatlm}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - bfatlm_desktop
+
+  redis:
+    image: redis:7-alpine
+    container_name: bfatlm-desktop-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    volumes:
+      - bfatlm_desktop_redisdata:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" ping; else redis-cli ping; fi",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - bfatlm_desktop
+
+volumes:
+  bfatlm_desktop_pgdata:
+  bfatlm_desktop_redisdata:
+  bfatlm_desktop_app_storage:
+
+networks:
+  bfatlm_desktop:
+    driver: bridge

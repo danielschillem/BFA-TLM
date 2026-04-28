@@ -1,0 +1,37 @@
+# Contexte Docker (docker-compose build context = racine du dépôt)
+.git
+.cursor
+.vscode
+.idea
+
+# vendor : gardé dans le contexte pour DOCKER_USE_LOCAL_PHP_VENDOR=1 (évite composer dans l’image).
+**/node_modules
+
+# dist : exclu sauf Frontend/dist pré-buildé sur l’hôte (desktop).
+**/dist
+!Frontend/dist
+!Frontend/dist/**
+
+Backend/public/build
+Backend/public/hot
+
+**/*.log
+Backend/storage/logs
+Backend/storage/app
+Backend/storage/framework/cache
+Backend/storage/framework/sessions
+Backend/storage/framework/views
+Backend/bootstrap/cache
+Backend/database/*.sqlite
+
+**/.env
+**/.env.*
+!**/.env.example
+docker/.env
+
+*.tar.gz
+coverage
+.nyc_output
+
+# Assets hors build (dossier charte locale)
+BFA TLM/
