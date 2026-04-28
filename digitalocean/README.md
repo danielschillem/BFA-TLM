@@ -73,11 +73,11 @@ nano digitalocean/.env   # Remplir APP_KEY, DB_PASSWORD, etc.
 bash digitalocean/deploy.sh
 
 # OU déployer avec SSL automatique
-bash digitalocean/deploy.sh votre-domaine.com
+bash digitalocean/deploy.sh bfa-tlm.online
 
 # Rebuild complet (plus lent, sans cache)
 bash digitalocean/deploy.sh --full-rebuild
-bash digitalocean/deploy.sh --full-rebuild votre-domaine.com
+bash digitalocean/deploy.sh --full-rebuild bfa-tlm.online
 ```
 
 ### 3. Générer la APP_KEY
@@ -109,7 +109,7 @@ php artisan key:generate --show
 | Variable          | Requis | Description                                   |
 | ----------------- | ------ | --------------------------------------------- |
 | `APP_KEY`         | ✅     | Clé Laravel (base64:...)                      |
-| `APP_URL`         | ✅     | URL publique (https://domaine.com)            |
+| `APP_URL`         | ✅     | URL publique prod : `https://bfa-tlm.online`  |
 | `DB_PASSWORD`     | ✅     | Mot de passe PostgreSQL                       |
 | `LIVEKIT_WS_URL`  | ✅     | URL WebSocket LiveKit (ex: wss://xxx.livekit.cloud) |
 | `LIVEKIT_API_KEY` | ✅     | Clé API LiveKit pour générer les tokens       |

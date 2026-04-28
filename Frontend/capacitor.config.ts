@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: "BFA TLM",
   webDir: "dist",
   server: {
-    url: "https://bfa-tlm.com",
+    url: "https://bfa-tlm.online",
     cleartext: false,
   },
   android: {

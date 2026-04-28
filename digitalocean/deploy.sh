@@ -200,7 +200,7 @@ else
   echo "  ❤️  Health: http://$IP/up"
   echo ""
   echo "  Pour activer SSL :"
-  echo "  bash $APP_DIR/digitalocean/deploy.sh votre-domaine.com"
+  echo "  bash $APP_DIR/digitalocean/deploy.sh bfa-tlm.online"
 fi
 echo ""
 echo "  Commandes utiles :"
