@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use InvalidArgumentException;
-use Laravel\Passport\Client;
 
 /**
  * Seeder de production — crée uniquement :
@@ -80,18 +79,21 @@ class ProductionSeeder extends Seeder
             $this->call(ProductionRoleAccountsSeeder::class);
         }
 
-        // 3. Passport Personal Access Client (idempotent)
-        // Évite whereJsonContains qui peut échouer sur PostgreSQL
-        if (Client::where('name', 'TLM Personal Access Client')->doesntExist()) {
-            $client = Client::create([
-                'name'          => 'TLM Personal Access Client',
-                'secret'        => null,
-                'redirect_uris' => [],
-                'grant_types'   => ['personal_access'],
-                'revoked'       => false,
-                'provider'      => 'users',
-            ]);
-            $this->command?->info("Passport Personal Access Client créé (ID: {$client->id})");
+        // 3. Passport Personal Access Client (optionnel) — uniquement si Passport est installé.
+        //    Le projet utilise Sanctum par défaut ; ce bloc reste compatible si Passport est ajouté plus tard.
+        if (class_exists(\Laravel\Passport\Client::class)) {
+            $clientClass = \Laravel\Passport\Client::class;
+            if ($clientClass::where('name', 'TLM Personal Access Client')->doesntExist()) {
+                $client = $clientClass::create([
+                    'name'          => 'TLM Personal Access Client',
+                    'secret'        => null,
+                    'redirect_uris' => [],
+                    'grant_types'   => ['personal_access'],
+                    'revoked'       => false,
+                    'provider'      => 'users',
+                ]);
+                $this->command?->info("Passport Personal Access Client créé (ID: {$client->id})");
+            }
         }
     }
 }
