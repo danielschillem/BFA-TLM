@@ -35,6 +35,11 @@ if [ -z "${SANCTUM_STATEFUL_DOMAINS:-}" ]; then
   export SANCTUM_STATEFUL_DOMAINS="$DOMAINS"
 fi
 
+# Accès par IP ou domaines supplémentaires (ex. tests avant DNS)
+if [ -n "${SANCTUM_EXTRA_STATEFUL_DOMAINS:-}" ]; then
+  export SANCTUM_STATEFUL_DOMAINS="${SANCTUM_STATEFUL_DOMAINS},${SANCTUM_EXTRA_STATEFUL_DOMAINS}"
+fi
+
 if [ -z "${CORS_ALLOWED_ORIGINS:-}" ]; then
   ORIGINS="http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
   if [ -n "${APP_URL:-}" ]; then

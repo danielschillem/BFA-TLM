@@ -121,6 +121,21 @@ php artisan key:generate --show
 | `FILESYSTEM_DISK` | ❌     | `local` ou `s3` (DO Spaces)                   |
 | `AWS_*`           | ❌     | Credentials DO Spaces (si FILESYSTEM_DISK=s3) |
 | `RUN_SEED`        | ❌     | `true` au premier déploiement                 |
+| `INITIAL_ADMIN_PASSWORD` | ❌ | Mot de passe du premier admin (≥12 caractères en prod) si `RUN_SEED=true` |
+| `SEED_ROLE_ACCOUNTS` | ❌ | `true` avec `RUN_SEED=true` pour créer un compte par rôle métier (voir ci-dessous) |
+| `INITIAL_ROLE_ACCOUNTS_PASSWORD` | ❌ | Mot de passe commun des comptes métier (≥12 caractères en prod) |
+| `SANCTUM_EXTRA_STATEFUL_DOMAINS` | ❌ | Ex. IP du Droplet si accès `http://IP` avant le DNS |
+
+Comptes créés lorsque `RUN_SEED=true`, `SEED_DEMO_DATA=false`, `SEED_ROLE_ACCOUNTS=true` et `INITIAL_ROLE_ACCOUNTS_PASSWORD` est défini :
+
+| Email | Rôle |
+| ----- | ---- |
+| `admin@bfa-tlm.bf` | admin |
+| `gestionnaire@bfa-tlm.bf` | structure_manager |
+| `dr.general@bfa-tlm.bf` | doctor |
+| `dr.specialiste@bfa-tlm.bf` | specialist |
+| `infirmier@bfa-tlm.bf` | health_professional |
+| `patient.demo@bfa-tlm.bf` | patient |
 
 ---
 
@@ -142,6 +157,15 @@ docker compose -f $CD/digitalocean/docker-compose.yml exec app bash
 # Artisan
 docker compose -f $CD/digitalocean/docker-compose.yml exec app \
   php /var/www/html/backend/artisan tinker
+
+# Réinitialiser le mot de passe admin (récupération d'accès)
+docker compose -f $CD/digitalocean/docker-compose.yml exec app \
+  php /var/www/html/backend/artisan bfa:reset-admin-password admin@bfa-tlm.bf
+
+# Créer les comptes « un par rôle » (après coup) : renseigner INITIAL_ROLE_ACCOUNTS_PASSWORD
+# dans digitalocean/.env, redémarrer app si besoin, puis :
+docker compose -f $CD/digitalocean/docker-compose.yml exec app \
+  php /var/www/html/backend/artisan db:seed --class=ProductionRoleAccountsSeeder --force
 
 # Migrations
 docker compose -f $CD/digitalocean/docker-compose.yml exec app \

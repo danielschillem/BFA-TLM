@@ -1,41 +1,71 @@
-# TLM APP-BFA (BFA TLM)
+# BFA TLM (TLM APP-BFA)
 
-Plateforme de telesante pour le Burkina Faso.
+Plateforme de télésanté pour le Burkina Faso.
 
 ## Stack
 
-- Backend: Laravel 11 (PHP 8.3), Sanctum, Spatie Permission, Reverb
-- Frontend: React 18, Vite, React Query
-- Visioconference: LiveKit (WebRTC)
+- **Backend :** Laravel 11, PHP 8.3 / 8.4, Sanctum, Spatie Permission, Reverb
+- **Frontend :** React 18, Vite, TanStack Query
+- **Visioconférence :** LiveKit (WebRTC)
 
-## Dossiers principaux
+## Structure du dépôt
 
-- `Backend/` API Laravel
-- `Frontend/` SPA React
-- `DOCUMENTATION.md` documentation projet
+| Dossier | Rôle |
+|--------|------|
+| `Backend/` | API Laravel (`composer.json`, `artisan`) |
+| `Frontend/` | SPA React (`package.json`, Vite) |
+| `digitalocean/` | Image Docker unifiée, Compose prod, `deploy.sh` |
+| `docker/` | Fichiers d’environnement pour Docker Desktop (voir racine) |
+| `docker-compose.yml` | Stack locale **Docker Desktop** (Postgres + Redis + app) |
 
-## Demarrage local
+## Démarrage local
 
-Backend:
+### Sans Docker
+
+**Backend**
 
 ```bash
 cd Backend
 composer install
+cp .env.example .env
+php artisan key:generate
 php artisan migrate
 php artisan serve
 ```
 
-Frontend:
+**Frontend**
 
 ```bash
 cd Frontend
 npm install
+cp .env.example .env
 npm run dev
 ```
 
-## Qualite
+### Avec Docker Desktop
 
-- Backend tests: `cd Backend && php artisan test`
-- Frontend tests: `cd Frontend && npm run test`
-- Frontend lint: `cd Frontend && npm run lint`
+```bash
+cp docker/.env.example docker/.env
+# Renseigner APP_KEY et DB_PASSWORD dans docker/.env
+docker compose --env-file docker/.env up -d --build
+```
 
+Application : **http://localhost:8080** (voir commentaires dans `docker-compose.yml`).
+
+Déploiement serveur : `digitalocean/README.md`.
+
+## Qualité et conventions
+
+| Commande | Description |
+|----------|-------------|
+| `cd Backend && composer run format` | Laravel Pint (format PHP) |
+| `cd Backend && composer run lint` | Pint en vérification seule (`--test`) |
+| `cd Backend && composer run test` | Suite PHPUnit / `artisan test` |
+| `cd Frontend && npm run lint` | ESLint |
+| `cd Frontend && npm run test` | Vitest |
+
+- Fin de ligne **LF**, encodage **UTF-8** (voir `.editorconfig`, `.gitattributes`).
+- PHP : style **Laravel Pint** (`Backend/pint.json`, preset `laravel`).
+- JS/JSX : **2 espaces** ; YAML : **2 espaces** ; PHP : **4 espaces**.
+
+Documentation détaillée : `DOCUMENTATION.md`, `Backend/README.md`.

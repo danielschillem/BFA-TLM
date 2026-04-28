@@ -1,24 +1,42 @@
 ## ── Stage 1: Build Frontend ───────────────────────────────
 FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS frontend-builder
 
+ARG USE_PREBUILT_FRONTEND=0
+
 WORKDIR /build-frontend
 COPY Frontend/package.json Frontend/package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN if [ "$USE_PREBUILT_FRONTEND" = "1" ]; then \
+      echo "Skipping npm ci (desktop: use host-built Frontend/dist)"; \
+    else \
+      npm ci --no-audit --no-fund; \
+    fi
 
 COPY Frontend/ .
-# Build en mode production.digitalocean
-RUN node scripts/generate-runtime-config.mjs production.digitalocean \
-    && npx vite build --mode production.digitalocean
+# Build en mode production.digitalocean (ou dist déjà produit sur l’hôte)
+RUN if [ "$USE_PREBUILT_FRONTEND" = "1" ]; then \
+      test -f dist/index.html || (echo "Frontend/dist manquant : lancer sur l’hôte node scripts/generate-runtime-config.mjs production.digitalocean && npx vite build --mode production.digitalocean" && exit 1); \
+    else \
+      node scripts/generate-runtime-config.mjs production.digitalocean \
+      && npx vite build --mode production.digitalocean; \
+    fi
 
 ## ── Stage 2: Build Backend (Composer) ────────────────────
 FROM composer:2@sha256:dc292c5c0f95f526b051d4c341bf08e7e2b18504c74625e3203d7f123050e318 AS backend-builder
 
+ARG USE_LOCAL_PHP_VENDOR=0
+
 WORKDIR /build-backend
 COPY Backend/composer.json Backend/composer.lock ./
-RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts
+RUN if [ "$USE_LOCAL_PHP_VENDOR" = "1" ]; then \
+      echo "Skipping composer install (host vendor copied with Backend/)"; \
+    else \
+      composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts; \
+    fi
 
 COPY Backend/ .
-RUN composer dump-autoload --optimize --no-dev
+# .dockerignore exclut bootstrap/cache : le recréer pour package:discover (post-autoload-dump).
+RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs \
+    && composer dump-autoload --optimize --no-dev
 
 ## ── Stage 3: Runtime ─────────────────────────────────────
 FROM php:8.4-fpm
